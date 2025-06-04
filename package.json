@@ -1,0 +1,30 @@
+{
+  "name": "farm-framework",
+  "version": "0.1.0",
+  "description": "AI-first full-stack development platform",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "tools/*",
+    "templates/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.26.2",
+    "@types/node": "^20.8.0",
+    "turbo": "^1.10.16",
+    "typescript": "^5.2.2"
+  },
+  "packageManager": "npm@10.0.0"
+}

@@ -1,0 +1,154 @@
+// Configuration types
+export interface FarmConfig {
+  name: string;
+  version?: string;
+  description?: string;
+  template: TemplateType;
+  features: FeatureType[];
+  database: DatabaseConfig;
+  ai?: AIConfig;
+  development?: DevelopmentConfig;
+  build?: BuildConfig;
+  deployment?: DeploymentConfig;
+  plugins?: PluginConfig[];
+}
+
+export type TemplateType =
+  | "basic"
+  | "ai-chat"
+  | "ai-dashboard"
+  | "ecommerce"
+  | "cms"
+  | "api-only";
+
+export type FeatureType =
+  | "auth"
+  | "ai"
+  | "realtime"
+  | "payments"
+  | "email"
+  | "storage"
+  | "search"
+  | "analytics";
+
+export interface DatabaseConfig {
+  type: "mongodb" | "postgresql" | "mysql" | "sqlite";
+  url: string;
+  options?: Record<string, any>;
+}
+
+export interface AIConfig {
+  providers: {
+    ollama?: OllamaConfig;
+    openai?: OpenAIConfig;
+    huggingface?: HuggingFaceConfig;
+  };
+  routing: {
+    development?: string;
+    staging?: string;
+    production?: string;
+  };
+  features: {
+    streaming?: boolean;
+    caching?: boolean;
+    rateLimiting?: boolean;
+    fallback?: boolean;
+  };
+}
+
+export interface OllamaConfig {
+  enabled: boolean;
+  url?: string;
+  models: string[];
+  defaultModel: string;
+  autoStart?: boolean;
+  autoPull?: string[];
+  gpu?: boolean;
+}
+
+export interface OpenAIConfig {
+  enabled: boolean;
+  apiKey?: string;
+  models: string[];
+  defaultModel: string;
+  rateLimiting?: {
+    requestsPerMinute?: number;
+    tokensPerMinute?: number;
+  };
+}
+
+export interface HuggingFaceConfig {
+  enabled: boolean;
+  token?: string;
+  models: string[];
+  device?: "auto" | "cpu" | "cuda";
+}
+
+export interface DevelopmentConfig {
+  ports: {
+    frontend?: number;
+    backend?: number;
+    proxy?: number;
+    ai?: number;
+  };
+  hotReload?: {
+    enabled?: boolean;
+    typeGeneration?: boolean;
+    aiModels?: boolean;
+  };
+  ssl?: boolean;
+}
+
+export interface BuildConfig {
+  target?: string;
+  sourcemap?: boolean;
+  minify?: boolean;
+  splitting?: boolean;
+  outDir?: string;
+}
+
+export interface DeploymentConfig {
+  platform: "vercel" | "netlify" | "aws" | "gcp" | "docker";
+  regions?: string[];
+  environment?: Record<string, string>;
+}
+
+export type PluginConfig = string | [string, Record<string, any>];
+
+// CLI types
+export interface CreateProjectOptions {
+  template?: TemplateType;
+  features?: FeatureType[];
+  database?: string;
+  typescript?: boolean;
+  docker?: boolean;
+  testing?: boolean;
+  git?: boolean;
+  install?: boolean;
+  interactive?: boolean;
+}
+
+// Plugin system types
+export interface PluginDefinition {
+  name: string;
+  version?: string;
+  options?: Record<string, any>;
+}
+
+export interface PluginContext {
+  config: FarmConfig;
+  environment: string;
+  logger: Logger;
+}
+
+export interface Logger {
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+  debug(message: string): void;
+}
+
+// Export utility function
+export function defineConfig(config: FarmConfig): FarmConfig {
+  return config;
+}
