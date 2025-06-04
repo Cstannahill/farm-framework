@@ -1,0 +1,12 @@
+packages:
+  # Core packages
+  - "packages/*"
+
+  # Development tools
+  - "tools/*"
+
+  # Project templates
+  - "templates/*"
+
+  # Example applications
+  - "examples/*"

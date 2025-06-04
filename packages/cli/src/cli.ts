@@ -2,14 +2,14 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { FARM_VERSION } from "@farm/core";
+import { getVersion } from "./core/version.js";
 
 const program = new Command();
 
 program
   .name("farm")
   .description("AI-first full-stack development framework")
-  .version(FARM_VERSION);
+  .version(getVersion());
 
 program
   .command("create <project-name>")

@@ -15,14 +15,20 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "clean": "rm -rf dist"
   },
-  "dependencies": {},
   "devDependencies": {
-    "tsup": "^7.2.0",
-    "typescript": "^5.2.2"
+    "tsup": "^8.5.0",
+    "typescript": "^5.3.3"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

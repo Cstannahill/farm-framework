@@ -1,15 +1,22 @@
-// Configuration types
+// Core configuration types
 export interface FarmConfig {
+  // Project metadata
   name: string;
   version?: string;
   description?: string;
-  template: TemplateType;
-  features: FeatureType[];
-  database: DatabaseConfig;
+
+  // Template and features
+  template?: TemplateType;
+  features?: FeatureType[];
+
+  // Core system configurations
+  database?: DatabaseConfig;
   ai?: AIConfig;
   development?: DevelopmentConfig;
   build?: BuildConfig;
   deployment?: DeploymentConfig;
+
+  // Plugin system
   plugins?: PluginConfig[];
 }
 
@@ -115,10 +122,22 @@ export interface DeploymentConfig {
 
 export type PluginConfig = string | [string, Record<string, any>];
 
-// CLI types
-export interface CreateProjectOptions {
+// Configuration utility function
+export function defineConfig(config: FarmConfig): FarmConfig {
+  return config;
+}
+
+// CLI command option types
+export interface CLIOptions {
+  config?: string;
+  verbose?: boolean;
+  silent?: boolean;
+  color?: boolean;
+}
+
+export interface CreateCommandOptions {
   template?: TemplateType;
-  features?: FeatureType[];
+  features?: string;
   database?: string;
   typescript?: boolean;
   docker?: boolean;
@@ -128,27 +147,33 @@ export interface CreateProjectOptions {
   interactive?: boolean;
 }
 
-// Plugin system types
-export interface PluginDefinition {
-  name: string;
-  version?: string;
-  options?: Record<string, any>;
+export interface DevCommandOptions {
+  port?: string;
+  frontendOnly?: boolean;
+  backendOnly?: boolean;
+  verbose?: boolean;
 }
 
-export interface PluginContext {
-  config: FarmConfig;
-  environment: string;
-  logger: Logger;
+export interface GenerateCommandOptions {
+  fields?: string;
+  methods?: string;
+  crud?: boolean;
 }
 
-export interface Logger {
-  info(message: string): void;
-  warn(message: string): void;
-  error(message: string): void;
-  debug(message: string): void;
+export interface BuildCommandOptions {
+  production?: boolean;
+  analyze?: boolean;
 }
 
-// Export utility function
-export function defineConfig(config: FarmConfig): FarmConfig {
-  return config;
-}
+// Error types
+export type ErrorCode =
+  | "CLI_ERROR"
+  | "CONFIG_ERROR"
+  | "VALIDATION_ERROR"
+  | "FILESYSTEM_ERROR"
+  | "NETWORK_ERROR"
+  | "COMPATIBILITY_ERROR"
+  | "VERSION_ERROR"
+  | "TEMPLATE_ERROR"
+  | "GENERATION_ERROR"
+  | "BUILD_ERROR";

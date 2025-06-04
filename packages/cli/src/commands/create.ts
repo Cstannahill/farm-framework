@@ -1,12 +1,10 @@
 import chalk from "chalk";
-import { Logger } from "@farm/core";
-import type { CreateProjectOptions } from "@farm/types";
-
-const logger = new Logger("CREATE");
+import { logger } from "../utils/logger.js";
+import type { CreateCommandOptions } from "@farm/types";
 
 export async function createCommand(
   projectName: string,
-  options: CreateProjectOptions
+  options: CreateCommandOptions
 ): Promise<void> {
   logger.info(`Creating FARM project: ${chalk.bold(projectName)}`);
 
@@ -22,9 +20,7 @@ export async function createCommand(
   console.log("\nProject configuration:");
   console.log(`  Name: ${chalk.cyan(projectName)}`);
   console.log(`  Template: ${chalk.cyan(options.template || "basic")}`);
-  console.log(
-    `  Features: ${chalk.cyan(options.features?.join(", ") || "none")}`
-  );
+  console.log(`  Features: ${chalk.cyan(options.features || "none")}`);
   console.log(`  Database: ${chalk.cyan(options.database || "mongodb")}`);
   console.log(`  TypeScript: ${chalk.cyan(options.typescript !== false)}`);
   console.log(`  Docker: ${chalk.cyan(options.docker !== false)}`);

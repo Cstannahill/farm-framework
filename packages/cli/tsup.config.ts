@@ -9,7 +9,7 @@ export default defineConfig([
     sourcemap: true,
   },
   {
-    entry: ["src/cli.ts"],
+    entry: ["src/bin/farm.ts"],
     format: ["esm"],
     dts: false,
     clean: false,

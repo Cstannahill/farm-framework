@@ -3,28 +3,33 @@
   "version": "0.1.0",
   "description": "AI-first full-stack development platform",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "tools/*",
-    "templates/*",
-    "examples/*"
-  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.1",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "type-check": "turbo run type-check",
-    "clean": "turbo run clean",
+    "clean": "turbo run clean && pnpm run clean:cache",
+    "clean:cache": "rm -rf node_modules/.cache .turbo",
+    "reset": "pnpm clean && rm -rf node_modules pnpm-lock.yaml && pnpm install",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "release": "pnpm build && changeset publish",
+    "deps:check": "pnpm outdated -r",
+    "deps:update": "pnpm update -r --latest",
+    "workspace:graph": "pnpm list -r --depth=0"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.26.2",
-    "@types/node": "^20.8.0",
-    "turbo": "^1.10.16",
-    "typescript": "^5.2.2"
-  },
-  "packageManager": "npm@10.0.0"
+    "@changesets/cli": "^2.27.1",
+    "@types/node": "^20.11.0",
+    "turbo": "^2.5.4",
+    "typescript": "^5.3.3"
+  }
 }
