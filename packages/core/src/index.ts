@@ -117,3 +117,7 @@ export const DEFAULT_PORTS = {
   ai: 8001,
   ollama: 11434,
 };
+
+// File watcher functionality
+export { FarmFileWatcher } from "./watcher/file-watcher";
+export { CodeGenerator } from "./codegen/generator";
