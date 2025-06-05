@@ -1,0 +1,21 @@
+"""WebSocket endpoint for streaming chat."""
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from ai.providers.manager import AIProviderManager
+from models.ai import ChatMessage
+
+router = APIRouter()
+ai_manager = AIProviderManager()
+
+@router.websocket("/chat")
+async def chat_socket(ws: WebSocket):
+    await ws.accept()
+    provider = ai_manager.get_provider(None)
+    messages: list[ChatMessage] = []
+    try:
+        while True:
+            data = await ws.receive_json()
+            messages.append(ChatMessage(**data))
+            async for chunk in provider.chat_stream(messages, provider.default_model):
+                await ws.send_json({"content": chunk})
+    except WebSocketDisconnect:
+        await ws.close()

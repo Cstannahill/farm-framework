@@ -1,0 +1,85 @@
+version: '3.8' services: # MongoDB Database mongodb: image: mongo:7
+container_name:
+{{projectName}}-mongodb restart: unless-stopped ports: - "27017:27017"
+environment: - MONGO_INITDB_ROOT_USERNAME={{#if
+  database.username
+}}{{database.username}}{{else}}admin{{/if}}
+- MONGO_INITDB_ROOT_PASSWORD={{#if
+  database.password
+}}{{database.password}}{{else}}password{{/if}}
+- MONGO_INITDB_DATABASE={{#if
+  database.name
+}}{{database.name}}{{else}}{{projectName}}{{/if}}
+volumes: - mongodb_data:/data/db - mongodb_config:/data/configdb networks: -
+{{projectName}}-network healthcheck: test: ["CMD", "mongosh", "--eval",
+"db.adminCommand('ping')"] interval: 30s timeout: 10s retries: 3
+
+{{#if features.ai}}
+  # Ollama AI Service (Local AI Development) ollama: image: ollama/ollama:latest
+  container_name:
+  {{projectName}}-ollama restart: unless-stopped ports: - "11434:11434" volumes:
+  - ollama_data:/root/.ollama networks: -
+  {{projectName}}-network
+  {{#if ai.providers.ollama.gpu}}
+    deploy: resources: reservations: devices: - driver: nvidia count: 1
+    capabilities: [gpu]
+  {{/if}}
+  environment: - OLLAMA_HOST=0.0.0.0 - OLLAMA_PORT=11434
+  {{#if ai.providers.ollama.gpu}}
+    - NVIDIA_VISIBLE_DEVICES=all
+  {{/if}}
+  healthcheck: test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+  interval: 30s timeout: 10s retries: 3
+{{/if}}
+
+{{#if features.cache}}
+  # Redis Cache (Optional) redis: image: redis:7-alpine container_name:
+  {{projectName}}-redis restart: unless-stopped ports: - "6379:6379" volumes: -
+  redis_data:/data networks: -
+  {{projectName}}-network command: redis-server --appendonly yes healthcheck:
+  test: ["CMD", "redis-cli", "ping"] interval: 30s timeout: 10s retries: 3
+{{/if}}
+
+{{#if development.includeServices}}
+  # FastAPI Backend (Development) api: build: context: ./apps/api dockerfile:
+  Dockerfile.dev container_name:
+  {{projectName}}-api restart: unless-stopped ports: - "{{development.ports.backend}}:8000"
+  volumes: - ./apps/api:/app - /app/__pycache__ environment: -
+  ENVIRONMENT=development - DATABASE_URL=mongodb://{{#if
+    database.username
+  }}{{database.username}}:{{database.password}}@{{/if}}mongodb:27017/{{#if
+    database.name
+  }}{{database.name}}{{else}}{{projectName}}{{/if}}
+  {{#if features.ai}}
+    - OLLAMA_URL=http://ollama:11434
+  {{/if}}
+  {{#if features.cache}}
+    - REDIS_URL=redis://redis:6379
+  {{/if}}
+  depends_on: mongodb: condition: service_healthy
+  {{#if features.ai}}
+    ollama: condition: service_healthy
+  {{/if}}
+  {{#if features.cache}}
+    redis: condition: service_healthy
+  {{/if}}
+  networks: -
+  {{projectName}}-network # React Frontend (Development) web: build: context:
+  ./apps/web dockerfile: Dockerfile.dev container_name:
+  {{projectName}}-web restart: unless-stopped ports: - "{{development.ports.frontend}}:3000"
+  volumes: - ./apps/web:/app - /app/node_modules environment: -
+  VITE_API_URL=http://localhost:{{development.ports.backend}}
+  - VITE_WS_URL=ws://localhost:{{development.ports.backend}}
+  depends_on: - api networks: -
+  {{projectName}}-network
+{{/if}}
+
+networks:
+{{projectName}}-network: driver: bridge volumes: mongodb_data: driver: local
+mongodb_config: driver: local
+{{#if features.ai}}
+  ollama_data: driver: local
+{{/if}}
+{{#if features.cache}}
+  redis_data: driver: local
+{{/if}}

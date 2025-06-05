@@ -1,0 +1,43 @@
+"""AI related request and response models."""
+from pydantic import BaseModel
+from typing import List, Optional, Dict
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    model: str
+    provider: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 1000
+
+class ChatResponse(BaseModel):
+    response: str
+    model: str
+    provider: str
+    usage: Dict[str, int] = {}
+
+class GenerateRequest(BaseModel):
+    prompt: str
+    model: str
+    provider: Optional[str] = None
+
+class GenerateResponse(BaseModel):
+    text: str
+    model: str
+    provider: str
+
+class ModelInfo(BaseModel):
+    name: str
+    provider: str
+    description: Optional[str] = None
+
+class ProviderStatus(BaseModel):
+    name: str
+    status: str
+    models: List[str] = []
+
+class LoadModelRequest(BaseModel):
+    provider: str
