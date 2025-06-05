@@ -154,9 +154,14 @@ export class ProjectGenerator {
       await access(projectPath);
       throw new Error(`Directory '${projectPath}' already exists`);
     } catch (error) {
-      if (isErrorInstance(error, Error)) {
-        throw error;
+      // If access fails, the directory doesn't exist, which is what we want
+      if (
+        isErrorInstance(error, Error) &&
+        error.message.includes("already exists")
+      ) {
+        throw error; // Re-throw only if it's our custom error about directory existing
       }
+      // Otherwise, the directory doesn't exist (ENOENT), so we can create it
     }
 
     await mkdir(projectPath, { recursive: true });

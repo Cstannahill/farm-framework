@@ -4,6 +4,7 @@ import { join, resolve, relative } from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
 import { getErrorMessage } from "../utils/error-utils.js";
+import { messages } from "../utils/styling.js";
 
 export class TemplateLoader {
   private templatesPath: string;
@@ -94,7 +95,7 @@ export class TemplateLoader {
         }
       } catch (error) {
         // Skip directories that can't be read
-        console.warn(`Warning: Could not read directory ${dir}`);
+        console.log(messages.warning(`Could not read directory ${dir}`));
       }
     }
 

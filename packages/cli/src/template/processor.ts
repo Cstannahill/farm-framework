@@ -166,6 +166,84 @@ export class TemplateProcessor {
       }
     );
 
+    // Helper for equality comparison
+    this.handlebars.registerHelper("eq", function (a: any, b: any) {
+      return a === b;
+    });
+
+    // Helper for inequality comparison
+    this.handlebars.registerHelper("ne", function (a: any, b: any) {
+      return a !== b;
+    });
+
+    // Helper for greater than
+    this.handlebars.registerHelper("gt", function (a: any, b: any) {
+      return a > b;
+    });
+
+    // Helper for less than
+    this.handlebars.registerHelper("lt", function (a: any, b: any) {
+      return a < b;
+    });
+
+    // Helper for logical AND
+    this.handlebars.registerHelper("and", function (this: any, ...args: any[]) {
+      const options = args.pop();
+      return args.every(Boolean) ? options.fn(this) : options.inverse(this);
+    });
+
+    // Helper for logical OR
+    this.handlebars.registerHelper("or", function (this: any, ...args: any[]) {
+      const options = args.pop();
+      return args.some(Boolean) ? options.fn(this) : options.inverse(this);
+    });
+
+    // Helper for switch statement
+    this.handlebars.registerHelper(
+      "switch",
+      function (this: any, value: any, options: Handlebars.HelperOptions) {
+        // Store switch value in the root data context
+        options.data = options.data || {};
+        options.data.switch_value = value;
+        options.data.switch_break = false;
+        const html = options.fn(this);
+        delete options.data.switch_break;
+        delete options.data.switch_value;
+        return html;
+      }
+    );
+
+    // Helper for case in switch
+    this.handlebars.registerHelper(
+      "case",
+      function (this: any, value: any, options: Handlebars.HelperOptions) {
+        if (options.data && value === options.data.switch_value) {
+          options.data.switch_break = true;
+          return options.fn(this);
+        }
+        return "";
+      }
+    );
+
+    // Helper for default case in switch
+    this.handlebars.registerHelper(
+      "default",
+      function (this: any, options: Handlebars.HelperOptions) {
+        if (options.data && !options.data.switch_break) {
+          return options.fn(this);
+        }
+        return "";
+      }
+    );
+
+    // Helper for unless
+    this.handlebars.registerHelper(
+      "unless",
+      function (this: any, condition: any, options: Handlebars.HelperOptions) {
+        return !condition ? options.fn(this) : options.inverse(this);
+      }
+    );
+
     // Helper for uppercase
     this.handlebars.registerHelper("uppercase", function (str: string) {
       return str.toUpperCase();

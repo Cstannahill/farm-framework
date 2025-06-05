@@ -1,0 +1,182 @@
+#
+{{projectName}}
+
+{{description}}
+
+Built with the **FARM Stack Framework** - a modern, AI-first full-stack
+development platform. ## 🌾 Tech Stack - **F**astAPI - Modern Python web
+framework with automatic API documentation - **A**I/ML -
+{{#if features.ai}}Built-in support for Ollama (local) and cloud AI providers{{else}}Ready
+  for AI/ML integration{{/if}}
+- **R**eact - Component-based frontend with TypeScript and Vite - **M**ongoDB -
+Document database with ODM integration ## 🚀 Quick Start ### Prerequisites -
+Node.js 18+ and npm/pnpm - Python 3.11+ - Docker and Docker Compose
+{{#if features.ai}}
+  - (Optional) NVIDIA GPU for local AI acceleration
+{{/if}}
+
+### Getting Started 1. **Install dependencies:** ```bash # Install frontend
+dependencies cd apps/web && npm install # Install backend dependencies cd ../api
+&& pip install -r requirements.txt ``` 2. **Start development services:**
+```bash # Start database{{#if features.ai}} and AI services{{/if}}
+docker-compose up -d
+
+{{#if features.ai}}
+  # Wait for Ollama to start, then pull models (first time only) docker-compose
+  exec ollama ollama pull
+  {{ai.providers.ollama.defaultModel}}
+{{/if}}
+``` 3. **Start the development server:** ```bash # From project root farm dev #
+Or start services individually: # Backend: cd apps/api && uvicorn main:app
+--reload # Frontend: cd apps/web && npm run dev ``` 4. **Open your browser:** -
+Frontend: http://localhost:{{development.ports.frontend}}
+- API Docs: http://localhost:{{development.ports.backend}}/docs
+{{#if features.ai}}
+  - Ollama API: http://localhost:{{development.ports.ai}}
+{{/if}}
+
+## 📁 Project Structure ```
+{{projectName}}/ ├── apps/
+{{#unless (eq template "api-only")}}
+  │ ├── web/ # React frontend │ │ ├── src/ │ │ │ ├── components/ # Reusable UI
+  components │ │ │ ├── pages/ # Page components │ │ │ ├── hooks/ # Custom React
+  hooks │ │ │ ├── services/ # API client (auto-generated) │ │ │ ├── types/ #
+  TypeScript types (auto-generated) │ │ │ └── utils/ # Utility functions │ │ └──
+  package.json
+{{/unless}}
+│ └── api/ # FastAPI backend │ ├── src/ │ │ ├── routes/ # API route handlers │ │
+├── models/ # Pydantic models │ │ ├── database/ # Database connection │ │ ├──
+core/ # Core utilities
+{{#if features.ai}}
+  │ │ └── ai/ # AI/ML services
+{{/if}}
+│ ├── tests/ # Backend tests │ └── requirements.txt ├── farm.config.ts #
+Framework configuration ├── docker-compose.yml # Development environment └──
+README.md # This file ``` ## 🔧 Configuration The project is configured through
+`farm.config.ts`: ### Database
+{{#eq database.type "mongodb"}}
+  - **MongoDB**: Document database for flexible schema
+{{/eq}}
+{{#eq database.type "postgresql"}}
+  - **PostgreSQL**: Relational database with full SQL support
+{{/eq}}
+- **Connection**: `{{database.url}}`
+
+{{#if features.ai}}
+  ### AI/ML Providers
+  {{#if ai.providers.ollama.enabled}}
+    - **Ollama**: Local AI development with `{{ai.providers.ollama.defaultModel}}`
+    - Models:
+    {{#each ai.providers.ollama.models}}`{{this}}`{{#unless @last}},
+      {{/unless}}{{/each}}
+    - GPU Support:
+    {{#if ai.providers.ollama.gpu}}✅{{else}}❌{{/if}}
+  {{/if}}
+  {{#if ai.providers.openai.enabled}}
+    - **OpenAI**: Cloud AI with `{{ai.providers.openai.defaultModel}}` - Models:
+    {{#each ai.providers.openai.models}}`{{this}}`{{#unless @last}},
+      {{/unless}}{{/each}}
+  {{/if}}
+
+  #### Environment-based Routing - **Development**:
+  {{ai.routing.development}}
+  - **Production**:
+  {{ai.routing.production}}
+{{/if}}
+
+### Features Enabled
+{{#each features}}
+  -
+  {{this}}
+{{/each}}
+
+## 🛠️ Development ### Available Commands ```bash # Start development server with
+all services farm dev # Start only frontend farm dev --frontend-only # Start
+only backend farm dev --backend-only # Generate TypeScript types from Python
+models farm generate types # Build for production farm build # Run tests npm
+test # Frontend tests cd apps/api && pytest # Backend tests ``` ### Code
+Generation The framework automatically generates TypeScript types and API
+clients from your Python models: 1. Update Python models in
+`apps/api/src/models/` 2. Types are automatically regenerated in
+`apps/web/src/types/` 3. API clients update in `apps/web/src/services/`
+
+{{#if features.ai}}
+  ### AI Development
+
+  {{#if ai.providers.ollama.enabled}}
+    #### Local AI with Ollama ```python # Backend: Use AI in your routes from
+    ai.providers.manager import ai_manager @app.post("/chat") async def
+    chat(request: ChatRequest): provider = ai_manager.get_provider("ollama")
+    response = await provider.chat(request.messages, "{{ai.providers.ollama.defaultModel}}")
+    return {"response": response} ``` ```typescript // Frontend: Use generated
+    AI hooks import { useStreamingChat } from './hooks/useStreamingChat';
+    function ChatComponent() { const { messages, sendMessage, isStreaming } =
+    useStreamingChat({ provider: 'ollama', model: '{{ai.providers.ollama.defaultModel}}'
+    }); return (
+    <div>
+      {messages.map(msg =>
+      <div key="{msg.id}">{msg.content}</div>)}
+      <input onSubmit="{sendMessage}" disabled="{isStreaming}" />
+    </div>
+    ); } ```
+  {{/if}}
+
+  #### Available AI Endpoints - `POST /api/ai/chat` - Chat completion - `POST
+  /api/ai/chat/stream` - Streaming chat - `GET /api/ai/models` - List available
+  models - `GET /api/ai/health` - Provider health check
+
+{{/if}}
+
+## 🚀 Deployment ### Production Build ```bash # Build optimized production
+bundle farm build # Or using Docker docker-compose -f docker-compose.prod.yml up
+--build ``` ### Environment Variables Create `.env.production`: ```bash #
+Database DATABASE_URL=mongodb://username:password@your-mongo-host:27017/dbname
+
+{{#if features.ai}}
+  # AI Providers
+  {{#if ai.providers.openai.enabled}}
+    OPENAI_API_KEY=your-openai-api-key
+  {{/if}}
+  {{#if ai.providers.huggingface.enabled}}
+    HUGGINGFACE_TOKEN=your-huggingface-token
+  {{/if}}
+{{/if}}
+
+# Security SECRET_KEY=your-secret-key
+ALLOWED_HOSTS=your-domain.com,www.your-domain.com ``` ### Deployment Platforms -
+**Vercel**: `farm deploy --platform vercel` - **AWS**: `farm deploy --platform
+aws` - **Docker**: `farm deploy --platform docker` ## 📝 API Documentation Once
+the server is running, visit: - **Interactive Docs**: http://localhost:{{development.ports.backend}}/docs
+- **ReDoc**: http://localhost:{{development.ports.backend}}/redoc - **OpenAPI
+JSON**: http://localhost:{{development.ports.backend}}/openapi.json ## 🧪
+Testing ### Backend Tests ```bash cd apps/api pytest pytest --cov=src # With
+coverage ```
+
+{{#unless (eq template "api-only")}}
+  ### Frontend Tests ```bash cd apps/web npm test npm run test:coverage # With
+  coverage ```
+{{/unless}}
+
+### Integration Tests ```bash # Run full test suite npm run test:e2e ``` ## 📖
+Documentation - [FARM Framework Docs](https://farm-framework.dev) - [FastAPI
+Documentation](https://fastapi.tiangolo.com/) - [React
+Documentation](https://react.dev/)
+{{#if features.ai}}
+  - [Ollama Documentation](https://github.com/ollama/ollama)
+{{/if}}
+
+## 🤝 Contributing 1. Fork the repository 2. Create your feature branch (`git
+checkout -b feature/amazing-feature`) 3. Commit your changes (`git commit -m
+'Add amazing feature'`) 4. Push to the branch (`git push origin
+feature/amazing-feature`) 5. Open a Pull Request ## 📄 License This project is
+licensed under the
+{{license}}
+License - see the [LICENSE](LICENSE) file for details. ## 🙏 Acknowledgments -
+Built with [FARM Stack Framework](https://farm-framework.dev) - Powered by
+[FastAPI](https://fastapi.tiangolo.com/) - UI built with
+[React](https://react.dev/) and [Tailwind CSS](https://tailwindcss.com/)
+{{#if features.ai}}
+  - AI powered by [Ollama](https://github.com/ollama/ollama){{#if
+    ai.providers.openai.enabled
+  }} and [OpenAI](https://openai.com/){{/if}}
+{{/if}}
