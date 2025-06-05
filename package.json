@@ -18,6 +18,8 @@
     "test:watch": "turbo run test:watch",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
+    "test:templates": "cd tools/testing && npm run validate-templates",
+    "validate:templates": "cd tools/testing && npm run validate-templates",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && pnpm run clean:cache",
     "clean:cache": "rm -rf node_modules/.cache .turbo",

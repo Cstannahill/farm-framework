@@ -26,7 +26,7 @@ export class TemplateRegistry {
       name: "basic",
       description: "Simple React + FastAPI + MongoDB setup",
       requiredFeatures: [],
-      supportedFeatures: ["auth", "realtime", "storage", "analytics"],
+      supportedFeatures: ["auth", "realtime", "storage", "analytics", "ai"],
       defaultFeatures: [],
       supportedDatabases: ["mongodb", "postgresql", "mysql", "sqlite"],
       defaultDatabase: "mongodb",

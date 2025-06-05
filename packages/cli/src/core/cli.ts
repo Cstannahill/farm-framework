@@ -15,12 +15,41 @@ const __dirname = process.cwd();
  * Get package.json information
  */
 export function getPackageInfo() {
-  const packagePath = join(__dirname, "../../package.json");
-  const packageJson = JSON.parse(readFileSync(packagePath, "utf-8"));
+  // Try multiple possible package.json locations
+  const possiblePaths = [
+    // When running from built CLI in monorepo context
+    join(process.cwd(), "packages", "cli", "package.json"),
+    // When running built CLI from its own directory
+    join(__dirname, "..", "package.json"),
+    // When running from source
+    join(__dirname, "..", "..", "package.json"),
+    // Fallback: relative to current file location
+    join(__dirname, "package.json"),
+  ];
+
+  for (const packagePath of possiblePaths) {
+    try {
+      if (existsSync(packagePath)) {
+        const packageJson = JSON.parse(readFileSync(packagePath, "utf-8"));
+        // Verify this is the CLI package
+        if (packageJson.name === "@farm/cli") {
+          return {
+            name: packageJson.name,
+            version: packageJson.version,
+            description: packageJson.description,
+          };
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback to default values if package.json not found
   return {
-    name: packageJson.name,
-    version: packageJson.version,
-    description: packageJson.description,
+    name: "@farm/cli",
+    version: "1.0.0",
+    description: "FARM Stack Framework CLI",
   };
 }
 
