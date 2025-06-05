@@ -1,6 +1,7 @@
 import ora, { Ora } from "ora";
 import chalk from "chalk";
 import { logger } from "../utils/logger.js";
+import { styles } from "../utils/styling.js";
 
 export interface ProgressOptions {
   text?: string;
@@ -48,10 +49,10 @@ export class ProgressIndicator {
   /**
    * Update spinner text
    */
-  update(text: string, color: ProgressOptions["color"] = "blue"): void {
+  update(text: string, color: ProgressOptions["color"] = "yellow"): void {
     if (this.silent || !this.spinner) return;
 
-    this.spinner.text = chalk[color](text);
+    this.spinner.text = chalk[color!](text);
   }
 
   /**

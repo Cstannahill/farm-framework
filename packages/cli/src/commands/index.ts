@@ -1,5 +1,5 @@
 // Command exports
-export { createCommand } from "./create.js";
-export { devCommand } from "./dev.js";
-export { generateCommand } from "./generate.js";
-export { buildCommand } from "./build.js";
+export { createCreateCommand } from "./create.js";
+export { createDevCommand } from "./dev.js";
+export { createGenerateCommand } from "./generate.js";
+export { createBuildCommand } from "./build.js";

@@ -1,7 +1,7 @@
 import type { GenerateCommandOptions } from "@farm/types";
 import { logger } from "../utils/logger.js";
 
-export async function generateCommand(
+export async function createGenerateCommand(
   type: string,
   name: string,
   options: GenerateCommandOptions

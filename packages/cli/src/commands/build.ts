@@ -1,7 +1,7 @@
 import type { BuildCommandOptions } from "@farm/types";
 import { logger } from "../utils/logger.js";
 
-export async function buildCommand(
+export async function createBuildCommand(
   options: BuildCommandOptions
 ): Promise<void> {
   logger.info("🏗️  Building FARM project for production...");

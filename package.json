@@ -7,6 +7,9 @@
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
+  "bin": {
+    "farm": "dist/farm.js"
+  },
   "packageManager": "pnpm@8.15.1",
   "scripts": {
     "dev": "turbo run dev",

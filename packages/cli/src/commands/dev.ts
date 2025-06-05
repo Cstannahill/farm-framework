@@ -1,7 +1,9 @@
 import type { DevCommandOptions } from "@farm/types";
 import { logger } from "../utils/logger.js";
 
-export async function devCommand(options: DevCommandOptions): Promise<void> {
+export async function createDevCommand(
+  options: DevCommandOptions
+): Promise<void> {
   logger.info("🌾 Starting FARM development server...");
 
   // TODO: Implement development server (section 1.5)

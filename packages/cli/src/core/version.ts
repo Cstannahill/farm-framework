@@ -2,40 +2,49 @@ import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import semver from "semver";
-import chalk from "chalk";
 import { FarmError } from "./errors.js";
+import { styles, icons, messages } from "../utils/styling.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-export function getVersion(): string {
+// Get the directory of this source file
+const getPackageRoot = (): string => {
+  // When built, we need to navigate from the built file back to package.json
+  // The built file will be in dist/, so we need to go up to find package.json
   try {
-    // When built, we need to go from dist/* back to package.json
-    // Try multiple possible paths to find package.json
+    // Try to find package.json relative to the CLI package
     const possiblePaths = [
-      join(__dirname, "../../package.json"), // from dist/core/
-      join(__dirname, "../package.json"), // from dist/
-      join(__dirname, "package.json"), // if in root
+      // When running from built dist
+      join(__dirname, "..", "package.json"),
+      join(__dirname, "..", "..", "package.json"),
+      // When running from source (development)
+      join(__dirname, "..", "..", "..", "package.json"),
+      // From monorepo context
+      join(process.cwd(), "packages", "cli", "package.json"),
     ];
-
-    let packageJson: any;
-    let packagePath: string | null = null;
 
     for (const path of possiblePaths) {
       try {
-        packageJson = JSON.parse(readFileSync(path, "utf-8"));
-        packagePath = path;
-        break;
+        const content = readFileSync(path, "utf-8");
+        const pkg = JSON.parse(content);
+        // Verify this is actually the CLI package
+        if (pkg.name === "@farm/cli") {
+          return path;
+        }
       } catch {
-        // Try next path
         continue;
       }
     }
 
-    if (!packageJson || !packagePath) {
-      throw new Error("package.json not found in any expected location");
-    }
+    throw new Error("CLI package.json not found");
+  } catch {
+    // Fallback: try to construct path from known structure
+    return join(__dirname, "..", "package.json");
+  }
+};
 
+export function getVersion(): string {
+  try {
+    const packagePath = getPackageRoot();
+    const packageJson = JSON.parse(readFileSync(packagePath, "utf-8"));
     return packageJson.version;
   } catch (error) {
     throw new FarmError("Failed to read CLI version", "VERSION_ERROR");
@@ -63,7 +72,7 @@ export async function checkForUpdates(): Promise<void> {
     const currentVersion = getVersion();
     // Check npm registry for latest version (implementation)
     // This would make an HTTP request to npm registry
-    console.log(chalk.blue(`Current version: ${currentVersion}`));
+    console.log(styles.info(`Current version: ${currentVersion}`));
   } catch (error) {
     // Silently fail - updates check is not critical
   }
@@ -73,7 +82,7 @@ export function displayVersionInfo(): void {
   const farmVersion = getVersion();
   const nodeVersion = getNodeVersion();
 
-  console.log(chalk.green("🌾 FARM Stack Framework"));
+  console.log(styles.brand("🌾 FARM Stack Framework"));
   console.log(`CLI Version: ${farmVersion}`);
   console.log(`Node.js Version: ${nodeVersion}`);
   console.log(`Platform: ${process.platform} ${process.arch}`);
