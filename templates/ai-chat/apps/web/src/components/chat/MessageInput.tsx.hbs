@@ -1,0 +1,33 @@
+import { useState } from 'react';
+
+interface Props {
+  onSendMessage: (content: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+export default function MessageInput({ onSendMessage, disabled, placeholder }: Props) {
+  const [value, setValue] = useState('');
+
+  const send = () => {
+    if (!value.trim()) return;
+    onSendMessage(value);
+    setValue('');
+  };
+
+  return (
+    <div className="p-4 flex space-x-2">
+      <input
+        className="flex-1 border rounded px-3 py-2 focus:outline-none"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        onKeyDown={(e) => e.key === 'Enter' && send()}
+      />
+      <button onClick={send} disabled={disabled || !value} className="px-4 py-2 bg-blue-500 text-white rounded">
+        Send
+      </button>
+    </div>
+  );
+}

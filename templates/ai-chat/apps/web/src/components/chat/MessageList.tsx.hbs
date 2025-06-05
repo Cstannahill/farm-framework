@@ -1,0 +1,19 @@
+import type { ChatMessage } from '../../hooks/useStreamingChat';
+
+interface Props {
+  messages: ChatMessage[];
+}
+
+export default function MessageList({ messages }: Props) {
+  return (
+    <div className="space-y-4">
+      {messages.map((m, i) => (
+        <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
+          <div className="inline-block px-3 py-2 rounded bg-gray-200 text-gray-900">
+            {m.content}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

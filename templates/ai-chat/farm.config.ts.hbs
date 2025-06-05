@@ -1,0 +1,111 @@
+import { defineConfig } from '@farm/core'; export default defineConfig({ //
+Project metadata name: '{{projectName}}', version: '{{version}}', description: '{{description}}',
+// Template and features template: 'ai-chat', features: [{{#each
+  features
+}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}], // Database configuration
+database: { type: '{{database.type}}', url: process.env.DATABASE_URL || '{{database.url}}',
+{{#if database.options}}
+  options: {
+  {{#each database.options}}
+    {{@key}}:
+    {{this}},
+  {{/each}}
+  }
+{{/if}}
+},
+
+{{#if features.ai}}
+  // AI/ML configuration ai: { providers: {
+  {{#if ai.providers.ollama}}
+    ollama: { enabled:
+    {{ai.providers.ollama.enabled}}, url: '{{ai.providers.ollama.url}}', models:
+    [{{#each ai.providers.ollama.models}}'{{this}}'{{#unless @last}},
+      {{/unless}}{{/each}}], defaultModel: '{{ai.providers.ollama.defaultModel}}',
+    {{#if ai.providers.ollama.autoStart}}
+      autoStart: true,
+    {{/if}}
+    {{#if ai.providers.ollama.autoPull}}
+      autoPull: [{{#each ai.providers.ollama.autoPull}}'{{this}}'{{#unless
+          @last
+        }}, {{/unless}}{{/each}}],
+    {{/if}}
+    {{#if ai.providers.ollama.gpu}}
+      gpu: true
+    {{/if}}
+    },
+  {{/if}}
+  {{#if ai.providers.openai}}
+    openai: { enabled:
+    {{ai.providers.openai.enabled}}, apiKey: process.env.OPENAI_API_KEY, models:
+    [{{#each ai.providers.openai.models}}'{{this}}'{{#unless @last}},
+      {{/unless}}{{/each}}], defaultModel: '{{ai.providers.openai.defaultModel}}',
+    {{#if ai.providers.openai.rateLimiting}}
+      rateLimiting: { requestsPerMinute:
+      {{ai.providers.openai.rateLimiting.requestsPerMinute}}, tokensPerMinute:
+      {{ai.providers.openai.rateLimiting.tokensPerMinute}}
+      }
+    {{/if}}
+    },
+  {{/if}}
+  {{#if ai.providers.huggingface}}
+    huggingface: { enabled:
+    {{ai.providers.huggingface.enabled}}, token: process.env.HUGGINGFACE_TOKEN,
+    models: [{{#each ai.providers.huggingface.models}}'{{this}}'{{#unless
+        @last
+      }}, {{/unless}}{{/each}}], device: '{{ai.providers.huggingface.device}}' }
+  {{/if}}
+  }, routing: { development: '{{ai.routing.development}}', staging: '{{ai.routing.staging}}',
+  production: '{{ai.routing.production}}' }, features: { streaming:
+  {{ai.features.streaming}}, caching:
+  {{ai.features.caching}}, rateLimiting:
+  {{ai.features.rateLimiting}}, fallback:
+  {{ai.features.fallback}}
+  } },
+{{/if}}
+
+// Development server configuration development: { ports: { frontend:
+{{development.ports.frontend}}, backend:
+{{development.ports.backend}}, proxy:
+{{development.ports.proxy}}{{#if development.ports.ai}}, ai:
+  {{development.ports.ai}}{{/if}}
+}, hotReload: { enabled:
+{{development.hotReload.enabled}}, typeGeneration:
+{{development.hotReload.typeGeneration}}{{#if development.hotReload.aiModels}},
+  aiModels:
+  {{development.hotReload.aiModels}}{{/if}}
+}, ssl:
+{{development.ssl}}
+}, // Build configuration build: { target: '{{build.target}}', sourcemap:
+{{build.sourcemap}}, minify:
+{{build.minify}}, splitting:
+{{build.splitting}}, outDir: '{{build.outDir}}' },
+
+{{#if deployment}}
+  // Deployment configuration deployment: { platform: '{{deployment.platform}}',
+  {{#if deployment.regions}}
+    regions: [{{#each deployment.regions}}'{{this}}'{{#unless @last}},
+      {{/unless}}{{/each}}],
+  {{/if}}
+  {{#if deployment.environment}}
+    environment: {
+    {{#each deployment.environment}}
+      {{@key}}: '{{this}}'{{#unless @last}},{{/unless}}
+    {{/each}}
+    }
+  {{/if}}
+  },
+{{/if}}
+
+{{#if plugins}}
+  // Plugin configuration plugins: [
+  {{#each plugins}}
+    {{#if (isArray this)}}
+      ['{{this.0}}',
+      {{JSON this.1}}],
+    {{else}}
+      '{{this}}',
+    {{/if}}
+  {{/each}}
+  ]
+{{/if}}
+});
