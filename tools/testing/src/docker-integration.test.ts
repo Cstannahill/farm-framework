@@ -3,6 +3,7 @@ import { spawn } from "child_process";
 import { promisify } from "util";
 import fetch from "node-fetch";
 import path from "path";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 const exec = promisify(require("child_process").exec);
 

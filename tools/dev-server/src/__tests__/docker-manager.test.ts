@@ -2,9 +2,10 @@
 import { DockerManager } from "../docker-manager";
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-jest.mock("child_process");
-const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+vi.mock("child_process");
+const mockSpawn = vi.mocked(spawn);
 
 describe("DockerManager", () => {
   let dockerManager: DockerManager;
@@ -19,7 +20,7 @@ describe("DockerManager", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("startOllama", () => {

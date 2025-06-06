@@ -3,6 +3,7 @@ import { spawn } from "child_process";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 describe("Template Docker Generation", () => {
   let tempDir: string;
