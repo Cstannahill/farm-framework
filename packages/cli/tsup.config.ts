@@ -1,21 +1,17 @@
 import { defineConfig } from "tsup";
 
-export default defineConfig([
-  {
-    entry: ["src/index.ts"],
-    format: ["esm", "cjs"],
-    dts: true,
-    clean: true,
-    sourcemap: true,
+export default defineConfig({
+  entry: ["src/index.ts"],
+  format: ["esm"], // ESM only for CLI (import.meta support)
+  dts: true,
+  clean: true,
+  sourcemap: true,
+  external: ["@farm/types", "@farm/core"],
+  outDir: "dist",
+  tsconfig: "./tsconfig.json",
+  target: "node18",
+  platform: "node",
+  banner: {
+    js: "#!/usr/bin/env node",
   },
-  {
-    entry: ["src/bin/farm.ts"],
-    format: ["esm"],
-    dts: false,
-    clean: false,
-    sourcemap: true,
-    banner: {
-      js: "#!/usr/bin/env node",
-    },
-  },
-]);
+});

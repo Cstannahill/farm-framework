@@ -1,12 +1,15 @@
 packages:
-  # Core packages
   - "packages/*"
+  - "apps/*"
 
-  # Development tools
-  - "tools/*"
+# Configure package linking for development
+catalog:
+  "@farm/types": "workspace:*"
+  "@farm/core": "workspace:*"
+  "@farm/cli": "workspace:*"
+  "@farm/ui-components": "workspace:*"
 
-  # Project templates
-  - "templates/*"
-
-  # Example applications
-  - "examples/*"
+# Shared dependencies
+shared-workspace-lockfile: true
+link-workspace-packages: true
+prefer-workspace-packages: true

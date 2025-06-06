@@ -1,4 +1,5 @@
-// packages/ai/src/config/ai-config.ts
+// packages/ai/src/config/ai-config.ts - Fix missing import
+// import type { AIConfig } from "@farm/types";
 import { z } from "zod";
 import { EventEmitter } from "events";
 import { getErrorMessage } from "@farm/cli";

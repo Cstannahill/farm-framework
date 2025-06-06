@@ -1,0 +1,27 @@
+{
+    "name": "@farm/core",
+    "version": "0.1.0",
+    "description": "Core functionality for FARM framework",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "type": "module",
+    "files": [
+      "dist"
+    ],
+    "scripts": {
+      "build": "tsc",
+      "build:watch": "tsc --watch",
+      "clean": "rm -rf dist",
+      "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+      "@farm/types": "workspace:*"
+    },
+    "devDependencies": {
+      "@types/node": "^20.0.0",
+      "typescript": "^5.0.0"
+    },
+    "publishConfig": {
+      "access": "public"
+    }
+  }

@@ -1,55 +1,31 @@
 /**
- * Utility functions for handling unknown errors in a type-safe way
+ * Error utility functions
  */
 
-/**
- * Safely extracts an error message from an unknown error type
- * @param error - The unknown error to extract message from
- * @returns A string error message
- */
-export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
+export function isErrorInstance(error: unknown): error is Error {
+  return error instanceof Error;
+}
+
+export function formatError(error: unknown): string {
+  if (isErrorInstance(error)) {
     return error.message;
   }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  if (error && typeof error === "object" && "message" in error) {
-    return String(error.message);
-  }
-
-  return "An unknown error occurred";
+  return String(error);
 }
 
-/**
- * Safely checks if an error is an instance of a specific error class
- * @param error - The unknown error to check
- * @param ErrorClass - The error class to check against
- * @returns true if error is instance of ErrorClass
- */
-export function isErrorInstance<T extends Error>(
-  error: unknown,
-  ErrorClass: new (...args: any[]) => T
-): error is T {
-  return error instanceof ErrorClass;
+export function createError(message: string, code?: string): Error {
+  const error = new Error(message);
+  if (code) {
+    (error as any).code = code;
+  }
+  return error;
 }
 
-/**
- * Wraps an unknown error in a standardized Error object
- * @param error - The unknown error to wrap
- * @param defaultMessage - Default message if error message cannot be extracted
- * @returns A proper Error instance
- */
-export function wrapError(
-  error: unknown,
-  defaultMessage = "An error occurred"
-): Error {
-  if (error instanceof Error) {
-    return error;
-  }
-
-  const message = getErrorMessage(error);
-  return new Error(message || defaultMessage);
+export function handleAsyncError<T>(
+  promise: Promise<T>,
+  fallback?: T
+): Promise<[T | null, Error | null]> {
+  return promise
+    .then<[T, null]>((data: T) => [data, null])
+    .catch<[T | null, Error]>((error: Error) => [fallback || null, error]);
 }

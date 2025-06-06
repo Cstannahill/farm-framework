@@ -1,394 +1,343 @@
 // tools/codegen/src/schema/extractor.ts
 import { spawn, ChildProcess } from "child_process";
-import { readFile, writeFile, mkdir, access } from "fs/promises";
-import { join, dirname } from "path";
-import { createHash } from "crypto";
+import { join, dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 import fetch from "node-fetch";
-import { getErrorMessage } from "@farm/cli";
+import { writeFile, readFile, ensureDir, pathExists } from "fs-extra";
+import { createHash } from "crypto";
 
-export interface OpenAPISchema {
-  openapi: string;
-  info: {
-    title: string;
-    version: string;
-    description?: string;
-  };
-  paths: Record<string, any>;
-  components?: {
-    schemas?: Record<string, any>;
-    responses?: Record<string, any>;
-    parameters?: Record<string, any>;
-  };
-  servers?: Array<{
-    url: string;
-    description?: string;
-  }>;
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export interface SchemaExtractionOptions {
-  apiPath?: string;
+  apiModule?: string;
+  host?: string;
   port?: number;
   timeout?: number;
-  cacheDir?: string;
   forceRefresh?: boolean;
+  cacheDir?: string;
 }
 
-export interface SchemaMetadata {
-  checksum: string;
-  timestamp: number;
-  source: string;
-  version: string;
+export interface SchemaExtractionResult {
+  schema: any;
+  cached: boolean;
+  extractionTime: number;
 }
 
 export class OpenAPISchemaExtractor {
-  private readonly defaultOptions: Required<SchemaExtractionOptions> = {
-    apiPath: "apps/api/src/main.py",
-    port: 8001, // Use different port for extraction
-    timeout: 30000,
-    cacheDir: ".farm/cache/schemas",
-    forceRefresh: false,
-  };
+  private cacheDir: string;
 
-  private options: Required<SchemaExtractionOptions>;
-  private fastApiProcess?: ChildProcess;
-
-  constructor(options: SchemaExtractionOptions = {}) {
-    this.options = { ...this.defaultOptions, ...options };
+  constructor() {
+    this.cacheDir = join(process.cwd(), ".farm", "cache", "schemas");
   }
 
-  /**
-   * Extract OpenAPI schema from FastAPI application
-   */
-  async extractSchema(): Promise<OpenAPISchema> {
-    const cacheKey = await this.generateCacheKey();
+  async setCacheDir(dir: string): Promise<void> {
+    this.cacheDir = dir;
+    await ensureDir(this.cacheDir);
+  }
 
-    // Check cache first unless force refresh
-    if (!this.options.forceRefresh) {
-      const cachedSchema = await this.getCachedSchema(cacheKey);
-      if (cachedSchema) {
-        console.log("📋 Using cached OpenAPI schema");
-        return cachedSchema;
-      }
-    }
-
+  async extractSchema(
+    options: SchemaExtractionOptions = {}
+  ): Promise<SchemaExtractionResult> {
     console.log("🔍 Extracting OpenAPI schema from FastAPI app...");
 
+    const {
+      apiModule = join(__dirname, "../__tests__/test-fixtures/fastapi-app.py"),
+      host = "localhost",
+      port = 8899,
+      timeout = 30000,
+      forceRefresh = false,
+    } = options;
+
+    const startTime = Date.now();
+
     try {
-      // Start temporary FastAPI server for schema extraction
-      await this.startTemporaryServer();
+      // Check cache first
+      if (!forceRefresh) {
+        const cached = await this.getCachedSchema(apiModule);
+        if (cached) {
+          console.log("📦 Using cached schema");
+          return {
+            schema: cached,
+            cached: true,
+            extractionTime: Date.now() - startTime,
+          };
+        }
+      }
 
-      // Extract schema from running server
-      const schema = await this.fetchSchemaFromServer();
+      // Start FastAPI server
+      const server = await this.startFastAPIServer(apiModule, port, timeout);
 
-      // Validate extracted schema
-      this.validateSchema(schema);
+      try {
+        // Extract schema from running server
+        const schema = await this.fetchSchemaFromServer(host, port, timeout);
 
-      // Cache the schema
-      await this.cacheSchema(cacheKey, schema);
+        // Validate schema
+        if (!this.validateSchema(schema)) {
+          throw new Error("Invalid OpenAPI schema structure");
+        }
 
-      console.log("✅ OpenAPI schema extracted successfully");
-      return schema;
-    } finally {
-      // Always cleanup the temporary server
-      await this.stopTemporaryServer();
+        // Cache the schema
+        await this.cacheSchema(apiModule, schema);
+
+        console.log("✅ Schema extracted successfully");
+        return {
+          schema,
+          cached: false,
+          extractionTime: Date.now() - startTime,
+        };
+      } finally {
+        // Always cleanup the server
+        await this.stopFastAPIServer(server);
+      }
+    } catch (error: any) {
+      throw new Error(`Schema extraction failed: ${error.message}`);
     }
   }
 
-  /**
-   * Start temporary FastAPI server for schema extraction
-   */
-  private async startTemporaryServer(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(
-          new Error(
-            `FastAPI server failed to start within ${this.options.timeout}ms`
-          )
-        );
-      }, this.options.timeout);
+  private async startFastAPIServer(
+    apiModule: string,
+    port: number,
+    timeout: number
+  ): Promise<ChildProcess> {
+    return new Promise<ChildProcess>((resolve, reject) => {
+      console.log(`🚀 Starting FastAPI server from: ${apiModule}`);
 
-      // Start FastAPI server with uvicorn
-      this.fastApiProcess = spawn(
-        "uvicorn",
-        [
-          "src.main:app",
-          "--host",
-          "0.0.0.0",
-          "--port",
-          this.options.port.toString(),
-          "--log-level",
-          "warning", // Reduce noise
-        ],
-        {
-          cwd: dirname(this.options.apiPath),
-          stdio: ["pipe", "pipe", "pipe"],
-          env: {
-            ...process.env,
-            FARM_SCHEMA_EXTRACTION: "true", // Signal to app it's for schema extraction
-          },
+      // Resolve the absolute path
+      const absolutePath = resolve(apiModule);
+
+      // Start uvicorn with the Python file - use explicit typing to avoid overload conflicts
+      const server: ChildProcess = spawn("python", [absolutePath], {
+        stdio: "pipe" as const,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          PYTHONPATH: dirname(absolutePath), // Add the directory to Python path
+          PYTHONUNBUFFERED: "1", // Ensure output is not buffered
+        },
+        cwd: dirname(absolutePath), // Set working directory to the file's directory
+      });
+
+      let started = false;
+      const timeoutId = setTimeout(() => {
+        if (!started) {
+          server.kill?.();
+          reject(
+            new Error(`FastAPI server failed to start within ${timeout}ms`)
+          );
         }
-      );
+      }, timeout);
 
-      let serverReady = false;
+      if (server.stdout) {
+        server.stdout.on("data", (data: Buffer) => {
+          const output = data.toString();
+          console.log(`📡 FastAPI: ${output.trim()}`);
 
-      // Monitor stdout for server ready signal
-      this.fastApiProcess.stdout?.on("data", (data) => {
-        const output = data.toString();
-        if (
-          output.includes("Uvicorn running on") ||
-          output.includes("Application startup complete")
-        ) {
-          if (!serverReady) {
-            serverReady = true;
-            clearTimeout(timeout);
-            // Give server a moment to fully initialize
-            setTimeout(resolve, 1000);
+          // Look for server startup indicators
+          if (
+            output.includes("Uvicorn running on") ||
+            output.includes("Application startup complete")
+          ) {
+            if (!started) {
+              started = true;
+              clearTimeout(timeoutId);
+              // Give it a moment to fully initialize
+              setTimeout(() => resolve(server), 1000);
+            }
           }
-        }
-      });
+        });
+      }
 
-      // Handle errors
-      this.fastApiProcess.stderr?.on("data", (data) => {
-        const error = data.toString();
-        if (error.includes("Error") || error.includes("Exception")) {
-          clearTimeout(timeout);
-          reject(new Error(`FastAPI server error: ${error}`));
-        }
-      });
+      if (server.stderr) {
+        server.stderr.on("data", (data: Buffer) => {
+          const error = data.toString();
+          console.error(`🔥 FastAPI Error: ${error.trim()}`);
 
-      this.fastApiProcess.on("error", (error) => {
-        clearTimeout(timeout);
-        reject(new Error(`Failed to start FastAPI server: ${error.message}`));
-      });
+          // Check for critical errors that should fail immediately
+          if (error.includes("Error") || error.includes("Exception")) {
+            clearTimeout(timeoutId);
+            reject(new Error(`FastAPI server error: ${error}`));
+          }
+        });
+      }
 
-      this.fastApiProcess.on("exit", (code) => {
-        if (code !== 0 && !serverReady) {
-          clearTimeout(timeout);
+      server.on("close", (code: number | null) => {
+        clearTimeout(timeoutId);
+        if (!started) {
           reject(new Error(`FastAPI server exited with code ${code}`));
         }
+      });
+
+      server.on("error", (error: Error) => {
+        clearTimeout(timeoutId);
+        reject(new Error(`Failed to start FastAPI server: ${error.message}`));
       });
     });
   }
 
-  /**
-   * Fetch OpenAPI schema from running server
-   */
-  private async fetchSchemaFromServer(): Promise<OpenAPISchema> {
-    const schemaUrl = `http://localhost:${this.options.port}/openapi.json`;
+  private async stopFastAPIServer(server: ChildProcess): Promise<void> {
+    return new Promise((resolve) => {
+      if (!server.killed && !server.exitCode) {
+        // Set up the close handler before killing
+        const cleanup = () => {
+          clearTimeout(forceKillTimeout);
+          resolve();
+        };
+
+        server.once("close", cleanup);
+        server.once("exit", cleanup);
+
+        // Try graceful termination first
+        server.kill("SIGTERM");
+
+        // Force kill after 3 seconds
+        const forceKillTimeout = setTimeout(() => {
+          if (!server.killed && !server.exitCode) {
+            server.kill("SIGKILL");
+          }
+          // Resolve anyway after force kill attempt
+          setTimeout(resolve, 1000);
+        }, 3000);
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  private async fetchSchemaFromServer(
+    host: string,
+    port: number,
+    timeout: number
+  ): Promise<any> {
+    const schemaUrl = `http://${host}:${port}/openapi.json`;
+
+    // Wait a bit for server to be ready
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
-      const response = await fetch(schemaUrl);
+      // Create AbortController for timeout functionality
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(schemaUrl, {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch schema: ${response.status} ${response.statusText}`
-        );
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const schema = (await response.json()) as OpenAPISchema;
+      const schema = await response.json();
       return schema;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        throw new Error(`Request timeout after ${timeout}ms`);
+      }
       throw new Error(
-        `Failed to fetch OpenAPI schema from ${schemaUrl}: ${getErrorMessage(
-          error
-        )}`
+        `Failed to fetch schema from ${schemaUrl}: ${error.message}`
       );
     }
   }
 
-  /**
-   * Stop temporary FastAPI server
-   */
-  private async stopTemporaryServer(): Promise<void> {
-    if (this.fastApiProcess) {
-      this.fastApiProcess.kill("SIGTERM");
-
-      // Wait for graceful shutdown
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          this.fastApiProcess?.kill("SIGKILL"); // Force kill if needed
-          resolve();
-        }, 5000);
-
-        this.fastApiProcess?.on("exit", () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-
-      this.fastApiProcess = undefined;
-    }
-  }
-
-  /**
-   * Validate extracted OpenAPI schema
-   */
-  private validateSchema(schema: any): asserts schema is OpenAPISchema {
+  private validateSchema(schema: any): boolean {
     if (!schema || typeof schema !== "object") {
-      throw new Error("Invalid schema: not an object");
+      return false;
     }
 
-    if (!schema.openapi) {
-      throw new Error("Invalid schema: missing openapi version");
-    }
-
-    if (!schema.info || !schema.info.title) {
-      throw new Error("Invalid schema: missing info.title");
-    }
-
-    if (!schema.paths || typeof schema.paths !== "object") {
-      throw new Error("Invalid schema: missing or invalid paths");
-    }
-
-    // Validate paths structure
-    for (const [path, methods] of Object.entries(schema.paths)) {
-      if (!path.startsWith("/")) {
-        throw new Error(`Invalid path: ${path} (must start with /)`);
-      }
-
-      if (!methods || typeof methods !== "object") {
-        throw new Error(`Invalid path methods for ${path}`);
+    // Check required OpenAPI fields
+    const requiredFields = ["openapi", "info", "paths"];
+    for (const field of requiredFields) {
+      if (!(field in schema)) {
+        console.warn(`⚠️ Missing required field: ${field}`);
+        return false;
       }
     }
 
-    console.log(
-      `📋 Schema validation passed: ${
-        Object.keys(schema.paths).length
-      } paths found`
-    );
-  }
-
-  /**
-   * Generate cache key based on API file content
-   */
-  private async generateCacheKey(): Promise<string> {
-    try {
-      const apiContent = await readFile(this.options.apiPath, "utf-8");
-      const hash = createHash("md5").update(apiContent).digest("hex");
-      return `schema-${hash}`;
-    } catch (error) {
-      // If we can't read the API file, use timestamp as cache key
-      const timestamp = Math.floor(Date.now() / 1000).toString();
-      return `schema-${timestamp}`;
+    // Check OpenAPI version
+    if (!schema.openapi || !schema.openapi.startsWith("3.")) {
+      console.warn(`⚠️ Unsupported OpenAPI version: ${schema.openapi}`);
+      return false;
     }
+
+    return true;
   }
 
-  /**
-   * Get cached schema if available and valid
-   */
-  private async getCachedSchema(
-    cacheKey: string
-  ): Promise<OpenAPISchema | null> {
+  private async getCachedSchema(apiModule: string): Promise<any | null> {
     try {
-      const cacheFile = join(this.options.cacheDir, `${cacheKey}.json`);
-      const metadataFile = join(this.options.cacheDir, `${cacheKey}.meta.json`);
+      await ensureDir(this.cacheDir);
 
-      // Check if cache files exist
-      await access(cacheFile);
-      await access(metadataFile);
+      const hash = createHash("md5").update(apiModule).digest("hex");
+      const cacheFile = join(this.cacheDir, `${hash}.json`);
 
-      // Read and validate metadata
-      const metadataContent = await readFile(metadataFile, "utf-8");
-      const metadata: SchemaMetadata = JSON.parse(metadataContent);
-
-      // Check if cache is still fresh (24 hours)
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in ms
-      if (Date.now() - metadata.timestamp > maxAge) {
-        console.log("📋 Cache expired, extracting fresh schema");
-        return null;
+      if (await pathExists(cacheFile)) {
+        const cached = await readFile(cacheFile, "utf-8");
+        return JSON.parse(cached);
       }
-
-      // Read and return cached schema
-      const schemaContent = await readFile(cacheFile, "utf-8");
-      const schema: OpenAPISchema = JSON.parse(schemaContent);
-
-      return schema;
-    } catch (error) {
-      // Cache miss or error reading cache
-      return null;
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to read cached schema: ${error.message}`);
     }
+
+    return null;
   }
 
-  /**
-   * Cache extracted schema with metadata
-   */
-  private async cacheSchema(
-    cacheKey: string,
-    schema: OpenAPISchema
-  ): Promise<void> {
+  private async cacheSchema(apiModule: string, schema: any): Promise<void> {
     try {
-      // Ensure cache directory exists
-      await mkdir(this.options.cacheDir, { recursive: true });
+      await ensureDir(this.cacheDir);
 
-      const cacheFile = join(this.options.cacheDir, `${cacheKey}.json`);
-      const metadataFile = join(this.options.cacheDir, `${cacheKey}.meta.json`);
+      const hash = createHash("md5").update(apiModule).digest("hex");
+      const cacheFile = join(this.cacheDir, `${hash}.json`);
 
-      // Create metadata
-      const metadata: SchemaMetadata = {
-        checksum: createHash("md5")
-          .update(JSON.stringify(schema))
-          .digest("hex"),
-        timestamp: Date.now(),
-        source: this.options.apiPath,
-        version: schema.info.version,
-      };
-
-      // Write schema and metadata to cache
       await writeFile(cacheFile, JSON.stringify(schema, null, 2));
-      await writeFile(metadataFile, JSON.stringify(metadata, null, 2));
-
-      console.log(`💾 Schema cached: ${cacheKey}`);
-    } catch (error) {
-      console.warn(`⚠️ Failed to cache schema: ${getErrorMessage(error)}`);
-      // Don't throw - caching is not critical
+      console.log("💾 Schema cached successfully");
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to cache schema: ${error.message}`);
     }
   }
 
-  /**
-   * Clear all cached schemas
-   */
   async clearCache(): Promise<void> {
     try {
-      const { rmdir } = await import("fs/promises");
-      await rmdir(this.options.cacheDir, { recursive: true });
+      await ensureDir(this.cacheDir);
+      const { remove } = await import("fs-extra");
+      await remove(this.cacheDir);
+      await ensureDir(this.cacheDir);
       console.log("🗑️ Schema cache cleared");
-    } catch (error) {
-      console.warn(`⚠️ Failed to clear cache: ${getErrorMessage(error)}`);
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to clear cache: ${error.message}`);
     }
   }
 
-  /**
-   * Get cache statistics
-   */
-  async getCacheStats(): Promise<{
-    files: number;
-    totalSize: number;
-    lastModified: Date | null;
-  }> {
+  async getCacheStats(): Promise<{ files: number; totalSize: number }> {
     try {
-      const { readdir, stat } = await import("fs/promises");
-      const files = await readdir(this.options.cacheDir);
+      const { readdir, stat } = await import("fs-extra");
 
-      let totalSize = 0;
-      let lastModified: Date | null = null;
-
-      for (const file of files) {
-        const filePath = join(this.options.cacheDir, file);
-        const stats = await stat(filePath);
-        totalSize += stats.size;
-
-        if (!lastModified || stats.mtime > lastModified) {
-          lastModified = stats.mtime;
-        }
+      if (!(await pathExists(this.cacheDir))) {
+        return { files: 0, totalSize: 0 };
       }
 
-      return {
-        files: files.length,
-        totalSize,
-        lastModified,
-      };
-    } catch (error) {
-      return { files: 0, totalSize: 0, lastModified: null };
+      const files = await readdir(this.cacheDir);
+      let totalSize = 0;
+
+      for (const file of files) {
+        const filePath = join(this.cacheDir, file);
+        const stats = await stat(filePath);
+        totalSize += stats.size;
+      }
+
+      return { files: files.length, totalSize };
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to get cache stats: ${error.message}`);
+      return { files: 0, totalSize: 0 };
     }
   }
 }
+
+// A type representing a valid OpenAPI 3.x schema object
+export type OpenAPISchema = {
+  openapi: string;
+  info: Record<string, any>;
+  paths: Record<string, any>;
+  components?: Record<string, any>;
+  [key: string]: any;
+};

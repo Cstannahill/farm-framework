@@ -1,686 +1,225 @@
-// tools/codegen/src/generators/typescript.ts
-import { OpenAPISchema } from "../schema/extractor";
-import { writeFile, mkdir } from "fs/promises";
-import { join, dirname } from "path";
+// tools/codegen/src/generators/typescript-generator.ts
+import type {
+  OpenAPISchema,
+  GenerationResult,
+  TypeGenerationOptions,
+} from "@farm/types";
 
-export interface TypeScriptGenerationOptions {
+interface TypeScriptGenerationOptions {
   outputDir: string;
-  baseUrl?: string;
-  enumType?: "union" | "enum";
-  dateType?: "string" | "Date";
   generateComments?: boolean;
-  generateValidation?: boolean;
-  fileNaming?: "camelCase" | "kebab-case" | "PascalCase";
+  enumType?: "string" | "number" | "const";
+  dateType?: "string" | "Date";
+  fileNaming?: "camelCase" | "kebab-case" | "snake_case";
+  cleanOrphans?: boolean;
+  metadataFile?: string;
+  strict?: boolean;
+  exportStyle?: "named" | "default" | "both";
 }
 
-export interface GeneratedFile {
-  path: string;
-  content: string;
-  type: "interface" | "enum" | "type" | "api-client";
-}
+class TypeScriptGenerator {
+  private options: TypeScriptGenerationOptions;
 
-export interface TypeScriptGenerationResult {
-  files: GeneratedFile[];
-  stats: {
-    interfaces: number;
-    enums: number;
-    types: number;
-    totalFiles: number;
-  };
-}
-
-interface ComponentSchema {
-  type?: string;
-  properties?: Record<string, any>;
-  required?: string[];
-  enum?: any[];
-  items?: any;
-  oneOf?: any[];
-  anyOf?: any[];
-  allOf?: any[];
-  $ref?: string;
-  format?: string;
-  description?: string;
-  example?: any;
-  additionalProperties?: boolean | any;
-}
-
-// Define a type for `operation` to include `operationId`
-interface Operation {
-  operationId?: string;
-  // ...other properties...
-}
-
-export class TypeScriptGenerator {
-  private options: Required<TypeScriptGenerationOptions>;
-  private schema: OpenAPISchema;
-  private generatedTypes = new Set<string>();
-  private typeRefs = new Map<string, string>(); // $ref -> type name mapping
-
-  constructor(schema: OpenAPISchema, options: TypeScriptGenerationOptions) {
-    this.schema = schema;
+  constructor(options?: Partial<TypeScriptGenerationOptions>) {
     this.options = {
-      enumType: "union",
-      dateType: "string",
+      outputDir: "./src/types",
       generateComments: true,
-      generateValidation: false,
+      enumType: "string",
+      dateType: "string",
       fileNaming: "camelCase",
-      baseUrl: "/api",
+      cleanOrphans: true,
+      metadataFile: "generation-metadata.json",
+      strict: true,
+      exportStyle: "named",
       ...options,
     };
   }
 
-  /**
-   * Generate all TypeScript files from OpenAPI schema
-   */
-  async generateTypes(): Promise<TypeScriptGenerationResult> {
-    const files: GeneratedFile[] = [];
-    const stats = {
-      interfaces: 0,
-      enums: 0,
-      types: 0,
-      totalFiles: 0,
-    };
+  async generateTypes(schema: OpenAPISchema): Promise<GenerationResult> {
+    const startTime = Date.now();
 
-    // Ensure output directory exists
-    await mkdir(this.options.outputDir, { recursive: true });
+    try {
+      const files = await this.processSchema(schema);
 
-    // Generate component schemas (models)
-    if (this.schema.components?.schemas) {
-      const modelFiles = await this.generateModelInterfaces();
-      files.push(...modelFiles);
-      stats.interfaces += modelFiles.filter(
-        (f) => f.type === "interface"
-      ).length;
-      stats.enums += modelFiles.filter((f) => f.type === "enum").length;
-      stats.types += modelFiles.filter((f) => f.type === "type").length;
+      return {
+        files,
+        stats: {
+          totalFiles: files.length,
+          totalSize: files.reduce((sum, f) => sum + f.size, 0),
+          generationTime: Date.now() - startTime,
+          modifiedFiles: files.length,
+          createdFiles: files.length,
+          deletedFiles: 0,
+        },
+        errors: [],
+        metadata: {
+          version: "1.0.0",
+          generatedAt: new Date(),
+          sourceSchema: JSON.stringify(schema.info),
+          options: this.options,
+        },
+      };
+    } catch (error: any) {
+      throw new Error(`TypeScript generation failed: ${error.message}`);
     }
-
-    // Generate API request/response types
-    const apiFiles = await this.generateApiTypes();
-    files.push(...apiFiles);
-    stats.types += apiFiles.length;
-
-    // Generate index file
-    const indexFile = await this.generateIndexFile(files);
-    files.push(indexFile);
-
-    stats.totalFiles = files.length;
-
-    // Write all files
-    await this.writeFiles(files);
-
-    return { files, stats };
   }
 
-  /**
-   * Generate TypeScript interfaces from component schemas
-   */
-  private async generateModelInterfaces(): Promise<GeneratedFile[]> {
-    const files: GeneratedFile[] = [];
-    const schemas = this.schema.components!.schemas!;
+  private async processSchema(schema: OpenAPISchema): Promise<any[]> {
+    const files = [];
 
-    for (const [schemaName, schemaDefinition] of Object.entries(schemas)) {
-      const content = this.generateInterfaceFromSchema(
-        schemaName,
-        schemaDefinition
-      );
-
-      if (content) {
+    // Process components/schemas
+    if (schema.components?.schemas) {
+      for (const [name, schemaObj] of Object.entries(
+        schema.components.schemas
+      )) {
+        const content = this.generateInterface(name, schemaObj as any);
         files.push({
-          path: join("models", `${this.formatFileName(schemaName)}.ts`),
+          path: `${this.options.outputDir}/models/${this.formatFileName(
+            name
+          )}.ts`,
           content,
-          type: this.getSchemaType(schemaDefinition),
+          type: "typescript",
+          size: content.length,
+          checksum: this.generateChecksum(content),
+          generatedAt: new Date(),
         });
       }
     }
 
-    return files;
-  }
-
-  /**
-   * Generate request/response types from API paths
-   */
-  private async generateApiTypes(): Promise<GeneratedFile[]> {
-    const files: GeneratedFile[] = [];
-    const requestTypes: string[] = [];
-    const responseTypes: string[] = [];
-
-    for (const [path, pathItem] of Object.entries(this.schema.paths)) {
-      for (const [method, operation] of Object.entries(pathItem) as [
-        string,
-        Operation
-      ][]) {
-        if (!operation || typeof operation !== "object") continue;
-
-        const operationId =
-          operation.operationId || this.generateOperationId(method, path);
-
-        // Generate request type
-        const requestType = this.generateRequestType(operationId, operation);
-        if (requestType) {
-          requestTypes.push(requestType);
-        }
-
-        // Generate response type
-        const responseType = this.generateResponseType(operationId, operation);
-        if (responseType) {
-          responseTypes.push(responseType);
-        }
-      }
-    }
-
-    // Create request types file
-    if (requestTypes.length > 0) {
+    // Process paths for API types
+    if (schema.paths) {
+      const apiContent = this.generateApiTypes(schema.paths);
       files.push({
-        path: join("api", "requests.ts"),
-        content: this.wrapInFile(["// API Request Types", "", ...requestTypes]),
-        type: "type",
-      });
-    }
-
-    // Create response types file
-    if (responseTypes.length > 0) {
-      files.push({
-        path: join("api", "responses.ts"),
-        content: this.wrapInFile([
-          "// API Response Types",
-          "",
-          ...responseTypes,
-        ]),
-        type: "type",
+        path: `${this.options.outputDir}/api.ts`,
+        content: apiContent,
+        type: "typescript",
+        size: apiContent.length,
+        checksum: this.generateChecksum(apiContent),
+        generatedAt: new Date(),
       });
     }
 
     return files;
   }
 
-  /**
-   * Generate TypeScript interface from OpenAPI schema
-   */
-  private generateInterfaceFromSchema(
-    name: string,
-    schema: ComponentSchema
-  ): string {
-    if (schema.enum) {
-      return this.generateEnum(name, schema);
+  private generateInterface(name: string, schema: any): string {
+    let content = "";
+
+    if (this.options.generateComments) {
+      content += `/**\n * Generated interface for ${name}\n */\n`;
     }
 
-    if (schema.oneOf || schema.anyOf) {
-      return this.generateUnionType(name, schema);
-    }
-
-    if (schema.allOf) {
-      return this.generateIntersectionType(name, schema);
-    }
-
-    if (schema.type === "object" || schema.properties) {
-      return this.generateInterface(name, schema);
-    }
-
-    // For primitive types, generate type alias
-    return this.generateTypeAlias(name, schema);
-  }
-
-  /**
-   * Generate TypeScript interface for object schemas
-   */
-  private generateInterface(name: string, schema: ComponentSchema): string {
-    const lines: string[] = [];
-
-    // Add JSDoc comment
-    if (this.options.generateComments && schema.description) {
-      lines.push(`/**`);
-      lines.push(` * ${schema.description}`);
-      if (schema.example) {
-        lines.push(` * @example ${JSON.stringify(schema.example, null, 2)}`);
-      }
-      lines.push(` */`);
-    }
-
-    lines.push(`export interface ${name} {`);
+    content += `export interface ${name} {\n`;
 
     if (schema.properties) {
-      const required = schema.required || [];
+      for (const [propName, propSchema] of Object.entries(
+        schema.properties as any
+      )) {
+        const optional = !schema.required?.includes(propName) ? "?" : "";
+        const type = this.mapSchemaType(propSchema as any);
+        content += `  ${propName}${optional}: ${type};\n`;
+      }
+    }
 
-      for (const [propName, propSchema] of Object.entries(schema.properties)) {
-        const isRequired = required.includes(propName);
-        const optional = isRequired ? "" : "?";
-        const propType = this.getTypeScriptType(propSchema);
+    content += "}\n\n";
+    return content;
+  }
 
-        // Add property comment
-        if (this.options.generateComments && propSchema.description) {
-          lines.push(`  /** ${propSchema.description} */`);
+  private generateApiTypes(paths: Record<string, any>): string {
+    let content = "";
+
+    if (this.options.generateComments) {
+      content += `/**\n * Generated API types\n */\n\n`;
+    }
+
+    for (const [path, methods] of Object.entries(paths)) {
+      for (const [method, operation] of Object.entries(methods as any)) {
+        const operationId =
+          operation.operationId ||
+          `${method}${path.replace(/[^a-zA-Z0-9]/g, "")}`;
+
+        // Generate request type
+        content += `export interface ${operationId}Request {\n`;
+        if (operation.requestBody?.content?.["application/json"]?.schema) {
+          const schema =
+            operation.requestBody.content["application/json"].schema;
+          if (schema.properties) {
+            for (const [propName, propSchema] of Object.entries(
+              schema.properties
+            )) {
+              const optional = !schema.required?.includes(propName) ? "?" : "";
+              const type = this.mapSchemaType(propSchema as any);
+              content += `  ${propName}${optional}: ${type};\n`;
+            }
+          }
         }
+        content += "}\n\n";
 
-        lines.push(`  ${propName}${optional}: ${propType};`);
+        // Generate response type
+        content += `export interface ${operationId}Response {\n`;
+        const successResponse =
+          operation.responses?.["200"] || operation.responses?.["201"];
+        if (successResponse?.content?.["application/json"]?.schema) {
+          const schema = successResponse.content["application/json"].schema;
+          if (schema.properties) {
+            for (const [propName, propSchema] of Object.entries(
+              schema.properties
+            )) {
+              const type = this.mapSchemaType(propSchema as any);
+              content += `  ${propName}: ${type};\n`;
+            }
+          }
+        }
+        content += "}\n\n";
       }
     }
 
-    // Handle additionalProperties
-    if (schema.additionalProperties === true) {
-      lines.push(`  [key: string]: any;`);
-    } else if (
-      schema.additionalProperties &&
-      typeof schema.additionalProperties === "object"
-    ) {
-      const additionalType = this.getTypeScriptType(
-        schema.additionalProperties
-      );
-      lines.push(`  [key: string]: ${additionalType};`);
-    }
-
-    lines.push(`}`);
-    lines.push(""); // Empty line after interface
-
-    return lines.join("\n");
+    return content;
   }
 
-  /**
-   * Generate TypeScript enum
-   */
-  private generateEnum(name: string, schema: ComponentSchema): string {
-    const lines: string[] = [];
-
-    if (this.options.generateComments && schema.description) {
-      lines.push(`/** ${schema.description} */`);
-    }
-
-    if (this.options.enumType === "enum") {
-      lines.push(`export enum ${name} {`);
-
-      schema.enum!.forEach((value, index) => {
-        const enumKey = this.formatEnumKey(value);
-        const enumValue = typeof value === "string" ? `"${value}"` : value;
-        const comma = index < schema.enum!.length - 1 ? "," : "";
-        lines.push(`  ${enumKey} = ${enumValue}${comma}`);
-      });
-
-      lines.push(`}`);
-    } else {
-      // Union type
-      const unionValues = schema
-        .enum!.map((value) =>
-          typeof value === "string" ? `"${value}"` : value
-        )
-        .join(" | ");
-      lines.push(`export type ${name} = ${unionValues};`);
-    }
-
-    lines.push("");
-    return lines.join("\n");
-  }
-
-  /**
-   * Generate union type for oneOf/anyOf schemas
-   */
-  private generateUnionType(name: string, schema: ComponentSchema): string {
-    const lines: string[] = [];
-    const unionSchemas = schema.oneOf || schema.anyOf || [];
-
-    if (this.options.generateComments && schema.description) {
-      lines.push(`/** ${schema.description} */`);
-    }
-
-    const unionTypes = unionSchemas
-      .map((subSchema) => this.getTypeScriptType(subSchema))
-      .join(" | ");
-
-    lines.push(`export type ${name} = ${unionTypes};`);
-    lines.push("");
-
-    return lines.join("\n");
-  }
-
-  /**
-   * Generate intersection type for allOf schemas
-   */
-  private generateIntersectionType(
-    name: string,
-    schema: ComponentSchema
-  ): string {
-    const lines: string[] = [];
-
-    if (this.options.generateComments && schema.description) {
-      lines.push(`/** ${schema.description} */`);
-    }
-
-    const intersectionTypes = schema
-      .allOf!.map((subSchema) => this.getTypeScriptType(subSchema))
-      .join(" & ");
-
-    lines.push(`export type ${name} = ${intersectionTypes};`);
-    lines.push("");
-
-    return lines.join("\n");
-  }
-
-  /**
-   * Generate type alias for primitive types
-   */
-  private generateTypeAlias(name: string, schema: ComponentSchema): string {
-    const lines: string[] = [];
-
-    if (this.options.generateComments && schema.description) {
-      lines.push(`/** ${schema.description} */`);
-    }
-
-    const tsType = this.getTypeScriptType(schema);
-    lines.push(`export type ${name} = ${tsType};`);
-    lines.push("");
-
-    return lines.join("\n");
-  }
-
-  /**
-   * Convert OpenAPI type to TypeScript type
-   */
-  private getTypeScriptType(schema: any): string {
-    if (!schema) return "any";
-
-    // Handle $ref
+  private mapSchemaType(schema: any): string {
     if (schema.$ref) {
-      return this.resolveReference(schema.$ref);
+      return schema.$ref.split("/").pop();
     }
 
-    // Handle arrays
-    if (schema.type === "array") {
-      const itemType = this.getTypeScriptType(schema.items);
-      return `Array<${itemType}>`;
-    }
-
-    // Handle objects
-    if (schema.type === "object") {
-      if (schema.properties) {
-        // Inline object type
-        const props = Object.entries(schema.properties)
-          .map(([key, propSchema]: [string, any]) => {
-            const optional = schema.required?.includes(key) ? "" : "?";
-            const type = this.getTypeScriptType(propSchema);
-            return `${key}${optional}: ${type}`;
-          })
-          .join("; ");
-        return `{ ${props} }`;
-      }
-
-      if (schema.additionalProperties === true) {
-        return "Record<string, any>";
-      }
-
-      if (schema.additionalProperties) {
-        const valueType = this.getTypeScriptType(schema.additionalProperties);
-        return `Record<string, ${valueType}>`;
-      }
-
-      return "Record<string, any>";
-    }
-
-    // Handle enums
-    if (schema.enum) {
-      return schema.enum
-        .map((value: any) => (typeof value === "string" ? `"${value}"` : value))
-        .join(" | ");
-    }
-
-    // Handle oneOf/anyOf
-    if (schema.oneOf || schema.anyOf) {
-      const unionSchemas = schema.oneOf || schema.anyOf;
-      return unionSchemas
-        .map((subSchema: any) => this.getTypeScriptType(subSchema))
-        .join(" | ");
-    }
-
-    // Handle allOf
-    if (schema.allOf) {
-      return schema.allOf
-        .map((subSchema: any) => this.getTypeScriptType(subSchema))
-        .join(" & ");
-    }
-
-    // Handle primitive types
     switch (schema.type) {
       case "string":
-        if (schema.format === "date-time" || schema.format === "date") {
-          return this.options.dateType === "Date" ? "Date" : "string";
-        }
-        return "string";
-
+        return this.options.dateType === "Date" && schema.format === "date-time"
+          ? "Date"
+          : "string";
       case "number":
       case "integer":
         return "number";
-
       case "boolean":
         return "boolean";
-
-      case "null":
-        return "null";
-
+      case "array":
+        return `Array<${this.mapSchemaType(schema.items)}>`;
+      case "object":
+        return "Record<string, any>";
       default:
         return "any";
     }
-  }
-
-  /**
-   * Resolve $ref to TypeScript type name
-   */
-  private resolveReference(ref: string): string {
-    // Handle component references
-    if (ref.startsWith("#/components/schemas/")) {
-      const typeName = ref.replace("#/components/schemas/", "");
-      this.typeRefs.set(ref, typeName);
-      return typeName;
-    }
-
-    // Handle other references (simplified)
-    const parts = ref.split("/");
-    const typeName = parts[parts.length - 1];
-    this.typeRefs.set(ref, typeName);
-    return typeName;
-  }
-
-  /**
-   * Generate request type for API operation
-   */
-  private generateRequestType(
-    operationId: string,
-    operation: any
-  ): string | null {
-    const lines: string[] = [];
-    const typeName = `${this.capitalize(operationId)}Request`;
-
-    // Check if there's a request body
-    const requestBody = operation.requestBody;
-    const parameters = operation.parameters || [];
-
-    if (!requestBody && parameters.length === 0) {
-      return null; // No request type needed
-    }
-
-    if (this.options.generateComments) {
-      lines.push(`/** Request type for ${operationId} operation */`);
-    }
-
-    lines.push(`export interface ${typeName} {`);
-
-    // Add parameters
-    for (const param of parameters) {
-      const required = param.required ? "" : "?";
-      const paramType = this.getTypeScriptType(param.schema);
-
-      if (this.options.generateComments && param.description) {
-        lines.push(`  /** ${param.description} */`);
-      }
-
-      lines.push(`  ${param.name}${required}: ${paramType};`);
-    }
-
-    // Add request body
-    if (requestBody) {
-      const content = requestBody.content;
-      if (content && content["application/json"]) {
-        const bodyType = this.getTypeScriptType(
-          content["application/json"].schema
-        );
-        lines.push(`  body: ${bodyType};`);
-      }
-    }
-
-    lines.push(`}`);
-    lines.push("");
-
-    return lines.join("\n");
-  }
-
-  /**
-   * Generate response type for API operation
-   */
-  private generateResponseType(
-    operationId: string,
-    operation: any
-  ): string | null {
-    const responses = operation.responses;
-    if (!responses) return null;
-
-    const lines: string[] = [];
-    const typeName = `${this.capitalize(operationId)}Response`;
-
-    // Find success response (200, 201, etc.)
-    const successResponse =
-      responses["200"] || responses["201"] || responses["204"];
-
-    if (!successResponse) {
-      return null; // No success response type needed
-    }
-
-    if (this.options.generateComments) {
-      lines.push(`/** Response type for ${operationId} operation */`);
-    }
-
-    const content = successResponse.content;
-    if (content && content["application/json"]) {
-      const responseType = this.getTypeScriptType(
-        content["application/json"].schema
-      );
-      lines.push(`export type ${typeName} = ${responseType};`);
-    } else {
-      lines.push(`export type ${typeName} = void;`);
-    }
-
-    lines.push("");
-    return lines.join("\n");
-  }
-
-  /**
-   * Generate index file that exports all types
-   */
-  private async generateIndexFile(
-    files: GeneratedFile[]
-  ): Promise<GeneratedFile> {
-    const lines: string[] = [
-      "// Auto-generated TypeScript types from OpenAPI schema",
-      "// Do not edit this file directly",
-      "",
-    ];
-
-    // Group exports by directory
-    const exportsByDir = new Map<string, string[]>();
-
-    for (const file of files) {
-      if (
-        file.type === "interface" ||
-        file.type === "enum" ||
-        file.type === "type"
-      ) {
-        const dir = dirname(file.path);
-        const fileName = file.path.replace(".ts", "");
-
-        if (!exportsByDir.has(dir)) {
-          exportsByDir.set(dir, []);
-        }
-
-        exportsByDir.get(dir)!.push(`export * from './${fileName}';`);
-      }
-    }
-
-    // Add exports
-    for (const [dir, exports] of exportsByDir) {
-      if (dir !== ".") {
-        lines.push(`// ${dir} exports`);
-      }
-      lines.push(...exports);
-      lines.push("");
-    }
-
-    return {
-      path: "index.ts",
-      content: lines.join("\n"),
-      type: "type",
-    };
-  }
-
-  /**
-   * Write generated files to disk
-   */
-  private async writeFiles(files: GeneratedFile[]): Promise<void> {
-    for (const file of files) {
-      const fullPath = join(this.options.outputDir, file.path);
-      const dir = dirname(fullPath);
-
-      // Ensure directory exists
-      await mkdir(dir, { recursive: true });
-
-      // Write file
-      await writeFile(fullPath, file.content);
-    }
-  }
-
-  /**
-   * Utility functions
-   */
-  private getSchemaType(
-    schema: ComponentSchema
-  ): "interface" | "enum" | "type" {
-    if (schema.enum) return "enum";
-    if (schema.type === "object" || schema.properties) return "interface";
-    return "type";
-  }
-
-  private generateOperationId(method: string, path: string): string {
-    const pathParts = path.split("/").filter((p) => p && !p.startsWith("{"));
-    const methodPart = method.toLowerCase();
-    return `${methodPart}${pathParts.map((p) => this.capitalize(p)).join("")}`;
   }
 
   private formatFileName(name: string): string {
     switch (this.options.fileNaming) {
       case "kebab-case":
         return name
-          .replace(/([A-Z])/g, "-$1")
-          .toLowerCase()
-          .replace(/^-/, "");
-      case "PascalCase":
-        return this.capitalize(name);
-      case "camelCase":
+          .replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
+          .toLowerCase();
+      case "snake_case":
+        return name
+          .replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`)
+          .toLowerCase();
       default:
         return name.charAt(0).toLowerCase() + name.slice(1);
     }
   }
 
-  private formatEnumKey(value: any): string {
-    const str = String(value);
-    return str.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
-  }
-
-  private capitalize(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
-
-  private wrapInFile(lines: string[]): string {
-    return [
-      "// Auto-generated from OpenAPI schema",
-      "// Do not edit this file directly",
-      "",
-      ...lines,
-    ].join("\n");
+  private generateChecksum(content: string): string {
+    // Simple checksum for now
+    return Buffer.from(content).toString("base64").slice(0, 8);
   }
 }
+export { TypeScriptGenerator } from "./typescript-generator.js";
+export type { TypeScriptGenerationOptions } from "./typescript-generator.js";

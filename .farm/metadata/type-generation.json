@@ -1,0 +1,26 @@
+{
+  "timestamp": 1749198391661,
+  "schemaChecksum": "74c67ae3713343e5be122a55d772561e",
+  "filesGenerated": [
+    "models\\user.ts",
+    "models\\createUserRequest.ts",
+    "models\\userStatus.ts",
+    "models\\paginatedResponse.ts",
+    "api\\requests.ts",
+    "api\\responses.ts",
+    "index.ts"
+  ],
+  "version": "1.0.0",
+  "options": {
+    "metadataFile": ".farm/metadata/type-generation.json",
+    "cleanOrphans": true,
+    "watchForChanges": true,
+    "enumType": "union",
+    "dateType": "string",
+    "generateComments": true,
+    "generateValidation": false,
+    "fileNaming": "camelCase",
+    "baseUrl": "/api",
+    "outputDir": "S:\\Code\\farm-framework\\tools\\__test-output__\\types\\watching"
+  }
+}

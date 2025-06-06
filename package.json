@@ -1,16 +1,13 @@
 {
   "name": "farm-framework",
   "version": "0.1.0",
-  "description": "AI-first full-stack development platform",
   "private": true,
-  "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
-  },
-  "bin": {
-    "farm": "dist/farm.js"
-  },
-  "packageManager": "pnpm@8.15.1",
+  "description": "AI-first full-stack development framework",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -37,22 +34,25 @@
     "test:cli": "vitest run packages/cli/src/**/*.test.ts",
     "test:integration": "vitest run tools/testing/src/**/*.test.ts",
     "test:watch": "vitest --watch",
-    "test:manual-dev": "./scripts/test-dev-setup.sh",
-    "test:manual-prod": "./scripts/test-prod-build.sh",
+    "test:manual-dev": "bash ./scripts/test-dev-setup.sh",
+    "test:manual-prod": "bash ./scripts/test-prod-build.sh",
     "test:all-docker": "pnpm test:docker && pnpm test:docker-integration && pnpm test:templates"
   },
   "devDependencies": {
+    "@turbo/gen": "^1.12.0",
+    "prettier": "^3.2.0",
     "@changesets/cli": "^2.27.1",
-    "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0",
-    "@vitest/ui": "^1.6.0",
+    "vitest": "^3.2.2",
+    "@vitest/coverage-v8": "^3.2.2",
+    "@vitest/ui": "^3.2.2",
     "@types/node": "^20.11.0",
     "turbo": "^2.5.4",
     "typescript": "^5.3.3",
     "happy-dom": "^14.12.0"
   },
-  "dependencies": {
-    "axios": "^1.9.0",
-    "zod": "^3.22.4"
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
   }
 }

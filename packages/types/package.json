@@ -1,33 +1,26 @@
 {
   "name": "@farm/types",
   "version": "0.1.0",
-  "description": "TypeScript type definitions for FARM framework",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
+  "description": "Shared TypeScript types for FARM framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "clean": "rm -rf dist"
+    "build:watch": "tsup --watch",
+    "clean": "rm -rf dist",
+    "type-check": "tsc --noEmit"
   },
+  "dependencies": {},
   "devDependencies": {
-    "tsup": "^8.5.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "tsup": "^8.0.0"
   },
-  "files": [
-    "dist"
-  ],
   "publishConfig": {
     "access": "public"
   }

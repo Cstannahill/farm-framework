@@ -4,6 +4,15 @@ import { SchemaWatcher } from "../schema/watcher";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 
 describe("FARM Schema Extraction System", () => {
   const testProjectRoot = join(__dirname, "../../../__test-fixtures__");

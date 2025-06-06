@@ -15,7 +15,8 @@ import {
   detectPackageManager,
 } from "../utils/validation.js";
 import { messages, format, styles, icons } from "../utils/styling.js";
-import { getErrorMessage } from "../utils/error-utils.js";
+import { getErrorMessage } from "@farm/cli";
+
 
 export function createCreateCommand(): Command {
   const createCommand = new Command("create")
@@ -51,6 +52,20 @@ export function createCreateCommand(): Command {
 // Export the handler function for direct use
 export { handleCreateCommand };
 
+export interface CreateOptions {
+  template?: string;
+  features?: string[];
+  database?: string;
+  typescript?: boolean;
+  docker?: boolean;
+  testing?: boolean;
+  git?: boolean;
+  install?: boolean;
+  interactive?: boolean;
+  author?: string;
+  description?: string;
+}
+
 async function handleCreateCommand(
   projectName: string | undefined,
   options: any
@@ -58,7 +73,7 @@ async function handleCreateCommand(
   try {
     console.log(messages.welcome());
 
-    const scaffolder = new ProjectScaffolder();
+    const scaffolder = new ProjectScaffolder(options);
     const registry = new TemplateRegistry();
 
     // Build context from arguments and interactive prompts
@@ -70,7 +85,7 @@ async function handleCreateCommand(
     // Generate the project
     console.log(messages.creating(context.template, context.projectName));
 
-    const result = await scaffolder.generateProject(context);
+    const result = await scaffolder.generateProject(projectName!, context);
 
     if (result.success) {
       console.log(messages.success("Project created successfully!"));

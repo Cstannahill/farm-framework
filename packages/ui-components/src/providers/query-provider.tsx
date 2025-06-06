@@ -1,113 +1,103 @@
 // packages/ui-components/src/providers/query-provider.tsx
-import React, { ReactNode } from "react";
+import React, { ReactNode, Component, ErrorInfo } from "react";
 import {
   QueryClient,
   QueryClientProvider,
-  QueryCache,
-  MutationCache,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
-// Default query client configuration optimized for FARM apps
+interface QueryErrorInfo {
+  error: Error | null;
+}
+
+interface QueryProviderProps {
+  children: ReactNode;
+  client?: QueryClient;
+}
+
+// Error handler functions with proper typing
+const defaultQueryErrorHandler = (error: Error, query: any) => {
+  console.error("Query error:", error, query);
+};
+
+const defaultMutationErrorHandler = (
+  error: Error,
+  variables: any,
+  context: any,
+  mutation: any
+) => {
+  console.error("Mutation error:", error, { variables, context, mutation });
+};
+
+// Default retry function
+const defaultRetryFunction = (failureCount: number, error: Error) => {
+  if (failureCount < 3) {
+    return true;
+  }
+  return false;
+};
+
+// Default retry delay function
+const defaultRetryDelay = (attemptIndex: number) => {
+  return Math.min(1000 * 2 ** attemptIndex, 30000);
+};
+
+// Create default query client
 const createQueryClient = () => {
   return new QueryClient({
-    queryCache: new QueryCache({
-      onError: (error, query) => {
-        // Global error handling
-        console.error("Query Error:", error, "Query Key:", query.queryKey);
-      },
-    }),
-    mutationCache: new MutationCache({
-      onError: (error, variables, context, mutation) => {
-        // Global mutation error handling
-        console.error("Mutation Error:", error, "Variables:", variables);
-      },
-    }),
     defaultOptions: {
       queries: {
-        // 24 hours stale time for most queries
-        staleTime: 1000 * 60 * 60 * 24,
-        // 5 minutes cache time
-        gcTime: 1000 * 60 * 5,
-        // Retry configuration
-        retry: (failureCount, error: any) => {
-          // Don't retry on 4xx errors except 408, 429
-          if (error?.status >= 400 && error?.status < 500) {
-            return error?.status === 408 || error?.status === 429
-              ? failureCount < 2
-              : false;
-          }
-          // Retry on 5xx errors and network errors
-          return failureCount < 3;
-        },
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        // Background refetch configuration
-        refetchOnWindowFocus: true,
-        refetchOnReconnect: true,
-        refetchOnMount: true,
+        retry: defaultRetryFunction,
+        retryDelay: defaultRetryDelay,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        gcTime: 10 * 60 * 1000, // 10 minutes
       },
       mutations: {
-        retry: 1,
-        retryDelay: 1000,
+        retry: defaultRetryFunction,
+        retryDelay: defaultRetryDelay,
       },
     },
   });
 };
 
-interface FarmQueryProviderProps {
-  children: ReactNode;
-  client?: QueryClient;
-  enableDevtools?: boolean;
-}
-
-export function FarmQueryProvider({
-  children,
-  client,
-  enableDevtools = process.env.NODE_ENV === "development",
-}: FarmQueryProviderProps) {
+export function QueryProvider({ children, client }: QueryProviderProps) {
   const queryClient = client || createQueryClient();
 
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {enableDevtools && <ReactQueryDevtools initialIsOpen={false} />}
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
 
-// Hook for accessing query client
-export { useQueryClient } from "@tanstack/react-query";
-
-// Utility hook for invalidating queries by pattern
+// Query invalidation helper hook
 export function useInvalidateQueries() {
   const queryClient = useQueryClient();
 
   return {
-    invalidateAll: () => queryClient.invalidateQueries(),
-    invalidateByKey: (queryKey: unknown[]) =>
-      queryClient.invalidateQueries({ queryKey }),
-    invalidateByPattern: (pattern: string) =>
-      queryClient.invalidateQueries({
-        predicate: (query) =>
-          query.queryKey.some(
-            (key) => typeof key === "string" && key.includes(pattern)
-          ),
-      }),
+    invalidateQueries: (queryKey: any[]) => {
+      return queryClient.invalidateQueries({ queryKey });
+    },
+    invalidateAll: () => {
+      const queries = queryClient.getQueryCache().getAll();
+      queries.forEach((query) => {
+        queryClient.invalidateQueries({ queryKey: query.queryKey });
+      });
+    },
   };
 }
 
 // Error boundary for query errors
-import { Component, ErrorInfo, ReactNode } from "react";
-
 interface QueryErrorBoundaryState {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
 }
 
 interface QueryErrorBoundaryProps {
   children: ReactNode;
   fallback?: (error: Error) => ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 export class QueryErrorBoundary extends Component<
@@ -116,7 +106,7 @@ export class QueryErrorBoundary extends Component<
 > {
   constructor(props: QueryErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): QueryErrorBoundaryState {
@@ -124,7 +114,7 @@ export class QueryErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.props.onError?.(error, errorInfo);
+    console.error("Query Error Boundary caught an error:", error, errorInfo);
   }
 
   render() {
@@ -134,14 +124,14 @@ export class QueryErrorBoundary extends Component<
       }
 
       return (
-        <div className="p-4 border border-red-200 rounded-lg bg-red-50">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">
-            Something went wrong
-          </h3>
-          <p className="text-red-600 mb-4">{this.state.error.message}</p>
+        <div className="error-boundary">
+          <h2>Something went wrong with data loading.</h2>
+          <details>
+            <summary>Error details</summary>
+            <pre>{this.state.error.message}</pre>
+          </details>
           <button
-            onClick={() => this.setState({ hasError: false, error: undefined })}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            onClick={() => this.setState({ hasError: false, error: null })}
           >
             Try again
           </button>
@@ -152,19 +142,3 @@ export class QueryErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-// Template generation for query provider setup
-export const QUERY_PROVIDER_TEMPLATE = `// Generated query provider setup
-import React from 'react';
-import { FarmQueryProvider, QueryErrorBoundary } from '@farm/ui-components';
-
-export function AppQueryProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryErrorBoundary>
-      <FarmQueryProvider enableDevtools={process.env.NODE_ENV === 'development'}>
-        {children}
-      </FarmQueryProvider>
-    </QueryErrorBoundary>
-  );
-}
-`;

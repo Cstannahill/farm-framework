@@ -9,7 +9,7 @@ import {
 } from "../generators/manager";
 import { GeneratedFile } from "../generators/typescript";
 import { OpenAPISchemaExtractor } from "../schema/extractor";
-import { getErrorMessage } from "@farm/cli";
+import { wrapError } from "@farm/cli";
 
 interface GenerateCLIOptions {
   output?: string;
@@ -216,12 +216,10 @@ async function handleGenerateTypesCommand(
     }
   } catch (error) {
     spinner.fail("Type generation failed");
-    console.error(chalk.red(getErrorMessage(error)));
+    console.error(chalk.red(wrapError(error)));
 
-    if (options.verbose && getErrorMessage(error).includes("stack")) {
-      console.error(
-        chalk.gray(getErrorMessage(error) || "No stack trace available")
-      );
+    if (options.verbose && wrapError(error).includes("stack")) {
+      console.error(chalk.gray(wrapError(error) || "No stack trace available"));
     }
 
     process.exit(1);
@@ -257,7 +255,7 @@ async function handleStatsCommand(options: { output?: string }): Promise<void> {
     );
     console.log(`Average Time: ${Math.round(stats.averageGenerationTime)}ms`);
   } catch (error) {
-    console.error(chalk.red("❌ Failed to get stats:", getErrorMessage(error)));
+    console.error(chalk.red("❌ Failed to get stats:", wrapError(error)));
     process.exit(1);
   }
 }
@@ -295,7 +293,7 @@ async function handleClearCommand(options: {
     spinner.succeed("Clear operation completed");
   } catch (error) {
     spinner.fail("Clear operation failed");
-    console.error(chalk.red(getErrorMessage(error)));
+    console.error(chalk.red(wrapError(error)));
     process.exit(1);
   }
 }
@@ -361,10 +359,7 @@ export async function demonstrateIntegration(): Promise<void> {
 
     console.log(chalk.green("\n🎉 Integration demo completed successfully!"));
   } catch (error) {
-    console.error(
-      chalk.red("\n❌ Integration demo failed:"),
-      getErrorMessage(error)
-    );
+    console.error(chalk.red("\n❌ Integration demo failed:"), wrapError(error));
     throw error;
   }
 }
@@ -513,7 +508,7 @@ async function handleValidateCommand(
     }
   } catch (error) {
     spinner.fail("File validation failed");
-    console.error(chalk.red(getErrorMessage(error)));
+    console.error(chalk.red(wrapError(error)));
     process.exit(1);
   }
 }

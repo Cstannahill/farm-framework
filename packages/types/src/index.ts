@@ -1,179 +1,62 @@
-// Core configuration types
-export interface FarmConfig {
-  // Project metadata
-  name: string;
-  version?: string;
-  description?: string;
+// Core Framework Types
+export * from "./config.js";
+export * from "./core.js";
+export * from "./ai.js";
+export * from "./database.js";
+export * from "./errors.js";
 
-  // Template and features
-  template?: TemplateType;
-  features?: FeatureType[];
+// CLI types (separate to avoid conflicts)
+export type {
+  CLIOptions,
+  CreateOptions,
+  DevOptions,
+  BuildOptions as CLIBuildOptions,
+  GenerateOptions,
+  CommandResult,
+  CLIContext,
+  Logger as CLILogger,
+  Spinner,
+} from "./cli.js";
 
-  // Core system configurations
-  database?: DatabaseConfig;
-  ai?: AIConfig;
-  development?: DevelopmentConfig;
-  build?: BuildConfig;
-  deployment?: DeploymentConfig;
+// Template types
+export type {
+  TemplateDefinition,
+  ProjectStructure,
+  FileStructure,
+  DirectoryStructure,
+  TemplateDependencies,
+  PackageDependency,
+  PythonDependency,
+  TemplatePrompt,
+  PromptChoice,
+  TemplateContext,
+} from "./templates.js";
 
-  // Plugin system
-  plugins?: PluginConfig[];
-}
+// Plugin types
+export type {
+  PluginDefinition,
+  PluginConfigSchema,
+  ConfigPropertySchema,
+  PluginContext,
+  PluginHooks,
+  PluginDependency,
+  Logger as PluginLogger,
+  ServiceRegistry,
+} from "./plugins.js";
 
-export type TemplateType =
-  | "basic"
-  | "ai-chat"
-  | "ai-dashboard"
-  | "ecommerce"
-  | "cms"
-  | "api-only";
+// Build types
+export type {
+  BuildConfig as CoreBuildConfig,
+  BuildResult,
+  BuildArtifact,
+  BuildError as CoreBuildError,
+  BuildWarning,
+  BundleAnalysis,
+  ChunkInfo,
+  AssetInfo,
+  ModuleInfo,
+  DependencyInfo,
+} from "./build.js";
 
-export type FeatureType =
-  | "auth"
-  | "ai"
-  | "realtime"
-  | "payments"
-  | "email"
-  | "storage"
-  | "search"
-  | "analytics";
-
-export interface DatabaseConfig {
-  type: "mongodb" | "postgresql" | "mysql" | "sqlite";
-  url: string;
-  options?: Record<string, any>;
-}
-
-export interface AIConfig {
-  providers: {
-    ollama?: OllamaConfig;
-    openai?: OpenAIConfig;
-    huggingface?: HuggingFaceConfig;
-  };
-  routing: {
-    development?: string;
-    staging?: string;
-    production?: string;
-  };
-  features: {
-    streaming?: boolean;
-    caching?: boolean;
-    rateLimiting?: boolean;
-    fallback?: boolean;
-  };
-}
-
-export interface OllamaConfig {
-  enabled: boolean;
-  url?: string;
-  models: string[];
-  defaultModel: string;
-  autoStart?: boolean;
-  autoPull?: string[];
-  gpu?: boolean;
-}
-
-export interface OpenAIConfig {
-  enabled: boolean;
-  apiKey?: string;
-  models: string[];
-  defaultModel: string;
-  rateLimiting?: {
-    requestsPerMinute?: number;
-    tokensPerMinute?: number;
-  };
-}
-
-export interface HuggingFaceConfig {
-  enabled: boolean;
-  token?: string;
-  models: string[];
-  device?: "auto" | "cpu" | "cuda";
-}
-
-export interface DevelopmentConfig {
-  ports: {
-    frontend?: number;
-    backend?: number;
-    proxy?: number;
-    ai?: number;
-  };
-  hotReload?: {
-    enabled?: boolean;
-    typeGeneration?: boolean;
-    aiModels?: boolean;
-  };
-  ssl?: boolean;
-}
-
-export interface BuildConfig {
-  target?: string;
-  sourcemap?: boolean;
-  minify?: boolean;
-  splitting?: boolean;
-  outDir?: string;
-}
-
-export interface DeploymentConfig {
-  platform: "vercel" | "netlify" | "aws" | "gcp" | "docker";
-  regions?: string[];
-  environment?: Record<string, string>;
-}
-
-export type PluginConfig = string | [string, Record<string, any>];
-
-// Configuration utility function
-export function defineConfig(config: FarmConfig): FarmConfig {
-  return config;
-}
-
-// CLI command option types
-export interface CLIOptions {
-  config?: string;
-  verbose?: boolean;
-  silent?: boolean;
-  color?: boolean;
-}
-
-export interface CreateCommandOptions {
-  template?: TemplateType;
-  features?: string;
-  database?: string;
-  typescript?: boolean;
-  docker?: boolean;
-  testing?: boolean;
-  git?: boolean;
-  install?: boolean;
-  interactive?: boolean;
-}
-
-export interface DevCommandOptions {
-  port?: string;
-  frontendOnly?: boolean;
-  backendOnly?: boolean;
-  verbose?: boolean;
-}
-
-export interface GenerateCommandOptions {
-  fields?: string;
-  methods?: string;
-  crud?: boolean;
-}
-
-export interface BuildCommandOptions {
-  production?: boolean;
-  analyze?: boolean;
-}
-
-// Error types
-export type ErrorCode =
-  | "CLI_ERROR"
-  | "CONFIG_ERROR"
-  | "VALIDATION_ERROR"
-  | "FILESYSTEM_ERROR"
-  | "NETWORK_ERROR"
-  | "COMPATIBILITY_ERROR"
-  | "VERSION_ERROR"
-  | "TEMPLATE_ERROR"
-  | "GENERATION_ERROR"
-  | "BUILD_ERROR";
+// Re-export main config type
+export type { FarmConfig } from "./config.js";

@@ -9,7 +9,7 @@ import {
   SchemaExtractionOptions,
 } from "../schema/extractor";
 import { SchemaWatcher, SchemaWatcherOptions } from "../schema/watcher";
-import { getErrorMessage } from "@farm/cli";
+import { getErrorMessage } from "../utils/error-utils";
 
 interface CLIOptions {
   projectRoot?: string;

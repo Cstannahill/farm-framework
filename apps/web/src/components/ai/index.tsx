@@ -469,13 +469,6 @@ export function AIInferenceStatus({
 // Export all components
 // =============================================================================
 
-export {
-  StreamingChatWindow,
-  AIModelSelector,
-  AIHealthDashboard,
-  AIInferenceStatus,
-};
-
 // Default export for convenience
 export default {
   StreamingChatWindow,

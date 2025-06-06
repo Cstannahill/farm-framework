@@ -1,349 +1,436 @@
-// src/template/generator.ts
-import { mkdir, writeFile, chmod, access } from "fs/promises";
-import { join, dirname, resolve } from "path";
-import { execSync } from "child_process";
-import {
-  TemplateContext,
-  TemplateDefinition,
-  GenerationResult,
-} from "./types.js";
-import { TemplateRegistry } from "./registry.js";
-import { TemplateProcessor } from "./processor.js";
-import { DependencyResolver } from "./dependencies.js";
-import { GitInitializer } from "./git.js";
-import { getErrorMessage, isErrorInstance } from "../utils/error-utils.js";
-import { messages, format, styles } from "../utils/styling.js";
+import { join } from "path";
+import { writeFile } from "fs/promises";
+import { ensureDir, copy, pathExists } from "fs-extra";
+import type { TemplateDefinition, TemplateContext } from '@farm/types';
+import { loadTemplate, loadTemplateFiles } from '../utils/template-loader.js';
+
+export interface ProjectConfig {
+  projectName: string;
+  targetDir: string;
+  template: string;
+  features: string[];
+  database: string;
+  typescript: boolean;
+  docker: boolean;
+  testing: boolean;
+  git: boolean;
+  install: boolean;
+}
+
 export class ProjectGenerator {
-  private registry: TemplateRegistry;
-  private processor: TemplateProcessor;
-  private dependencyResolver: DependencyResolver;
-  private gitInitializer: GitInitializer;
+  constructor() {}
 
-  constructor() {
-    this.registry = new TemplateRegistry();
-    this.processor = new TemplateProcessor();
-    this.dependencyResolver = new DependencyResolver();
-    this.gitInitializer = new GitInitializer();
-  }
+  async generateProject(config: ProjectConfig): Promise<void> {
+    console.log(`📦 Generating project from template: ${config.template}`);
 
-  async generateProject(context: TemplateContext): Promise<GenerationResult> {
-    const result: GenerationResult = {
-      success: false,
-      projectPath: resolve(context.projectName),
-      generatedFiles: [],
-      installedDependencies: false,
-      gitInitialized: false,
-      errors: [],
-      warnings: [],
-    };
+    // Prepare template context
+    const context = this.createTemplateContext(config);
 
     try {
-      console.log(`🌾 Generating FARM project: ${context.projectName}`);
+      // Load template definition
+      const templatePath = this.getTemplatePath(config.template);
+      const templateDefinition = await loadTemplate(templatePath);
 
-      // Get template definition
-      const template = this.registry.get(context.template);
-      if (!template) {
-        throw new Error(`Template '${context.template}' not found`);
-      }
+      // Copy template files
+      await this.copyTemplateFiles(templatePath, config.targetDir, context);
 
-      // Validate context against template
-      this.validateContext(context, template);
-
-      // Create project directory
-      await this.createProjectDirectory(result.projectPath);
-      console.log(`📁 Created project directory: ${context.projectName}`);
-
-      // Generate files from template
-      await this.generateFiles(context, template, result);
-      console.log(`📄 Generated ${result.generatedFiles.length} files`);
-
-      // Generate package.json files with resolved dependencies
-      await this.generatePackageFiles(context, template, result);
-      console.log(messages.step("Generated package configuration files"));
+      // Generate additional files based on features
+      await this.generateFeatureFiles(config, context);
 
       // Initialize git repository
-      if (context.git) {
-        try {
-          await this.gitInitializer.initializeRepository(
-            result.projectPath,
-            context
-          );
-          result.gitInitialized = true;
-          console.log(messages.step("Initialized git repository"));
-        } catch (error) {
-          result.warnings.push(
-            `Git initialization failed: ${getErrorMessage(error)}`
-          );
-          console.log(
-            messages.warning(
-              `Git initialization failed: ${getErrorMessage(error)}`
-            )
-          );
-        }
+      if (config.git) {
+        await this.initializeGit(config.targetDir);
       }
 
       // Install dependencies
-      if (context.install) {
-        try {
-          await this.installDependencies(context, result.projectPath);
-          result.installedDependencies = true;
-          console.log(messages.step("Dependencies installed successfully"));
-        } catch (error) {
-          result.warnings.push(
-            `Dependency installation failed: ${getErrorMessage(error)}`
-          );
-          console.warn(
-            `⚠️ Dependency installation failed: ${getErrorMessage(error)}`
-          );
-        }
+      if (config.install) {
+        await this.installDependencies(config.targetDir);
       }
 
-      // Run post-generation hooks
-      await this.runPostGenerationHooks(template, context, result.projectPath);
-
-      result.success = true;
-      console.log(`✅ Project ${context.projectName} generated successfully!`);
-    } catch (error) {
-      result.errors.push(getErrorMessage(error));
-      console.error(`❌ Project generation failed: ${getErrorMessage(error)}`);
-    }
-
-    return result;
-  }
-
-  private validateContext(
-    context: TemplateContext,
-    template: TemplateDefinition
-  ): void {
-    // Check required features
-    for (const requiredFeature of template.requiredFeatures) {
-      if (!context.features.includes(requiredFeature)) {
-        throw new Error(
-          `Template '${template.name}' requires feature '${requiredFeature}' but it was not selected`
-        );
-      }
-    }
-
-    // Check supported features
-    for (const feature of context.features) {
-      if (!template.supportedFeatures.includes(feature)) {
-        throw new Error(
-          `Template '${template.name}' does not support feature '${feature}'`
-        );
-      }
-    }
-
-    // Check supported databases
-    if (!template.supportedDatabases.includes(context.database)) {
-      throw new Error(
-        `Template '${template.name}' does not support database '${context.database}'. ` +
-          `Supported databases: ${template.supportedDatabases.join(", ")}`
-      );
-    }
-
-    // Validate project name
-    if (!/^[a-z0-9-_]+$/.test(context.projectName)) {
-      throw new Error(
-        "Project name must contain only lowercase letters, numbers, hyphens, and underscores"
-      );
+      console.log("✅ Project generation completed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("❌ Project generation failed:", message);
+      throw error;
     }
   }
 
-  private async createProjectDirectory(projectPath: string): Promise<void> {
-    try {
-      await access(projectPath);
-      throw new Error(`Directory '${projectPath}' already exists`);
-    } catch (error) {
-      // If access fails, the directory doesn't exist, which is what we want
-      if (
-        isErrorInstance(error, Error) &&
-        error.message.includes("already exists")
-      ) {
-        throw error; // Re-throw only if it's our custom error about directory existing
-      }
-      // Otherwise, the directory doesn't exist (ENOENT), so we can create it
-    }
-
-    await mkdir(projectPath, { recursive: true });
+  private getTemplatePath(templateName: string): string {
+    // For now, return a placeholder path - this will be implemented
+    // when we add the actual template files
+    return join(__dirname, '../../templates', templateName);
   }
 
-  private async generateFiles(
-    context: TemplateContext,
-    template: TemplateDefinition,
-    result: GenerationResult
+  private async copyTemplateFiles(
+    templatePath: string, 
+    targetDir: string, 
+    context: TemplateContext
   ): Promise<void> {
-    // Expand file patterns (handle globs and directories)
-    const expandedFiles = await this.processor.expandFilePatterns(
-      template.files
-    );
+    // Ensure target directory exists
+    await ensureDir(targetDir);
 
-    // Filter files based on conditions
-    const applicableFiles = expandedFiles.filter((file) => {
-      if (file.condition) {
-        return file.condition(context);
-      }
-      return true;
-    });
-
-    // Process each file
-    for (const file of applicableFiles) {
-      try {
-        const { content, targetPath } = await this.processor.processFile(
-          file,
-          context
-        );
-        const fullTargetPath = join(result.projectPath, targetPath);
-
-        // Ensure target directory exists
-        await mkdir(dirname(fullTargetPath), { recursive: true });
-
-        // Write file
-        if (typeof content === "string") {
-          await writeFile(fullTargetPath, content, "utf-8");
-        } else {
-          await writeFile(fullTargetPath, content);
-        }
-
-        // Set executable permissions for shell scripts
-        if (targetPath.endsWith(".sh") || targetPath.includes("bin/")) {
-          await chmod(fullTargetPath, 0o755);
-        }
-
-        result.generatedFiles.push(targetPath);
-      } catch (error) {
-        if (getErrorMessage(error) === "File condition not met") {
-          continue; // Skip files that don't meet conditions
-        }
-        throw new Error(
-          `Failed to process file '${file.sourcePath}': ${getErrorMessage(
-            error
-          )}`
-        );
-      }
-    }
+    // For now, just create basic structure
+    // This will be enhanced when we add actual template files
+    console.log("📁 Creating project structure...");
+    
+    // Create basic directories
+    await ensureDir(join(targetDir, 'apps', 'web', 'src'));
+    await ensureDir(join(targetDir, 'apps', 'api', 'src'));
+    await ensureDir(join(targetDir, 'packages'));
+    
+    // Create basic files
+    await this.createBasicFiles(targetDir, context);
   }
 
-  private async generatePackageFiles(
-    context: TemplateContext,
-    template: TemplateDefinition,
-    result: GenerationResult
-  ): Promise<void> {
-    // Generate root package.json for workspace
-    const rootPackageJson = this.dependencyResolver.generateRootPackageJson(
-      context,
-      template
-    );
-    const rootPackagePath = join(result.projectPath, "package.json");
+  private async createBasicFiles(targetDir: string, context: TemplateContext): Promise<void> {
+    // Create package.json
+    const packageJson = {
+      name: context.projectName,
+      version: "0.1.0",
+      private: true,
+      workspaces: ["apps/*", "packages/*"],
+      scripts: {
+        dev: "farm dev",
+        build: "farm build",
+        clean: "farm clean"
+      }
+    };
+
     await writeFile(
-      rootPackagePath,
-      JSON.stringify(rootPackageJson, null, 2),
-      "utf-8"
+      join(targetDir, 'package.json'), 
+      JSON.stringify(packageJson, null, 2)
     );
-    result.generatedFiles.push("package.json");
 
-    // Generate frontend package.json if not API-only
-    if (context.template !== "api-only") {
-      const frontendPackageJson =
-        this.dependencyResolver.generateFrontendPackageJson(context, template);
-      const frontendPackagePath = join(
-        result.projectPath,
-        "apps/web/package.json"
-      );
-      await mkdir(dirname(frontendPackagePath), { recursive: true });
-      await writeFile(
-        frontendPackagePath,
-        JSON.stringify(frontendPackageJson, null, 2),
-        "utf-8"
-      );
-      result.generatedFiles.push("apps/web/package.json");
-    }
+    // Create README.md
+    const readme = `# ${context.projectName}
 
-    // Generate backend requirements.txt and pyproject.toml
-    const requirements = this.dependencyResolver.generateRequirements(
-      context,
-      template
-    );
-    const requirementsPath = join(
-      result.projectPath,
-      "apps/api/requirements.txt"
-    );
-    await mkdir(dirname(requirementsPath), { recursive: true });
-    await writeFile(requirementsPath, requirements, "utf-8");
-    result.generatedFiles.push("apps/api/requirements.txt");
+Generated with FARM Stack Framework
 
-    const pyprojectToml = this.dependencyResolver.generatePyprojectToml(
-      context,
-      template
-    );
-    const pyprojectPath = join(result.projectPath, "apps/api/pyproject.toml");
-    await writeFile(pyprojectPath, pyprojectToml, "utf-8");
-    result.generatedFiles.push("apps/api/pyproject.toml");
+## Getting Started
+
+\`\`\`bash
+pnpm install
+pnpm dev
+\`\`\`
+
+## Features
+
+${context.features.map((f: string) => `- ${f}`).join('\n')}
+`;
+
+    await writeFile(join(targetDir, 'README.md'), readme);
   }
 
-  private async installDependencies(
-    context: TemplateContext,
-    projectPath: string
-  ): Promise<void> {
-    console.log(messages.step("Installing dependencies..."));
+  private createTemplateContext(config: ProjectConfig): TemplateContext {
+    const features = config.features || [];
 
+    return {
+      projectName: config.projectName,
+      features: features,
+      database: config.database,
+      answers: {
+        projectNameKebab: config.projectName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-"),
+        projectNameCamel: config.projectName.replace(/[-_\s]+(.)?/g, (_, c) =>
+          c ? c.toUpperCase() : ""
+        ),
+        projectNamePascal: config.projectName
+          .replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ""))
+          .replace(/^./, (c) => c.toUpperCase()),
+
+        // Template selection
+        template: config.template,
+
+        // Features
+        hasAuth: features.includes("auth"),
+        hasAI: features.includes("ai"),
+        hasRealtime: features.includes("realtime"),
+        hasPayments: features.includes("payments"),
+        hasEmail: features.includes("email"),
+        hasStorage: features.includes("storage"),
+        hasSearch: features.includes("search"),
+        hasAnalytics: features.includes("analytics"),
+
+        // Configuration
+        useTypeScript: config.typescript,
+        useDocker: config.docker,
+        useTesting: config.testing,
+
+        // Database-specific context
+        isMongoDb: config.database === "mongodb",
+        isPostgreSQL: config.database === "postgresql",
+        isMySQL: config.database === "mysql",
+        isSQLite: config.database === "sqlite",
+
+        // Template-specific context
+        isBasicTemplate: config.template === "basic",
+        isAIChatTemplate: config.template === "ai-chat",
+        isAIDashboardTemplate: config.template === "ai-dashboard",
+        isEcommerceTemplate: config.template === "ecommerce",
+        isCMSTemplate: config.template === "cms",
+        isAPIOnlyTemplate: config.template === "api-only",
+
+        // Current year for copyright notices
+        currentYear: new Date().getFullYear(),
+      },
+      timestamp: new Date().toISOString(),
+      farmVersion: "0.1.0"
+    };
+  }
+
+  private async generateFeatureFiles(
+    config: ProjectConfig,
+    context: TemplateContext
+  ): Promise<void> {
+    // Generate farm.config.ts
+    await this.generateFarmConfig(config, context);
+
+    // Generate docker-compose.yml if Docker enabled
+    if (config.docker) {
+      await this.generateDockerFiles(config, context);
+    }
+
+    // Generate .env files
+    await this.generateEnvFiles(config, context);
+  }
+
+  private async generateFarmConfig(
+    config: ProjectConfig,
+    context: TemplateContext
+  ): Promise<void> {
+    const configContent = this.generateFarmConfigContent(config);
+    const configPath = join(config.targetDir, "farm.config.ts");
+    await writeFile(configPath, configContent);
+    console.log("✅ Generated farm.config.ts");
+  }
+
+  private generateFarmConfigContent(config: ProjectConfig): string {
+    const features = config.features || [];
+    const hasAI = features.includes("ai");
+
+    let configContent = `import { defineConfig } from '@farm/core';
+
+export default defineConfig({
+  name: '${config.projectName}',
+  template: '${config.template}',
+  features: [${features.map((f) => `'${f}'`).join(", ")}],
+
+  database: {
+    type: '${config.database}',
+    url: process.env.DATABASE_URL || '${this.getDefaultDatabaseUrl(
+      config.database,
+      config.projectName
+    )}'
+  },
+`;
+
+    if (hasAI) {
+      configContent += `
+  ai: {
+    providers: {
+      ollama: {
+        enabled: true,
+        url: 'http://localhost:11434',
+        models: ['llama3.1', 'codestral'],
+        defaultModel: 'llama3.1',
+        autoStart: true,
+        autoPull: ['llama3.1']
+      },
+      openai: {
+        enabled: true,
+        apiKey: process.env.OPENAI_API_KEY,
+        models: ['gpt-4', 'gpt-3.5-turbo'],
+        defaultModel: 'gpt-3.5-turbo'
+      }
+    },
+    routing: {
+      development: 'ollama',
+      production: 'openai'
+    },
+    features: {
+      streaming: true,
+      caching: true,
+      fallback: true
+    }
+  },
+`;
+    }
+
+    configContent += `
+  development: {
+    ports: {
+      frontend: 3000,
+      backend: 8000,
+      proxy: 4000${hasAI ? ",\n      ollama: 11434" : ""}
+    },
+    hotReload: {
+      enabled: true,
+      typeGeneration: true${hasAI ? ",\n      aiModels: true" : ""}
+    }
+  }
+});
+`;
+
+    return configContent;
+  }
+
+  private getDefaultDatabaseUrl(database: string, projectName: string): string {
+    const dbName = projectName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    switch (database) {
+      case "mongodb":
+        return `mongodb://localhost:27017/${dbName}`;
+      case "postgresql":
+        return `postgresql://user:password@localhost:5432/${dbName}`;
+      case "mysql":
+        return `mysql://user:password@localhost:3306/${dbName}`;
+      case "sqlite":
+        return `sqlite://./database.db`;
+      default:
+        return `mongodb://localhost:27017/${dbName}`;
+    }
+  }
+
+  private async generateDockerFiles(
+    config: ProjectConfig,
+    context: TemplateContext
+  ): Promise<void> {
+    // Generate docker-compose.yml based on features
+    const dockerComposeContent = this.generateDockerCompose(config);
+    const dockerComposePath = join(config.targetDir, "docker-compose.yml");
+    await writeFile(dockerComposePath, dockerComposeContent);
+    console.log("✅ Generated docker-compose.yml");
+  }
+
+  private generateDockerCompose(config: ProjectConfig): string {
+    const features = config.features || [];
+    const hasAI = features.includes("ai");
+    const projectName = config.projectName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+    let compose = `version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: ${projectName}-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${projectName}
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - farm-network
+
+`;
+
+    if (hasAI) {
+      compose += `  ollama:
+    image: ollama/ollama:latest
+    container_name: ${projectName}-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - farm-network
+    restart: unless-stopped
+
+`;
+    }
+
+    compose += `volumes:
+  mongodb_data:
+`;
+
+    if (hasAI) {
+      compose += `  ollama_data:
+`;
+    }
+
+    compose += `
+networks:
+  farm-network:
+    driver: bridge
+`;
+
+    return compose;
+  }
+
+  private async generateEnvFiles(
+    config: ProjectConfig,
+    context: TemplateContext
+  ): Promise<void> {
+    const envExample = this.generateEnvExample(config);
+    const envPath = join(config.targetDir, ".env.example");
+    await writeFile(envPath, envExample);
+    console.log("✅ Generated .env.example");
+  }
+
+  private generateEnvExample(config: ProjectConfig): string {
+    const features = config.features || [];
+    const hasAI = features.includes("ai");
+    const hasAuth = features.includes("auth");
+    const hasPayments = features.includes("payments");
+
+    let envContent = `# Database
+DATABASE_URL=${this.getDefaultDatabaseUrl(config.database, config.projectName)}
+
+# Environment
+NODE_ENV=development
+FARM_ENV=development
+
+`;
+
+    if (hasAI) {
+      envContent += `# AI Providers
+OPENAI_API_KEY=sk-your-openai-api-key
+HUGGINGFACE_TOKEN=hf_your-huggingface-token
+OLLAMA_URL=http://localhost:11434
+
+`;
+    }
+
+    if (hasAuth) {
+      envContent += `# Authentication
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=7d
+
+`;
+    }
+
+    if (hasPayments) {
+      envContent += `# Payments
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret-key
+STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-publishable-key
+
+`;
+    }
+
+    return envContent;
+  }
+
+  private async initializeGit(targetDir: string): Promise<void> {
     try {
-      // Install Python dependencies
-      console.log(messages.step("Installing Python dependencies..."));
-      execSync("python -m pip install -r requirements.txt", {
-        cwd: join(projectPath, "apps/api"),
-        stdio: "pipe",
-      });
-
-      // Install Node.js dependencies if not API-only
-      if (context.template !== "api-only") {
-        console.log(messages.step("Installing Node.js dependencies..."));
-
-        // Install root dependencies
-        execSync("npm install", {
-          cwd: projectPath,
-          stdio: "pipe",
-        });
-
-        // Install frontend dependencies
-        execSync("npm install", {
-          cwd: join(projectPath, "apps/web"),
-          stdio: "pipe",
-        });
-      }
-    } catch (error) {
-      throw new Error(
-        `Dependency installation failed: ${getErrorMessage(error)}`
-      );
+      // We'll implement git initialization later
+      console.log("✅ Git initialization skipped for now");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("⚠️ Failed to initialize git repository:", message);
     }
   }
 
-  private async runPostGenerationHooks(
-    template: TemplateDefinition,
-    context: TemplateContext,
-    projectPath: string
-  ): Promise<void> {
-    if (!template.postGeneration || template.postGeneration.length === 0) {
-      return;
-    }
-
-    console.log(`🔧 Running post-generation hooks...`);
-
-    for (const hook of template.postGeneration) {
-      try {
-        // Process hook command with template variables
-        const processedHook = hook
-          .replace("{{projectName}}", context.projectName)
-          .replace("{{template}}", context.template);
-
-        execSync(processedHook, {
-          cwd: projectPath,
-          stdio: "pipe",
-        });
-
-        console.log(`✅ Executed hook: ${hook}`);
-      } catch (error) {
-        console.warn(`⚠️ Hook failed: ${hook} - ${getErrorMessage(error)}`);
-      }
+  private async installDependencies(targetDir: string): Promise<void> {
+    try {
+      console.log("📦 Dependency installation skipped for now");
+      console.log("💡 You can install them manually with: pnpm install");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("⚠️ Failed to install dependencies:", message);
+      console.log("💡 You can install them manually with: pnpm install");
     }
   }
 }

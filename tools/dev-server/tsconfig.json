@@ -12,6 +12,10 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "../testing/docker-integration.test.ts",
+    "../testing/template-docker.test.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }
