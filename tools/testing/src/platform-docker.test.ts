@@ -1,4 +1,6 @@
 // tools/testing/src/platform-docker.test.ts
+import { describe, it } from "vitest";
+
 describe("Cross-Platform Docker Support", () => {
   describe("Windows", () => {
     it("should handle Windows Docker Desktop", async () => {

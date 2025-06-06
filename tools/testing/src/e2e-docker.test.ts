@@ -1,4 +1,14 @@
 // tools/testing/src/e2e-docker.test.ts
+import { spawn } from "child_process";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import path from "path";
+import { promisify } from "util";
+import fetch from "node-fetch";
+import { describe, it, expect } from "vitest";
+
+const exec = promisify(require("child_process").exec);
+
 describe("End-to-End Docker Development Workflow", () => {
   it("should complete full development cycle with Docker", async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), "farm-e2e-"));
