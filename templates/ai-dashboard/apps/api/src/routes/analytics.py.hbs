@@ -1,0 +1,12 @@
+from fastapi import APIRouter
+from ..models.metric import Metric
+
+router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+@router.get("/", response_model=list[Metric])
+async def list_metrics():
+    """Return a list of metrics for the dashboard."""
+    return [
+        Metric(name="Users", value=120),
+        Metric(name="Sessions", value=340),
+    ]

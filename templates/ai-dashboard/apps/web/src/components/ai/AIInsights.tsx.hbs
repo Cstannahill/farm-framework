@@ -1,0 +1,14 @@
+import React from 'react';
+
+export default function AIInsights({ insights }: { insights: string[] }) {
+  return (
+    <div className="bg-white shadow rounded p-4">
+      <h3 className="text-lg font-semibold mb-2">AI Insights</h3>
+      <ul className="list-disc list-inside space-y-1">
+        {insights.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}

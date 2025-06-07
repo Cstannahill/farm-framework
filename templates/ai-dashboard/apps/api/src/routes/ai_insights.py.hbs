@@ -1,0 +1,12 @@
+from fastapi import APIRouter
+from ..models.insight import Insight
+
+router = APIRouter(prefix="/ai-insights", tags=["ai"])
+
+@router.get("/", response_model=list[Insight])
+async def get_insights():
+    """Return AI generated insights."""
+    return [
+        Insight(title="Trend", detail="Sales are increasing"),
+        Insight(title="Warning", detail="Churn rate rising"),
+    ]

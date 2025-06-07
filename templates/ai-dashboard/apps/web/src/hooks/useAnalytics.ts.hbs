@@ -1,0 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
+
+export function useAnalytics() {
+  return useQuery({
+    queryKey: ['analytics'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics');
+      if (!res.ok) throw new Error('Failed to load analytics');
+      return res.json();
+    },
+  });
+}

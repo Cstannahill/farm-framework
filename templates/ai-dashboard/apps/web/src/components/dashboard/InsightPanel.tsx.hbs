@@ -1,0 +1,21 @@
+import React from 'react';
+
+interface Insight {
+  title: string;
+  detail: string;
+}
+
+export default function InsightPanel({ insights }: { insights: Insight[] }) {
+  return (
+    <div className="bg-white shadow rounded p-4">
+      <h3 className="text-lg font-semibold mb-2">Insights</h3>
+      <ul className="space-y-2">
+        {insights?.map((insight) => (
+          <li key={insight.title} className="text-sm text-gray-700">
+            <strong>{insight.title}:</strong> {insight.detail}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

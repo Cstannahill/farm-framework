@@ -1,0 +1,21 @@
+import React from 'react';
+
+interface Perf {
+  model: string;
+  score: number;
+}
+
+export default function ModelPerformance({ data }: { data: Perf[] }) {
+  return (
+    <div className="bg-white shadow rounded p-4">
+      <h3 className="text-lg font-semibold mb-2">Model Performance</h3>
+      <ul className="space-y-1">
+        {data.map(p => (
+          <li key={p.model} className="text-sm text-gray-700">
+            {p.model}: {p.score}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
