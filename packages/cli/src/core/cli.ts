@@ -4,26 +4,24 @@ import chalk from "chalk";
 import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
 import { styles, icons, messages } from "../utils/styling.js";
 import { createProject } from "../commands/create.js";
 import { getErrorMessage } from "../utils/error-handling.js";
 
-// Handle __dirname for both CommonJS and ESM
-const __dirname = process.cwd();
+// Resolve __dirname based on module URL for both CJS and ESM
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Get package.json information
  */
 export function getPackageInfo() {
-  // Try multiple possible package.json locations
+  // Possible locations of package.json relative to this file
   const possiblePaths = [
-    // When running from built CLI in monorepo context
-    join(process.cwd(), "packages", "cli", "package.json"),
-    // When running built CLI from its own directory
-    join(__dirname, "..", "package.json"),
-    // When running from source
+    // dist/core or src/core
     join(__dirname, "..", "..", "package.json"),
-    // Fallback: relative to current file location
+    // when executed from package root
+    join(__dirname, "..", "package.json"),
     join(__dirname, "package.json"),
   ];
 

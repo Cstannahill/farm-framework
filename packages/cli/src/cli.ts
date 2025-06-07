@@ -2,14 +2,15 @@
 import { Command } from "commander";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { createCreateCommand } from "./commands/create.js";
 import { createDevCommand } from "./commands/dev.js";
 import { createBuildCommand } from "./commands/build.js";
 import { createGenerateCommand } from "./commands/generate.js";
 import { createValidateCommands } from "./commands/validate";
-const __dirname = process.cwd();
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
-  readFileSync(join(__dirname, "packages/cli/package.json"), "utf-8")
+  readFileSync(join(__dirname, "..", "package.json"), "utf-8")
 );
 
 export function createCLI(): Command {
