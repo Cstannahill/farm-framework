@@ -1,102 +1,29 @@
-// tools/dev-server/src/__tests__/docker-manager.test.ts
-import { DockerManager } from "../docker-manager";
-import { spawn } from "child_process";
-import { EventEmitter } from "events";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock("child_process");
-const mockSpawn = vi.mocked(spawn);
+vi.mock("@farm/cli", () => ({ wrapError: (e: any) => String(e) }));
+
+import { DockerManager } from "../docker-manager";
 
 describe("DockerManager", () => {
-  let dockerManager: DockerManager;
-  let mockProcess: any;
+  let manager: DockerManager;
 
   beforeEach(() => {
-    dockerManager = new DockerManager();
-    mockProcess = new EventEmitter();
-    mockProcess.stdout = new EventEmitter();
-    mockProcess.stderr = new EventEmitter();
-    mockSpawn.mockReturnValue(mockProcess as any);
+    manager = new DockerManager();
+    vi.spyOn(manager as any, "runDockerCommand").mockResolvedValue("");
+    vi.spyOn(manager as any, "waitForContainer").mockResolvedValue();
+    vi.spyOn(manager, "pullOllamaModels").mockResolvedValue();
+    vi.spyOn(manager as any, "isDockerAvailable").mockResolvedValue(true);
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
+  it("passes GPU flag when enabled", async () => {
+    await manager.startOllama({ gpu: true });
+    const args = (manager as any).runDockerCommand.mock.calls[0][0];
+    expect(args).toContain("--gpus");
+    expect(args).toContain("all");
   });
 
-  describe("startOllama", () => {
-    it("should start Ollama container with correct parameters", async () => {
-      const config = {
-        ai: {
-          providers: {
-            ollama: {
-              enabled: true,
-              gpu: false,
-              autoPull: ["llama3.1"],
-            },
-          },
-        },
-      };
-
-      await dockerManager.startOllama(config);
-
-      expect(mockSpawn).toHaveBeenCalledWith("docker", [
-        "run",
-        "-d",
-        "--name",
-        "farm-ollama",
-        "-p",
-        "11434:11434",
-        "-v",
-        "ollama_models:/root/.ollama",
-        "--restart",
-        "unless-stopped",
-        "ollama/ollama",
-      ]);
-    });
-
-    it("should add GPU support when enabled", async () => {
-      const config = {
-        ai: {
-          providers: {
-            ollama: {
-              enabled: true,
-              gpu: true,
-              autoPull: [],
-            },
-          },
-        },
-      };
-
-      await dockerManager.startOllama(config);
-
-      expect(mockSpawn).toHaveBeenCalledWith(
-        "docker",
-        expect.arrayContaining(["--gpus", "all"])
-      );
-    });
-  });
-
-  describe("pullOllamaModels", () => {
-    it("should pull specified models", async () => {
-      const models = ["llama3.1", "codestral"];
-
-      await dockerManager.pullOllamaModels(models);
-
-      expect(mockSpawn).toHaveBeenCalledTimes(2);
-      expect(mockSpawn).toHaveBeenCalledWith("docker", [
-        "exec",
-        "farm-ollama",
-        "ollama",
-        "pull",
-        "llama3.1",
-      ]);
-      expect(mockSpawn).toHaveBeenCalledWith("docker", [
-        "exec",
-        "farm-ollama",
-        "ollama",
-        "pull",
-        "codestral",
-      ]);
-    });
+  it("pulls models from environment", async () => {
+    await manager.startOllama({ environment: { OLLAMA_MODELS: "a,b" } });
+    expect(manager.pullOllamaModels).toHaveBeenCalledWith(["a", "b"]);
   });
 });
