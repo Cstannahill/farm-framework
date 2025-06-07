@@ -1,0 +1,11 @@
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/data", tags=["data"])
+
+@router.get("/")
+async def get_data(type: str):
+    """Return chart data by type."""
+    return {
+        "type": type,
+        "values": [1, 2, 3, 4]
+    }

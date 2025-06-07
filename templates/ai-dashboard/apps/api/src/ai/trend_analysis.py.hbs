@@ -1,0 +1,9 @@
+"""Simple trend analysis utilities."""
+
+import pandas as pd
+
+async def calculate_trend(df: pd.DataFrame, column: str) -> float:
+    values = df[column].tolist()
+    if len(values) < 2:
+        return 0.0
+    return (values[-1] - values[0]) / max(values[0], 1)

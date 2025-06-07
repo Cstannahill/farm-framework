@@ -1,0 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
+
+export function useChartData(type: string) {
+  return useQuery({
+    queryKey: ['chart', type],
+    queryFn: async () => {
+      const res = await fetch(`/api/data?type=${type}`);
+      if (!res.ok) throw new Error('Failed to load chart data');
+      return res.json();
+    },
+  });
+}

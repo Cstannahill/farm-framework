@@ -1,0 +1,11 @@
+"""Generate textual insights from metrics."""
+
+from .analytics import compute_metrics
+import pandas as pd
+
+async def generate_insights(df: pd.DataFrame) -> list[dict]:
+    metrics = await compute_metrics(df)
+    insights = []
+    if metrics["Users"] > 100:
+        insights.append({"title": "Growth", "detail": "User base is growing"})
+    return insights

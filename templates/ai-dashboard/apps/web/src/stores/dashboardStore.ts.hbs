@@ -1,0 +1,11 @@
+import { create } from 'zustand';
+
+interface DashboardState {
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
+}
+
+export const useDashboardStore = create<DashboardState>(set => ({
+  selectedModel: '',
+  setSelectedModel: model => set({ selectedModel: model }),
+}));

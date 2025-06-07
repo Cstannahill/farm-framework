@@ -1,0 +1,9 @@
+"""Utility functions for analytics calculations."""
+
+import pandas as pd
+
+async def compute_metrics(df: pd.DataFrame) -> dict:
+    return {
+        "Users": int(df['user_id'].nunique()),
+        "Sessions": int(df['session_id'].nunique()),
+    }

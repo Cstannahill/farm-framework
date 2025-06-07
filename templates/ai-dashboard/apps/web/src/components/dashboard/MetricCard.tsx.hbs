@@ -1,0 +1,15 @@
+import React from 'react';
+
+interface MetricCardProps {
+  title: string;
+  value: number | string;
+}
+
+export default function MetricCard({ title, value }: MetricCardProps) {
+  return (
+    <div className="bg-white shadow rounded p-4">
+      <h3 className="text-sm text-gray-500">{title}</h3>
+      <p className="text-2xl font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}

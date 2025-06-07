@@ -1,0 +1,9 @@
+from fastapi import APIRouter
+from ..models.dataset import Dataset
+
+router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+@router.get("/data", response_model=Dataset)
+async def dashboard_data():
+    """Return demo dashboard dataset."""
+    return Dataset(name="demo", records=1000)

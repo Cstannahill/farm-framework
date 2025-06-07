@@ -1,0 +1,19 @@
+# {{projectName}}
+
+{{description}}
+
+This project is generated with the **FARM Stack Framework** using the `ai-dashboard` template. It includes a FastAPI backend that exposes analytics and AI insight endpoints and a React + Vite frontend displaying interactive dashboards.
+
+## Development
+
+```bash
+# Start frontend
+cd apps/web && npm install && npm run dev
+
+# Start backend
+cd ../api && pip install -r requirements.txt && uvicorn src.main:app --reload
+```
+
+## Environment Variables
+
+Create a `.env` file based on `.env.example` to configure database and AI providers.

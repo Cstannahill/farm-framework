@@ -1,0 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
+
+export function useMLModels() {
+  return useQuery({
+    queryKey: ['ml-models'],
+    queryFn: async () => {
+      const res = await fetch('/api/models');
+      if (!res.ok) throw new Error('Failed to load models');
+      return res.json();
+    },
+  });
+}
