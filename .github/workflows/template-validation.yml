@@ -1,0 +1,111 @@
+# .github/workflows/template-validation.yml
+name: Template Validation
+
+on:
+  push:
+    paths:
+      - "templates/**"
+      - "tools/template-validator/**"
+  pull_request:
+    paths:
+      - "templates/**"
+      - "tools/template-validator/**"
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6 AM
+
+jobs:
+  validate-templates:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+        options: >-
+          --health-cmd "curl -f http://localhost:11434/api/tags || exit 1"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        template: ["basic", "ai-chat", "ai-dashboard"]
+        node-version: [18, 20]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: |
+          pnpm install
+          pip install -r tools/template-validator/requirements.txt
+
+      - name: Setup Ollama models
+        run: |
+          # Wait for Ollama to be ready
+          timeout 300 bash -c 'until curl -f http://localhost:11434/api/tags; do sleep 5; done'
+
+          # Pull required models
+          curl -X POST http://localhost:11434/api/pull \
+            -H "Content-Type: application/json" \
+            -d '{"name": "llama3.1:8b"}'
+
+      - name: Build FARM CLI
+        run: |
+          pnpm build
+
+      - name: Validate templates
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node tools/template-validator/dist/cli.js validate \
+            --template ${{ matrix.template }}
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: validation-results-${{ matrix.template }}-node${{ matrix.node-version }}
+          path: .temp-validation/results.json
+
+  performance-benchmarks:
+    runs-on: ubuntu-latest
+    needs: validate-templates
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run performance benchmarks
+        run: |
+          node tools/template-validator/dist/cli.js benchmark \
+            --output benchmarks.json
+
+      - name: Upload benchmarks
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-benchmarks
+          path: benchmarks.json

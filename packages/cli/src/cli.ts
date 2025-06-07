@@ -2,11 +2,11 @@
 import { Command } from "commander";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
-import { createProject } from "./commands/create.js";
+import { createCreateCommand } from "./commands/create.js";
 import { createDevCommand } from "./commands/dev.js";
 import { createBuildCommand } from "./commands/build.js";
 import { createGenerateCommand } from "./commands/generate.js";
-
+import { createValidateCommands } from "./commands/validate";
 const __dirname = process.cwd();
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, "packages/cli/package.json"), "utf-8")
@@ -29,10 +29,11 @@ export function createCLI(): Command {
     .option("--config <path>", "Path to configuration file");
 
   // Add your existing commands
-  program.addCommand(createProject()); // We need to create this
+  program.addCommand(createCreateCommand()); // We need to create this
   program.addCommand(createDevCommand()); // From your dev.ts
   program.addCommand(createBuildCommand()); // We need to update this
   program.addCommand(createGenerateCommand()); // We need to update this
+  program.addCommand(createValidateCommands()); // We need to update this
 
   // Add version command as alias
   program

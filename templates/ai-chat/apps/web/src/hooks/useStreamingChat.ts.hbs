@@ -1,56 +1,170 @@
-import { useState } from 'react';
-import { EventSourceParserStream } from 'eventsource-parser/stream';
+// templates/ai-chat/apps/web/src/hooks/useStreamingChat.ts.hbs
+import { useState, useCallback, useRef } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { chatApi } from '../services/api';
+import type { ChatMessage, StreamingChatOptions } from '../types';
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+interface UseStreamingChatOptions {
+  conversationId?: string;
+  provider?: '{{ai.routing.development}}' | '{{ai.routing.production}}';
+  model?: string;
+  onMessage?: (message: ChatMessage) => void;
+  onError?: (error: string) => void;
 }
 
-interface Options {
-  provider: string;
-  model: string;
-}
+export function useStreamingChat(options: UseStreamingChatOptions = {}) {
+  const {
+    conversationId,
+    provider = '{{ai.routing.development}}',
+    model = '{{ai.ollama.defaultModel}}',
+    onMessage,
+    onError
+  } = options;
 
-export function useStreamingChat(opts: Options) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [currentStreamingMessage, setCurrentStreamingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const queryClient = useQueryClient();
 
-  const sendMessage = async (content: string, extra?: any) => {
-    setMessages((m) => [...m, { role: 'user', content }]);
-    setIsStreaming(true);
+  const sendMessage = useCallback(async (content: string) => {
+    if (isStreaming) return;
+
     setError(null);
-    const res = await fetch('/api/ai/chat/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [...messages, { role: 'user', content }],
-        model: opts.model,
-        provider: opts.provider,
-        ...extra,
-      }),
-    });
-    if (!res.body) {
-      setIsStreaming(false);
-      setError('No response');
-      return;
-    }
-    const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream());
-    let assistant = '';
-    for await (const chunk of reader) {
-      const data = chunk.data && JSON.parse(chunk.data);
-      if (data?.error) {
-        setError(data.error);
-        break;
+    
+    // Add user message immediately
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString(),
+      conversationId
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    onMessage?.(userMessage);
+
+    setIsStreaming(true);
+    setCurrentStreamingMessage('');
+
+    try {
+      // Create EventSource for streaming response
+      const streamUrl = new URL('/api/chat/stream', window.location.origin);
+      streamUrl.searchParams.set('provider', provider);
+      streamUrl.searchParams.set('model', model);
+      if (conversationId) {
+        streamUrl.searchParams.set('conversation_id', conversationId);
       }
-      if (data?.done) break;
-      assistant += data.content;
+
+      eventSourceRef.current = new EventSource(streamUrl.toString());
+      
+      // Send the message via POST request
+      await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          {{#if features.includes 'auth'}}
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          {{/if}}
+        },
+        body: JSON.stringify({
+          message: content,
+          conversation_id: conversationId,
+          provider,
+          model,
+          stream: true
+        })
+      });
+
+      eventSourceRef.current.onmessage = (event) => {
+        if (event.data === '[DONE]') {
+          // Streaming complete
+          const assistantMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: currentStreamingMessage,
+            timestamp: new Date().toISOString(),
+            conversationId,
+            provider,
+            model
+          };
+          
+          setMessages(prev => [...prev, assistantMessage]);
+          onMessage?.(assistantMessage);
+          
+          setCurrentStreamingMessage('');
+          setIsStreaming(false);
+          eventSourceRef.current?.close();
+          
+          // Invalidate conversations query to refresh sidebar
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+          
+          return;
+        }
+
+        try {
+          const data = JSON.parse(event.data);
+          if (data.content) {
+            setCurrentStreamingMessage(prev => prev + data.content);
+          }
+        } catch (e) {
+          console.error('Failed to parse streaming data:', e);
+        }
+      };
+
+      eventSourceRef.current.onerror = (event) => {
+        console.error('EventSource error:', event);
+        setError('Connection to AI provider lost. Please try again.');
+        setIsStreaming(false);
+        setCurrentStreamingMessage('');
+        eventSourceRef.current?.close();
+        onError?.('Streaming connection failed');
+      };
+
+    } catch (error) {
+      setError('Failed to send message. Please try again.');
+      setIsStreaming(false);
+      setCurrentStreamingMessage('');
+      onError?.(error instanceof Error ? error.message : 'Unknown error');
     }
-    setMessages((m) => [...m, { role: 'assistant', content: assistant }]);
-    setIsStreaming(false);
+  }, [
+    isStreaming,
+    conversationId,
+    provider,
+    model,
+    currentStreamingMessage,
+    onMessage,
+    onError,
+    queryClient
+  ]);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setCurrentStreamingMessage('');
+    setError(null);
+    
+    // Close any active streaming connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      setIsStreaming(false);
+    }
+  }, []);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
+
+  return {
+    messages,
+    sendMessage,
+    isStreaming,
+    currentStreamingMessage,
+    clearMessages,
+    error
   };
-
-  const clearMessages = () => setMessages([]);
-
-  return { messages, sendMessage, isStreaming, clearMessages, error };
 }

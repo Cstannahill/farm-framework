@@ -1,0 +1,54 @@
+templates/ai-dashboard/
+├── README.md.hbs
+├── farm.config.ts.hbs
+├── docker-compose.yml.hbs
+├── package.json.hbs
+├── apps/
+│   ├── web/
+│   │   ├── package.json.hbs
+│   │   ├── vite.config.ts.hbs
+│   │   ├── tailwind.config.js.hbs
+│   │   └── src/
+│   │       ├── components/
+│   │       │   ├── dashboard/
+│   │       │   │   ├── DashboardGrid.tsx.hbs
+│   │       │   │   ├── MetricCard.tsx.hbs
+│   │       │   │   ├── InsightPanel.tsx.hbs
+│   │       │   │   └── AISummary.tsx.hbs
+│   │       │   ├── charts/
+│   │       │   │   ├── LineChart.tsx.hbs
+│   │       │   │   ├── BarChart.tsx.hbs
+│   │       │   │   ├── PieChart.tsx.hbs
+│   │       │   │   └── HeatMap.tsx.hbs
+│   │       │   └── ai/
+│   │       │       ├── AIInsights.tsx.hbs
+│   │       │       ├── ModelPerformance.tsx.hbs
+│   │       │       └── PredictionViewer.tsx.hbs
+│   │       ├── hooks/
+│   │       │   ├── useAnalytics.ts.hbs
+│   │       │   ├── useChartData.ts.hbs
+│   │       │   ├── useAIInsights.ts.hbs
+│   │       │   └── useMLModels.ts.hbs
+│   │       └── stores/
+│   │           ├── dashboardStore.ts.hbs
+│   │           └── analyticsStore.ts.hbs
+│   └── api/
+│       ├── requirements.txt.hbs
+│       ├── pyproject.toml.hbs
+│       └── src/
+│           ├── routes/
+│           │   ├── analytics.py.hbs
+│           │   ├── dashboard.py.hbs
+│           │   ├── data.py.hbs
+│           │   └── ai_insights.py.hbs
+│           ├── models/
+│           │   ├── dataset.py.hbs
+│           │   ├── metric.py.hbs
+│           │   └── insight.py.hbs
+│           ├── ai/
+│           │   ├── analytics.py.hbs
+│           │   ├── insights_generator.py.hbs
+│           │   └── trend_analysis.py.hbs
+│           └── ml/
+│               ├── model_manager.py.hbs
+│               └── data_processor.py.hbs

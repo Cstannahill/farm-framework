@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@farm/cli": "^0.1.0",
     "@farm/core": "workspace:*",
     "@farm/types": "workspace:*",
     "@inquirer/prompts": "^7.5.3",

@@ -1,16 +1,282 @@
-"""Basic chat endpoints."""
-from fastapi import APIRouter, Depends
-from typing import List
-from ai.providers.manager import AIProviderManager
-from models.ai import ChatRequest, ChatResponse
+# templates/ai-chat/apps/api/src/routes/chat.py.hbs
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi.responses import StreamingResponse
+from typing import List, Optional
+from pydantic import BaseModel
+import json
+import asyncio
+from datetime import datetime
+
+from ..ai.router import get_ai_router
+from ..models.conversation import Conversation, Message
+{{#if features.includes 'auth'}}
+from ..models.user import User
+from ..core.security import get_current_user
+{{/if}}
+from ..database.connection import get_database
+{{#if features.includes 'realtime'}}
+from ..websocket.manager import websocket_manager
+{{/if}}
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-ai_manager = AIProviderManager()
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_id: Optional[str] = None
+    provider: str = "{{ai.routing.development}}"
+    model: str = "{{ai.ollama.defaultModel}}"
+    stream: bool = False
+    temperature: float = 0.7
+    max_tokens: int = 1000
+
+class ChatResponse(BaseModel):
+    id: str
+    conversation_id: str
+    message: str
+    role: str = "assistant"
+    provider: str
+    model: str
+    timestamp: datetime
+    tokens_used: Optional[int] = None
 
 @router.post("/", response_model=ChatResponse)
-async def create_chat(request: ChatRequest) -> ChatResponse:
-    provider = ai_manager.get_provider(request.provider)
-    response = await provider.chat(request.messages, request.model,
-                                   temperature=request.temperature,
-                                   max_tokens=request.max_tokens)
-    return ChatResponse(response=response, model=request.model, provider=request.provider or ai_manager.get_default_provider_name(), usage={})
+async def chat_completion(
+    request: ChatRequest,
+    db = Depends(get_database){{#if features.includes 'auth'}},
+    current_user: User = Depends(get_current_user){{/if}}
+):
+    """Generate a chat completion without streaming"""
+    
+    try:
+        # Get AI router and provider
+        ai_router = get_ai_router()
+        provider = ai_router.get_provider(request.provider)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider {request.provider} not available"
+            )
+        
+        # Get or create conversation
+        conversation = await get_or_create_conversation(
+            db, request.conversation_id{{#if features.includes 'auth'}}, current_user.id{{/if}}
+        )
+        
+        # Get conversation history
+        messages = await get_conversation_messages(db, conversation.id)
+        
+        # Build message history for AI
+        ai_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+        
+        # Add the new user message
+        ai_messages.append({"role": "user", "content": request.message})
+        
+        # Save user message to database
+        user_message = Message(
+            conversation_id=conversation.id,
+            role="user",
+            content=request.message,
+            provider=request.provider,
+            model=request.model,
+            timestamp=datetime.utcnow()
+        )
+        await db.save(user_message)
+        
+        # Generate AI response
+        ai_response = await provider.chat(
+            messages=ai_messages,
+            model=request.model,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens
+        )
+        
+        # Save AI response to database
+        assistant_message = Message(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=ai_response,
+            provider=request.provider,
+            model=request.model,
+            timestamp=datetime.utcnow()
+        )
+        await db.save(assistant_message)
+        
+        # Update conversation last_activity
+        conversation.last_activity = datetime.utcnow()
+        await db.save(conversation)
+        
+        {{#if features.includes 'realtime'}}
+        # Broadcast to WebSocket clients
+        await websocket_manager.broadcast_to_conversation(
+            conversation.id,
+            {
+                "type": "new_message",
+                "message": assistant_message.dict()
+            }
+        )
+        {{/if}}
+        
+        return ChatResponse(
+            id=assistant_message.id,
+            conversation_id=conversation.id,
+            message=ai_response,
+            provider=request.provider,
+            model=request.model,
+            timestamp=assistant_message.timestamp
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat completion failed: {str(e)}"
+        )
+
+@router.post("/stream")
+async def chat_completion_stream(
+    request: ChatRequest,
+    db = Depends(get_database){{#if features.includes 'auth'}},
+    current_user: User = Depends(get_current_user){{/if}}
+):
+    """Generate a streaming chat completion"""
+    
+    try:
+        # Get AI router and provider
+        ai_router = get_ai_router()
+        provider = ai_router.get_provider(request.provider)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider {request.provider} not available"
+            )
+        
+        # Get or create conversation
+        conversation = await get_or_create_conversation(
+            db, request.conversation_id{{#if features.includes 'auth'}}, current_user.id{{/if}}
+        )
+        
+        # Get conversation history
+        messages = await get_conversation_messages(db, conversation.id)
+        
+        # Build message history for AI
+        ai_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+        
+        # Add the new user message
+        ai_messages.append({"role": "user", "content": request.message})
+        
+        # Save user message to database
+        user_message = Message(
+            conversation_id=conversation.id,
+            role="user",
+            content=request.message,
+            provider=request.provider,
+            model=request.model,
+            timestamp=datetime.utcnow()
+        )
+        await db.save(user_message)
+        
+        async def generate_stream():
+            """Generate streaming response"""
+            accumulated_content = ""
+            
+            try:
+                # Stream AI response
+                async for chunk in provider.chat_stream(
+                    messages=ai_messages,
+                    model=request.model,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens
+                ):
+                    if chunk:
+                        accumulated_content += chunk
+                        
+                        # Send chunk to client
+                        yield f"data: {json.dumps({'content': chunk})}\n\n"
+                        
+                        {{#if features.includes 'realtime'}}
+                        # Broadcast to WebSocket clients
+                        await websocket_manager.broadcast_to_conversation(
+                            conversation.id,
+                            {
+                                "type": "streaming_chunk",
+                                "content": chunk,
+                                "conversation_id": conversation.id
+                            }
+                        )
+                        {{/if}}
+                
+                # Save complete AI response to database
+                assistant_message = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=accumulated_content,
+                    provider=request.provider,
+                    model=request.model,
+                    timestamp=datetime.utcnow()
+                )
+                await db.save(assistant_message)
+                
+                # Update conversation
+                conversation.last_activity = datetime.utcnow()
+                await db.save(conversation)
+                
+                # Send completion signal
+                yield f"data: [DONE]\n\n"
+                
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Streaming chat failed: {str(e)}"
+        )
+
+async def get_or_create_conversation(
+    db, conversation_id: Optional[str]{{#if features.includes 'auth'}}, user_id: str{{/if}}
+) -> Conversation:
+    """Get existing conversation or create new one"""
+    
+    if conversation_id:
+        conversation = await db.find_one(
+            Conversation, 
+            {"id": conversation_id{{#if features.includes 'auth'}}, "user_id": user_id{{/if}}}
+        )
+        if conversation:
+            return conversation
+    
+    # Create new conversation
+    conversation = Conversation(
+        {{#if features.includes 'auth'}}user_id=user_id,{{/if}}
+        title="New Conversation",
+        created_at=datetime.utcnow(),
+        last_activity=datetime.utcnow()
+    )
+    await db.save(conversation)
+    return conversation
+
+async def get_conversation_messages(db, conversation_id: str) -> List[Message]:
+    """Get messages for a conversation, ordered by timestamp"""
+    
+    return await db.find_many(
+        Message,
+        {"conversation_id": conversation_id},
+        sort=[("timestamp", 1)]
+    )
