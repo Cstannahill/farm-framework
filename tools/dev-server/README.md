@@ -294,3 +294,13 @@ The development server integrates with:
 - **Templates**: Works with all template types (basic, ai-chat, api-only, etc.)
 - **Docker**: Manages Docker containers for services
 - **Environment**: Handles environment-specific configurations
+
+## File Overview
+
+- **src/dev-server.ts** – orchestrates startup and shutdown.
+- **src/process-manager.ts** – spawns processes and tracks status.
+- **src/service-configs.ts** – builds service definitions from `farm.config.ts`.
+- **src/health-checker.ts** – health probe utilities.
+- **src/logger.ts** – colourised logging helper.
+- **src/types.ts** – shared TypeScript types.
+- **src/index.ts** – exports for consumption.
