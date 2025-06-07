@@ -1,0 +1,15 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Configure package linking for development
+catalog:
+  "@farm/types": "workspace:*"
+  "@farm/core": "workspace:*"
+  "@farm/cli": "workspace:*"
+  "@farm/ui-components": "workspace:*"
+
+# Shared dependencies
+shared-workspace-lockfile: true
+link-workspace-packages: true
+prefer-workspace-packages: true

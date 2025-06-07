@@ -1,0 +1,25 @@
+import type { ModelInfo } from '../../hooks/useAIModels';
+
+interface Props {
+  provider: string;
+  selectedModel: string;
+  models: ModelInfo[];
+  loading?: boolean;
+  onModelChange: (model: string) => void;
+}
+
+export default function ModelSelector({ provider, selectedModel, models, loading, onModelChange }: Props) {
+  return (
+    <select
+      className="border rounded px-2 py-1 text-sm"
+      value={selectedModel}
+      onChange={(e) => onModelChange(e.target.value)}
+      disabled={loading}
+    >
+      <option value="" disabled>Select model</option>
+      {models.map((m) => (
+        <option key={m.name} value={m.name}>{m.name}</option>
+      ))}
+    </select>
+  );
+}

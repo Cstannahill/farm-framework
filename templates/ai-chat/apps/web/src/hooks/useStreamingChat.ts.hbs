@@ -1,0 +1,56 @@
+import { useState } from 'react';
+import { EventSourceParserStream } from 'eventsource-parser/stream';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface Options {
+  provider: string;
+  model: string;
+}
+
+export function useStreamingChat(opts: Options) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sendMessage = async (content: string, extra?: any) => {
+    setMessages((m) => [...m, { role: 'user', content }]);
+    setIsStreaming(true);
+    setError(null);
+    const res = await fetch('/api/ai/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [...messages, { role: 'user', content }],
+        model: opts.model,
+        provider: opts.provider,
+        ...extra,
+      }),
+    });
+    if (!res.body) {
+      setIsStreaming(false);
+      setError('No response');
+      return;
+    }
+    const reader = res.body.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream());
+    let assistant = '';
+    for await (const chunk of reader) {
+      const data = chunk.data && JSON.parse(chunk.data);
+      if (data?.error) {
+        setError(data.error);
+        break;
+      }
+      if (data?.done) break;
+      assistant += data.content;
+    }
+    setMessages((m) => [...m, { role: 'assistant', content: assistant }]);
+    setIsStreaming(false);
+  };
+
+  const clearMessages = () => setMessages([]);
+
+  return { messages, sendMessage, isStreaming, clearMessages, error };
+}

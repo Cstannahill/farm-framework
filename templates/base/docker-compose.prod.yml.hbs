@@ -1,0 +1,6 @@
+# Production deployment configuration services: api: image:
+{{projectName}}-api:latest ports: - "8000:8000" environment: -
+DATABASE_URL=${DATABASE_URL} - OPENAI_API_KEY=${OPENAI_API_KEY} -
+FARM_ENV=production restart: unless-stopped web: image:
+{{projectName}}-web:latest ports: - "80:80" environment: -
+API_URL=http://api:8000 depends_on: - api restart: unless-stopped

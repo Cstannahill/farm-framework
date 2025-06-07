@@ -1,0 +1,79 @@
+from fastapi import APIRouter, HTTPException, BackgroundTasks from
+fastapi.responses import StreamingResponse from typing import List, Optional,
+Dict, Any import json import asyncio from ai.providers.base import ChatMessage
+from ai.providers.manager import AIProviderManager from models.ai import (
+ChatRequest, ChatResponse, GenerateRequest, GenerateResponse, ModelInfo,
+ProviderStatus, LoadModelRequest ) router = APIRouter(prefix="/ai", tags=["AI"])
+# Global AI provider manager ai_manager = AIProviderManager() async def
+initialize_ai_providers(): """Initialize AI providers based on configuration."""
+await ai_manager.initialize() @router.post("/chat", response_model=ChatResponse)
+async def chat_completion(request: ChatRequest): """Generate chat completion
+using specified or default provider.""" try: provider =
+ai_manager.get_provider(request.provider) response = await provider.chat(
+messages=request.messages, model=request.model, temperature=request.temperature,
+max_tokens=request.max_tokens ) return ChatResponse( response=response,
+model=request.model, provider=request.provider or
+ai_manager.get_default_provider_name(), usage={ "prompt_tokens": 0, # TODO:
+Implement token counting "completion_tokens": 0, "total_tokens": 0 } ) except
+Exception as e: raise HTTPException(status_code=500, detail=f"Chat completion
+failed: {str(e)}") @router.post("/chat/stream") async def
+chat_completion_stream(request: ChatRequest): """Stream chat completion using
+specified or default provider.""" try: provider =
+ai_manager.get_provider(request.provider) async def generate_stream():
+"""Generate streaming response.""" try: async for chunk in provider.chat_stream(
+messages=request.messages, model=request.model, temperature=request.temperature,
+max_tokens=request.max_tokens ): yield f"data: {json.dumps({'content': chunk,
+'done': False})}\n\n" # Send completion signal yield f"data:
+{json.dumps({'content': '', 'done': True})}\n\n" except Exception as e: yield
+f"data: {json.dumps({'error': str(e), 'done': True})}\n\n" return
+StreamingResponse( generate_stream(), media_type="text/event-stream", headers={
+"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering":
+"no", # Disable nginx buffering } ) except Exception as e: raise
+HTTPException(status_code=500, detail=f"Stream setup failed: {str(e)}")
+@router.get("/models", response_model=List[ModelInfo]) async def
+list_models(provider: Optional[str] = None): """List available models for a
+provider or all providers.""" try: if provider: ai_provider =
+ai_manager.get_provider(provider) models = await ai_provider.list_models()
+return [ ModelInfo( name=model, provider=provider, description=f"{model} model
+from {provider}" ) for model in models ] else: # Return models from all
+providers all_models = [] for provider_name, provider_instance in
+ai_manager.providers.items(): try: models = await
+provider_instance.list_models() for model in models: all_models.append(
+ModelInfo( name=model, provider=provider_name, description=f"{model} model from
+{provider_name}" ) ) except Exception as e: # Skip providers that fail to list
+models continue return all_models except Exception as e: raise
+HTTPException(status_code=500, detail=f"Failed to list models: {str(e)}")
+@router.get("/health", response_model=Dict[str, ProviderStatus]) async def
+health_check(): """Check health of all AI providers.""" health_results = await
+ai_manager.health_check_all() return { name: ProviderStatus( name=name,
+status="healthy" if healthy else "unhealthy",
+models=list(ai_manager.providers[name].models.keys()) if healthy and name in
+ai_manager.providers else [] ) for name, healthy in health_results.items() }
+@router.post("/models/{model_name}/load") async def load_model( model_name: str,
+request: LoadModelRequest, background_tasks: BackgroundTasks ): """Load a
+specific model in the background.""" try: provider =
+ai_manager.get_provider(request.provider) # Load model in background to avoid
+request timeout background_tasks.add_task(provider.load_model, model_name)
+return {"message": f"Loading model {model_name} on {request.provider}..."}
+except Exception as e: raise HTTPException(status_code=500, detail=f"Failed to
+load model: {str(e)}") @router.post("/models/{model_name}/unload") async def
+unload_model(model_name: str, provider: Optional[str] = None): """Unload a
+specific model to free resources.""" try: ai_provider =
+ai_manager.get_provider(provider) if hasattr(ai_provider, 'unload_model'): await
+ai_provider.unload_model(model_name) return {"message": f"Model {model_name}
+unloaded successfully"} else: return {"message": f"Provider {provider} does not
+support model unloading"} except Exception as e: raise
+HTTPException(status_code=500, detail=f"Failed to unload model: {str(e)}")
+@router.get("/providers") async def list_providers(): """List all configured AI
+providers and their status.""" providers_info = {} for name, provider in
+ai_manager.providers.items(): try: is_healthy = await provider.health_check()
+models = list(provider.models.keys()) if hasattr(provider, 'models') else []
+providers_info[name] = { "name": name, "status": "healthy" if is_healthy else
+"unhealthy", "models": models, "default": name ==
+ai_manager.get_default_provider_name() } except Exception: providers_info[name]
+= { "name": name, "status": "error", "models": [], "default": False } return
+providers_info @router.post("/reload") async def reload_providers(): """Reload
+all AI providers (useful for development).""" try: await
+ai_manager.reload_providers() return {"message": "AI providers reloaded
+successfully"} except Exception as e: raise HTTPException(status_code=500,
+detail=f"Failed to reload providers: {str(e)}")

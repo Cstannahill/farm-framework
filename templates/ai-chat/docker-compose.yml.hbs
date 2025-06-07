@@ -1,0 +1,20 @@
+# templates/ai-chat/docker-compose.yml.hbs (ENHANCED) version: '3.8' services:
+mongodb: image: mongo:7.0 ports: - "27017:27017" environment:
+MONGO_INITDB_ROOT_USERNAME:
+{{projectName}}
+MONGO_INITDB_ROOT_PASSWORD: development volumes: - mongodb_data:/data/db ollama:
+image: ollama/ollama:latest ports: - "11434:11434" volumes: -
+ollama_models:/root/.ollama - ./apps/api/models/ollama:/models environment: -
+OLLAMA_ORIGINS=* - OLLAMA_HOST=0.0.0.0 restart: unless-stopped
+{{#if gpuEnabled}}
+  deploy: resources: reservations: devices: - driver: nvidia count: all
+  capabilities: [gpu]
+{{/if}}
+
+api: build: context: ./apps/api dockerfile: Dockerfile ports: - "8000:8000"
+environment: - DATABASE_URL=mongodb://{{projectName}}:development@mongodb:27017
+- OLLAMA_URL=http://ollama:11434 - OPENAI_API_KEY=${OPENAI_API_KEY} -
+FARM_ENV=development depends_on: - mongodb - ollama volumes: - ./apps/api:/app
+web: build: context: ./apps/web dockerfile: Dockerfile.dev ports: - "3000:3000"
+environment: - VITE_API_URL=http://localhost:8000 volumes: - ./apps/web:/app -
+/app/node_modules depends_on: - api volumes: mongodb_data: ollama_models:

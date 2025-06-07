@@ -1,0 +1,28 @@
+from fastapi import FastAPI from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles from contextlib import
+asynccontextmanager import os from core.config import settings from
+database.connection import connect_to_mongo, close_mongo_connection from
+ai.router import ai_router from routes.health import router as health_router
+from routes.chat import router as chat_router from routes.websocket import
+router as websocket_router @asynccontextmanager async def lifespan(app:
+FastAPI): """Lifespan context manager for startup and shutdown events.""" #
+Startup await connect_to_mongo() # Initialize AI providers from ai.router import
+initialize_ai_providers await initialize_ai_providers() yield # Shutdown await
+close_mongo_connection() app = FastAPI( title="{{projectName}}", description="{{description}}
+- AI-powered chat application", version="{{version}}", lifespan=lifespan ) #
+CORS middleware app.add_middleware( CORSMiddleware,
+allow_origins=settings.allowed_hosts, allow_credentials=True,
+allow_methods=["*"], allow_headers=["*"], ) # Include routers
+app.include_router(health_router, prefix="/api") app.include_router(chat_router,
+prefix="/api") app.include_router(ai_router, prefix="/api")
+app.include_router(websocket_router, prefix="/ws")
+
+{{#if features.auth}}
+  # Include auth router if authentication is enabled from routes.auth import
+  router as auth_router app.include_router(auth_router, prefix="/api")
+{{/if}}
+
+# Serve static files in production if os.path.exists("static"): app.mount("/",
+StaticFiles(directory="static", html=True), name="static") if __name__ ==
+"__main__": import uvicorn uvicorn.run( "main:app", host="0.0.0.0", port=8000,
+reload=True if settings.environment == "development" else False )

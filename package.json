@@ -1,0 +1,58 @@
+{
+  "name": "farm-framework",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-first full-stack development framework",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test-turbo": "turbo run test",
+    "test-turbo:watch": "turbo run test:watch",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "validate:templates": "cd tools/testing && npm run validate-templates",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && pnpm run clean:cache",
+    "clean:cache": "rm -rf node_modules/.cache .turbo",
+    "reset": "pnpm clean && rm -rf node_modules pnpm-lock.yaml && pnpm install",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "deps:check": "pnpm outdated -r",
+    "deps:update": "pnpm update -r --latest",
+    "workspace:graph": "pnpm list -r --depth=0",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:docker": "vitest run tools/dev-server/src/**/*.test.ts",
+    "test:cli": "vitest run packages/cli/src/**/*.test.ts",
+    "test:integration": "vitest run tools/testing/src/**/*.test.ts",
+    "test:watch": "vitest --watch",
+    "test:manual-dev": "bash ./scripts/test-dev-setup.sh",
+    "test:manual-prod": "bash ./scripts/test-prod-build.sh",
+    "test:all-docker": "pnpm test:docker && pnpm test:docker-integration && pnpm test:templates"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^1.12.0",
+    "prettier": "^3.2.0",
+    "@changesets/cli": "^2.27.1",
+    "vitest": "^3.2.2",
+    "@vitest/coverage-v8": "^3.2.2",
+    "@vitest/ui": "^3.2.2",
+    "@types/node": "^20.11.0",
+    "turbo": "^2.5.4",
+    "typescript": "^5.3.3",
+    "happy-dom": "^14.12.0"
+  },
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,48 @@
+""" User model
+
+{{#switch database}}
+  {{#case "mongodb"}}User document model using Beanie{{/case}}
+  {{#default}}User model using SQLAlchemy{{/default}}
+{{/switch}}
+"""
+
+{{#if_database "mongodb"}}
+  from datetime import datetime from typing import Optional from beanie import
+  Document, Indexed from pydantic import EmailStr, Field class User(Document):
+  """User document model.""" email: Indexed(EmailStr, unique=True) = Field(...,
+  description="User email address") username: Indexed(str, unique=True) =
+  Field(..., min_length=3, max_length=50, description="Username") full_name: str
+  = Field(..., min_length=1, max_length=100, description="Full name")
+  hashed_password: str = Field(..., description="Hashed password") is_active:
+  bool = Field(default=True, description="Whether user is active") is_superuser:
+  bool = Field(default=False, description="Whether user is superuser")
+  created_at: datetime = Field(default_factory=datetime.utcnow) updated_at:
+  datetime = Field(default_factory=datetime.utcnow)
+
+  {{#if_feature "ai"}}
+    ai_preferences: dict = Field(default_factory=dict, description="AI model
+    preferences")
+  {{/if_feature}}
+
+  class Settings: name = "users" use_state_management = True class Config:
+  schema_extra = { "example": { "email": "user@example.com", "username":
+  "johndoe", "full_name": "John Doe", "is_active": True, "is_superuser": False }
+  }
+
+{{else}}
+  from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text from
+  sqlalchemy.sql import func from src.database.connection import Base class
+  User(Base): """User model.""" __tablename__ = "users" id = Column(Integer,
+  primary_key=True, index=True) email = Column(String(255), unique=True,
+  index=True, nullable=False) username = Column(String(50), unique=True,
+  index=True, nullable=False) full_name = Column(String(100), nullable=False)
+  hashed_password = Column(String(255), nullable=False) is_active =
+  Column(Boolean, default=True) is_superuser = Column(Boolean, default=False)
+  created_at = Column(DateTime(timezone=True), server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+  {{#if_feature "ai"}}
+    ai_preferences = Column(Text, nullable=True) # JSON string
+  {{/if_feature}}
+
+{{/if_database}}

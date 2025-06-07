@@ -1,0 +1,16 @@
+"""Basic chat endpoints."""
+from fastapi import APIRouter, Depends
+from typing import List
+from ai.providers.manager import AIProviderManager
+from models.ai import ChatRequest, ChatResponse
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+ai_manager = AIProviderManager()
+
+@router.post("/", response_model=ChatResponse)
+async def create_chat(request: ChatRequest) -> ChatResponse:
+    provider = ai_manager.get_provider(request.provider)
+    response = await provider.chat(request.messages, request.model,
+                                   temperature=request.temperature,
+                                   max_tokens=request.max_tokens)
+    return ChatResponse(response=response, model=request.model, provider=request.provider or ai_manager.get_default_provider_name(), usage={})

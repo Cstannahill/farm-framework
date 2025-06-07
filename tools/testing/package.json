@@ -1,0 +1,27 @@
+{
+  "name": "@farm/testing",
+  "version": "0.1.0",
+  "description": "Testing and validation tools for FARM Framework templates",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "validate-templates": "node dist/template-validator.js",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@farm/types": "workspace:*",
+    "fs-extra": "^11.1.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
+    "@types/node": "^20.0.0",
+    "vitest": "^3.2.2",
+    "tsup": "^7.2.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist/**/*"
+  ]
+}

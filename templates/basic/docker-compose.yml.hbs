@@ -1,0 +1,136 @@
+#
+{{project_name}}
+- Docker Compose Configuration # Generated on
+{{timestamp}}
+
+version: '3.8' services: # Backend service backend: build: context: .
+dockerfile: apps/api/Dockerfile ports: - "8000:8000" environment: - NODE_ENV={{default
+  environment
+  "development"
+}}
+- DATABASE_URL={{#if_database
+  "mongodb"
+}}mongodb://mongodb:27017/{{project_name_snake}}{{/if_database}}{{#if_database
+  "postgresql"
+}}postgresql://postgres:password@postgres:5432/{{project_name_snake}}{{/if_database}}{{#if_database
+  "mysql"
+}}mysql://root:password@mysql:3306/{{project_name_snake}}{{/if_database}}{{#if_database
+  "sqlite"
+}}sqlite:///./data/{{project_name_snake}}.db{{/if_database}}
+{{#if_feature "ai"}}
+  {{#has_ollama}}
+    - OLLAMA_URL=http://ollama:11434
+  {{/has_ollama}}
+  {{#has_openai}}
+    - OPENAI_API_KEY=${OPENAI_API_KEY}
+  {{/has_openai}}
+  {{#has_huggingface}}
+    - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+  {{/has_huggingface}}
+{{/if_feature}}
+{{#if_feature "auth"}}
+  - JWT_SECRET=${JWT_SECRET:-your-secret-key}
+{{/if_feature}}
+{{#if_feature "email"}}
+  - SMTP_HOST=${SMTP_HOST} - SMTP_PORT=${SMTP_PORT} - SMTP_USER=${SMTP_USER} -
+  SMTP_PASSWORD=${SMTP_PASSWORD}
+{{/if_feature}}
+{{#if_feature "payments"}}
+  - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY} -
+  STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+{{/if_feature}}
+depends_on:
+{{#if_database "mongodb"}}
+  - mongodb
+{{/if_database}}
+{{#if_database "postgresql"}}
+  - postgres
+{{/if_database}}
+{{#if_database "mysql"}}
+  - mysql
+{{/if_database}}
+{{#has_ollama}}
+  - ollama
+{{/has_ollama}}
+{{#if_feature "realtime"}}
+  - redis
+{{/if_feature}}
+volumes:
+{{#if_database "sqlite"}}
+  - ./data:/app/data
+{{/if_database}}
+{{#if_feature "storage"}}
+  - ./uploads:/app/uploads
+{{/if_feature}}
+
+{{#unless is_api_only}}
+  # Frontend service frontend: build: context: . dockerfile: apps/web/Dockerfile
+  ports: - "3000:3000" environment: - VITE_API_URL=http://localhost:8000
+  depends_on: - backend volumes: - ./apps/web:/app - /app/node_modules
+
+{{/unless}}
+{{#if_database "mongodb"}}
+  # MongoDB database mongodb: image: mongo:7 ports: - "27017:27017" environment:
+  - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-admin} -
+  MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-password} -
+  MONGO_INITDB_DATABASE={{project_name_snake}}
+  volumes: - mongodb_data:/data/db
+
+{{/if_database}}
+{{#if_database "postgresql"}}
+  # PostgreSQL database postgres: image: postgres:15 ports: - "5432:5432"
+  environment: - POSTGRES_DB={{project_name_snake}}
+  - POSTGRES_USER=postgres - POSTGRES_PASSWORD=password volumes: -
+  postgres_data:/var/lib/postgresql/data
+
+{{/if_database}}
+{{#if_database "mysql"}}
+  # MySQL database mysql: image: mysql:8.0 ports: - "3306:3306" environment: -
+  MYSQL_DATABASE={{project_name_snake}}
+  - MYSQL_ROOT_PASSWORD=password volumes: - mysql_data:/var/lib/mysql
+
+{{/if_database}}
+{{#has_ollama}}
+  # Ollama AI service ollama: image: ollama/ollama:latest ports: - "11434:11434"
+  volumes: - ollama_data:/root/.ollama environment: - OLLAMA_ORIGINS=*
+  {{#if (get_config "ai.providers.ollama.gpu" true)}}
+    deploy: resources: reservations: devices: - driver: nvidia count: 1
+    capabilities: [gpu]
+  {{/if}}
+
+{{/has_ollama}}
+{{#if_feature "realtime"}}
+  # Redis for real-time features redis: image: redis:7-alpine ports: -
+  "6379:6379" volumes: - redis_data:/data
+
+{{/if_feature}}
+{{#if_feature "search"}}
+  # Elasticsearch for search elasticsearch: image: elasticsearch:8.11.0 ports: -
+  "9200:9200" environment: - discovery.type=single-node -
+  xpack.security.enabled=false volumes: -
+  elasticsearch_data:/usr/share/elasticsearch/data
+
+{{/if_feature}}
+
+volumes:
+{{#if_database "mongodb"}}
+  mongodb_data:
+{{/if_database}}
+{{#if_database "postgresql"}}
+  postgres_data:
+{{/if_database}}
+{{#if_database "mysql"}}
+  mysql_data:
+{{/if_database}}
+{{#has_ollama}}
+  ollama_data:
+{{/has_ollama}}
+{{#if_feature "realtime"}}
+  redis_data:
+{{/if_feature}}
+{{#if_feature "search"}}
+  elasticsearch_data:
+{{/if_feature}}
+
+networks: default: name:
+{{project_name_kebab}}_network

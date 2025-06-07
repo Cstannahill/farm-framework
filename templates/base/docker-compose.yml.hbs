@@ -1,0 +1,40 @@
+{{#if docker}}
+  version: '3.8' services:
+  {{#if_database "mongodb"}}
+    mongodb: image: mongo:7 container_name:
+    {{kebabCase projectName}}-mongodb restart: unless-stopped ports: -
+    "27017:27017" environment: MONGO_INITDB_ROOT_USERNAME: root
+    MONGO_INITDB_ROOT_PASSWORD: password MONGO_INITDB_DATABASE:
+    {{kebabCase projectName}}
+    volumes: - mongodb_data:/data/db networks: - farm-network
+
+  {{/if_database}}
+  {{#if_database "postgresql"}}
+    postgres: image: postgres:15 container_name:
+    {{kebabCase projectName}}-postgres restart: unless-stopped ports: -
+    "5432:5432" environment: POSTGRES_DB:
+    {{kebabCase projectName}}
+    POSTGRES_USER: postgres POSTGRES_PASSWORD: password volumes: -
+    postgres_data:/var/lib/postgresql/data networks: - farm-network
+
+  {{/if_database}}
+  {{#if_feature "ai"}}
+    ollama: image: ollama/ollama:latest container_name:
+    {{kebabCase projectName}}-ollama restart: unless-stopped ports: -
+    "11434:11434" volumes: - ollama_data:/root/.ollama networks: - farm-network
+
+  {{/if_feature}}
+
+  volumes:
+  {{#if_database "mongodb"}}
+    mongodb_data:
+  {{/if_database}}
+  {{#if_database "postgresql"}}
+    postgres_data:
+  {{/if_database}}
+  {{#if_feature "ai"}}
+    ollama_data:
+  {{/if_feature}}
+
+  networks: farm-network: driver: bridge
+{{/if}}

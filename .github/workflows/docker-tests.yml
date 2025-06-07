@@ -1,0 +1,39 @@
+# .github/workflows/docker-tests.yml
+name: Docker Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build CLI
+        run: pnpm build
+
+      - name: Run Docker Manager unit tests
+        run: pnpm test:docker-manager
+
+      - name: Run Docker integration tests
+        run: pnpm test:docker-integration
+        if: matrix.os == 'ubuntu-latest' # Only run on Linux for Docker
+
+      - name: Test template generation
+        run: pnpm test:templates

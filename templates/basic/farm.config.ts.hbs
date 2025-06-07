@@ -1,0 +1,77 @@
+//
+{{project_name}}
+- FARM Configuration // Generated on
+{{timestamp}}
+
+import { defineConfig } from '@farm/core'; export default defineConfig({ name: '{{project_name}}',
+version: '1.0.0', description: '{{capitalize template}}
+application built with FARM', // Template configuration template: '{{template}}',
+// Enabled features features: [{{#each features}}'{{this}}'{{#unless @last}},
+  {{/unless}}{{/each}}], // Database configuration database: { type: '{{database.type}}',
+url: process.env.DATABASE_URL || '{{#eq
+  database.type "mongodb"
+}}mongodb://localhost:27017/{{project_name_snake}}{{/eq}}{{#eq
+  database.type "postgresql"
+}}postgresql://user:password@localhost:5432/{{project_name_snake}}{{/eq}}{{#eq
+  database.type "mysql"
+}}mysql://user:password@localhost:3306/{{project_name_snake}}{{/eq}}{{#eq
+  database.type "sqlite"
+}}sqlite:///./{{project_name_snake}}.db{{/eq}}' },
+
+{{#if_feature "ai"}}
+  // AI/ML configuration ai: { providers: {
+  {{#has_ollama}}
+    ollama: { enabled: true, url: 'http://localhost:11434', models: ['llama3.1',
+    'codestral'{{#if_template "ai-chat"}}, 'phi3'{{/if_template}}],
+    defaultModel: 'llama3.1', autoStart: true, autoPull: ['llama3.1'] },
+  {{/has_ollama}}
+  {{#has_openai}}
+    openai: { enabled: true, apiKey: process.env.OPENAI_API_KEY, models:
+    ['gpt-4', 'gpt-3.5-turbo'], defaultModel: 'gpt-3.5-turbo' },
+  {{/has_openai}}
+  {{#has_huggingface}}
+    huggingface: { enabled: true, token: process.env.HUGGINGFACE_TOKEN, models:
+    ['microsoft/DialoGPT-medium'], device: 'auto' }
+  {{/has_huggingface}}
+  }, routing: { development: '{{#has_ollama}}ollama{{else}}{{#has_openai
+    }}openai{{else}}huggingface{{/has_openai}}{{/has_ollama}}', production: '{{#has_openai
+  }}openai{{else}}{{#has_huggingface
+    }}huggingface{{else}}ollama{{/has_huggingface}}{{/has_openai}}' }, features:
+  { streaming: true, caching: true, rateLimiting: true, fallback: true } },
+{{/if_feature}}
+
+{{#if_feature "realtime"}}
+  // Real-time configuration websocket: { enabled: true, cors:
+  ['http://localhost:3000'] },
+{{/if_feature}}
+
+{{#if_feature "auth"}}
+  // Authentication configuration auth: { jwt: { secret: process.env.JWT_SECRET
+  || 'your-secret-key', expiration: '24h' }, providers: ['jwt'{{#if_feature
+    "payments"
+  }}, 'oauth'{{/if_feature}}] },
+{{/if_feature}}
+
+{{#if_feature "storage"}}
+  // Storage configuration storage: { provider: 'local', // or 's3', 'gcs'
+  local: { path: './uploads' } },
+{{/if_feature}}
+
+// Development server configuration development: { ports: { frontend: 3000,
+backend: 8000, proxy: 4000{{#has_ollama}}, ollama: 11434{{/has_ollama}}
+}, hotReload: { enabled: true, typeGeneration: true{{#if_feature "ai"}},
+  aiModels: true{{/if_feature}}
+} }, // Build configuration build: { target: 'node18', sourcemap: true, minify:
+true, splitting: true, outDir: 'dist' }{{#has_features}}, // Plugin
+  configuration plugins: [
+  {{#if_feature "auth"}}
+    '@farm/plugin-auth',
+  {{/if_feature}}
+  {{#if_feature "analytics"}}
+    '@farm/plugin-analytics',
+  {{/if_feature}}
+  {{#if_feature "storage"}}
+    ['@farm/plugin-storage', { provider: 'local' }]{{#unless @last}},{{/unless}}
+  {{/if_feature}}
+  ]{{/has_features}}
+});

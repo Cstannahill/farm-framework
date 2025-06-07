@@ -1,0 +1,34 @@
+# apps/api/requirements.txt
+# FARM Framework API Dependencies
+
+# FastAPI and ASGI server
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+
+# Database
+motor==3.7.1              # Async MongoDB driver
+beanie==1.29.0            # MongoDB ODM with Pydantic
+
+# AI Providers
+openai==1.84.0            # OpenAI API client
+httpx==0.28.1             # HTTP client for Ollama/HuggingFace
+transformers==4.52.4      # HuggingFace transformers
+torch==2.7.1              # PyTorch for local models
+
+# Configuration and validation
+pydantic==2.11.5           # Data validation
+pydantic_settings==2.9.1   # Settings management
+python-dotenv==1.0.0       # Environment variable loading
+
+# Utilities
+python-multipart==0.0.20   # File upload support
+python-jose[cryptography]==3.5.0  # JWT tokens
+passlib[bcrypt]==1.7.4     # Password hashing
+
+# Development
+pytest==8.4.0             # Testing
+pytest-asyncio==1.0.0     # Async testing
+httpx==0.28.1             # Test client
+
+# Logging and monitoring
+structlog==25.4.0          # Structured logging
