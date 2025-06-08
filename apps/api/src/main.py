@@ -95,6 +95,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+try:
+    from .auth.middleware import AuthMiddleware
+
+    app.add_middleware(AuthMiddleware)
+except ImportError:
+    logger.warning("Auth middleware not available")
 
 
 # Health check endpoint
@@ -179,6 +185,17 @@ try:
 
     app.include_router(ai_routes.router, prefix="/api/ai", tags=["AI"])
     logger.info("✅ AI routes loaded")
+    try:
+        from .routes.auth import login as login_route
+        from .routes.auth import refresh as refresh_route
+        from .routes.auth import session as session_route
+
+        app.include_router(login_route.router)
+        app.include_router(refresh_route.router)
+        app.include_router(session_route.router)
+        logger.info("✅ Auth routes loaded")
+    except ImportError as e:
+        logger.warning(f"⚠️ Auth routes not available: {e}")
 except ImportError as e:
     logger.warning(f"⚠️ AI routes not available: {e}")
 

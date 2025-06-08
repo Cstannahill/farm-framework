@@ -4,6 +4,7 @@ export * from "./core.js";
 export * from "./ai.js";
 export * from "./database.js";
 export * from "./errors.js";
+export * from "./auth.js";
 
 // CLI types (separate to avoid conflicts)
 export type {
