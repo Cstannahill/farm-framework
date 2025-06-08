@@ -1,0 +1,9 @@
+from fastapi import APIRouter, Depends
+from ..auth.oauth import oauth2_scheme
+from ..models.user import User
+
+router = APIRouter(prefix="/users")
+
+@router.get("/me", response_model=User)
+async def me(token: str = Depends(oauth2_scheme)):
+    return User(username="admin")

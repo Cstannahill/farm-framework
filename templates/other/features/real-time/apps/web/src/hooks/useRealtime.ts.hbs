@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import { useWebSocket } from './useWebSocket';
+
+export function useRealtime() {
+  const [messages, setMessages] = useState<string[]>([]);
+  useWebSocket(`ws://${window.location.host}/ws`, msg => setMessages(m => [...m, msg]));
+  return messages;
+}

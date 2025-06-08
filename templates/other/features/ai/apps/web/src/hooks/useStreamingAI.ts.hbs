@@ -1,0 +1,27 @@
+import { useState } from 'react';
+
+export function useStreamingAI(model: string) {
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const start = (prompt: string) => {
+    setResponse('');
+    setLoading(true);
+    const url = `/api/ai/generate/stream?model=${model}&prompt=${encodeURIComponent(prompt)}`;
+    const es = new EventSource(url);
+    es.onmessage = (e) => {
+      if (e.data === '[DONE]') {
+        es.close();
+        setLoading(false);
+      } else {
+        setResponse((prev) => prev + e.data);
+      }
+    };
+    es.onerror = () => {
+      es.close();
+      setLoading(false);
+    };
+  };
+
+  return { start, response, loading };
+}

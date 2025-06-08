@@ -1,0 +1,11 @@
+import { useEffect, useRef } from 'react';
+
+export function useWebSocket(url: string, onMessage: (msg: string) => void) {
+  const wsRef = useRef<WebSocket>();
+
+  useEffect(() => {
+    wsRef.current = new WebSocket(url);
+    wsRef.current.onmessage = (e) => onMessage(e.data);
+    return () => wsRef.current?.close();
+  }, [url, onMessage]);
+}

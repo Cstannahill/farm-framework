@@ -1,0 +1,16 @@
+from typing import Dict
+
+class ModelManager:
+    """Simple model registry."""
+
+    def __init__(self):
+        self.loaded: Dict[str, bool] = {}
+
+    async def load(self, model: str):
+        self.loaded[model] = True
+
+    async def unload(self, model: str):
+        self.loaded.pop(model, None)
+
+    def is_loaded(self, model: str) -> bool:
+        return self.loaded.get(model, False)
