@@ -55,7 +55,21 @@ else
     echo "❌ @farm/ui-components build failed"
     exit 1
 fi
-cd ../..
+
+echo ""
+echo "📦 Building @farm/validate..."
+cd ../../tools/template-validator
+pnpm build
+if [ $? -eq 0 ]; then
+    echo "✅ @farm/validate built successfully"
+else
+    echo "❌ @farm/validate build failed"
+    exit 1
+fi
+
+
+echo ""
+echo "📦 Building @farm/"
 
 echo ""
 echo "🎉 All packages built successfully!"
