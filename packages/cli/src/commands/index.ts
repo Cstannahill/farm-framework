@@ -5,3 +5,4 @@ export { createGenerateCommand } from './generate.js';
 export { createBuildCommand } from './build.js';
 export { registerTypeCommands } from './types/index.js';
 export { createAddUICommand } from './add-ui.js';
+export { createDatabaseCommands } from './database.js';

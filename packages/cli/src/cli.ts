@@ -10,6 +10,7 @@ import { createGenerateCommand } from './commands/generate.js';
 import { createValidateCommands } from './commands/validate';
 import { registerTypeCommands } from './commands/types/index.js';
 import { createAddUICommand } from './commands/add-ui.js';
+import { createDatabaseCommands } from './commands/database.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -33,6 +34,7 @@ export function createCLI(): Command {
   program.addCommand(createBuildCommand());
   program.addCommand(createGenerateCommand());
   program.addCommand(createAddUICommand());
+  program.addCommand(createDatabaseCommands());
   program.addCommand(createValidateCommands());
   registerTypeCommands(program);
 
