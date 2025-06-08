@@ -1,4 +1,9 @@
-import { DatabaseProvider, DatabaseType } from "@farm/types";
+import {
+  DatabaseProvider,
+  DatabaseType,
+  DatabaseConfig,
+  DatabaseFeature,
+} from "@farm/types";
 import { logger } from "../utils/logger.js";
 
 export class DatabaseSelector {
@@ -88,5 +93,42 @@ export class DatabaseSelector {
     }
     logger.info(`Selected database provider: ${type}`);
     return provider;
+  }
+
+  /**
+   * Validate a database configuration object
+   */
+  async validateDatabaseConfig(config: DatabaseConfig): Promise<boolean> {
+    const provider = await this.selectDatabase(config.type);
+
+    if (!this.isValidConnectionUrl(config.url, config.type)) {
+      throw new Error(`Invalid connection URL for ${config.type}`);
+    }
+
+    if (provider.templateConfig.migrationSupport && !config.migrations) {
+      logger.warn(
+        `Migration config missing for ${config.type}; using defaults`
+      );
+    }
+
+    return true;
+  }
+
+  /**
+   * Get features supported by a database provider
+   */
+  getDatabaseFeatures(type: DatabaseType): DatabaseFeature[] {
+    return this.providers.get(type)?.templateConfig.features ?? [];
+  }
+
+  private isValidConnectionUrl(url: string, type: DatabaseType): boolean {
+    const patterns: Record<DatabaseType, RegExp> = {
+      mongodb: /^mongodb:\/\/.+/,
+      postgresql: /^postgresql:\/\/.+/,
+      mysql: /^mysql:\/\/.+/,
+      sqlite: /^sqlite:\/\/.+/,
+    };
+
+    return patterns[type].test(url);
   }
 }
