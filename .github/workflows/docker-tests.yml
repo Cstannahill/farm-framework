@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -30,20 +30,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Make build scripts executable
+        run: chmod +x ./scripts/build.sh
+
       - name: Build CLI
-        run: pnpm build
+        run: ./scripts/build.sh
 
       - name: Run Docker Manager unit tests
-        run: pnpm test:docker-manager
+        run: pnpm test:all-docker
         # Only run Docker tests on platforms where Docker is reliably available
         if: matrix.os == 'ubuntu-latest'
 
       - name: Run Docker integration tests
-        run: pnpm test:docker-integration
+        run: pnpm test:integration
         if: matrix.os == 'ubuntu-latest' # Only run on Linux for Docker
-
-      - name: Test template generation
-        run: pnpm test:templates
 
       - name: Debug environment
         run: |

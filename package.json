@@ -36,7 +36,7 @@
     "test:watch": "vitest --watch",
     "test:manual-dev": "bash ./scripts/test-dev-setup.sh",
     "test:manual-prod": "bash ./scripts/test-prod-build.sh",
-    "test:all-docker": "pnpm test:docker && pnpm test:docker-integration && pnpm test:templates"
+    "test:all-docker": "pnpm test:docker && pnpm test:integration && pnpm test:templates"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

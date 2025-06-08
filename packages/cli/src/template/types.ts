@@ -156,7 +156,12 @@ export interface TemplateContext extends FarmConfig {
 // =============================================================================
 // CLI COMMAND TYPES
 // =============================================================================
+/**
+ * Options for the `create` command
+ * This interface defines the options that can be passed to the `create` command.
+ * It includes template selection, features, database type, and various flags
 
+ */
 export interface CreateCommandOptions {
   template?: TemplateName;
   features?: FeatureName[];

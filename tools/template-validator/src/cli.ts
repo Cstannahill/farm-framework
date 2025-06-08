@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // tools/template-validator/src/cli.ts
 import { Command } from "commander";
 import { TemplateValidator } from "./validator";
