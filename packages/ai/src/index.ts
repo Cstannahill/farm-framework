@@ -22,6 +22,10 @@ import { HealthChecker } from "./health/health-checker.js";
 import { AIErrorHandler, globalErrorHandler } from "./errors/error-handler.js";
 
 // Main AI System class that orchestrates all components
+/**
+ * High level API that coordinates provider registration, configuration and
+ * request routing for the FARM AI system.
+ */
 export class AISystem extends EventEmitter {
   private configManager: AIConfigManager;
   private registry: ProviderRegistry;
@@ -29,6 +33,12 @@ export class AISystem extends EventEmitter {
   private errorHandler: AIErrorHandler;
   private isInitialized: boolean = false;
 
+  /**
+   * Create a new AI system instance.
+   *
+   * @param config - Optional configuration overrides
+   * @param environment - Runtime environment name
+   */
   constructor(config?: Partial<AIConfig>, environment: string = "development") {
     super();
 
@@ -42,6 +52,9 @@ export class AISystem extends EventEmitter {
   }
 
   // System initialization
+  /**
+   * Initialize the AI system and register configured providers.
+   */
   public async initialize(): Promise<void> {
     try {
       console.log("🤖 Initializing FARM AI System...");
@@ -82,6 +95,12 @@ export class AISystem extends EventEmitter {
   }
 
   // Main AI generation method with full error handling and provider routing
+  /**
+   * Generate a response using the best available provider.
+   *
+   * @param request - The generation request parameters
+   * @param preferredProvider - Optional provider preference
+   */
   public async generate(
     request: GenerationRequest,
     preferredProvider?: string
@@ -121,6 +140,12 @@ export class AISystem extends EventEmitter {
   }
 
   // Streaming generation with error handling
+  /**
+   * Stream a response from the underlying provider.
+   *
+   * @param request - The generation request parameters
+   * @param preferredProvider - Optional provider preference
+   */
   public async *generateStream(
     request: GenerationRequest,
     preferredProvider?: string
@@ -154,6 +179,12 @@ export class AISystem extends EventEmitter {
   }
 
   // Provider management
+  /**
+   * Dynamically add a provider at runtime.
+   *
+   * @param name - Identifier for the provider
+   * @param config - Provider specific configuration
+   */
   public async addProvider(
     name: string,
     config: ProviderConfig
@@ -177,6 +208,11 @@ export class AISystem extends EventEmitter {
     }
   }
 
+  /**
+   * Remove an existing provider from the system.
+   *
+   * @param name - Provider identifier
+   */
   public async removeProvider(name: string): Promise<void> {
     try {
       // Remove from registry
@@ -198,6 +234,9 @@ export class AISystem extends EventEmitter {
   }
 
   // Health and status monitoring
+  /**
+   * Retrieve combined health information for all providers.
+   */
   public async getSystemHealth(): Promise<any> {
     try {
       const [registryStatus, healthReport] = await Promise.all([
@@ -222,6 +261,9 @@ export class AISystem extends EventEmitter {
   }
 
   // Configuration management
+  /**
+   * Update the AI system configuration at runtime.
+   */
   public updateConfiguration(updates: Partial<AIConfig>): void {
     try {
       this.configManager.loadConfig({
@@ -241,6 +283,9 @@ export class AISystem extends EventEmitter {
   }
 
   // Graceful shutdown
+  /**
+   * Gracefully shut down all providers and stop monitoring.
+   */
   public async shutdown(): Promise<void> {
     try {
       console.log("🛑 Shutting down FARM AI System...");

@@ -9,6 +9,11 @@ import axios, {
 } from "axios";
 
 // Base types for API responses
+/**
+ * Standard API response returned from the server.
+ *
+ * @template T - Shape of the response payload
+ */
 export interface ApiResponse<T = any> {
   data: T;
   status: number;
@@ -16,6 +21,9 @@ export interface ApiResponse<T = any> {
   headers: Record<string, string>;
 }
 
+/**
+ * Error object describing a failed API request.
+ */
 export interface ApiError {
   message: string;
   status: number;
@@ -24,6 +32,11 @@ export interface ApiError {
   timestamp: string;
 }
 
+/**
+ * Generic structure for paginated API responses.
+ *
+ * @template T - Shape of each item in the paginated list
+ */
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -34,6 +47,9 @@ export interface PaginatedResponse<T> {
   hasPrev: boolean;
 }
 
+/**
+ * Configuration for an Axios request interceptor.
+ */
 export interface RequestInterceptor {
   name: string;
   onRequest?: (
@@ -42,6 +58,9 @@ export interface RequestInterceptor {
   onRequestError?: (error: any) => any;
 }
 
+/**
+ * Configuration for an Axios response interceptor.
+ */
 export interface ResponseInterceptor {
   name: string;
   onResponse?: (
@@ -50,6 +69,9 @@ export interface ResponseInterceptor {
   onResponseError?: (error: AxiosError) => any;
 }
 
+/**
+ * Options used when instantiating the {@link ApiClient}.
+ */
 export interface ApiClientConfig {
   baseURL: string;
   timeout?: number;
@@ -64,10 +86,18 @@ export interface ApiClientConfig {
   };
 }
 
+/**
+ * Lightweight wrapper around Axios with sane defaults and helper utilities.
+ */
 export class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
 
+  /**
+   * Create a new API client instance.
+   *
+   * @param config - Runtime configuration for the client
+   */
   constructor(config: ApiClientConfig) {
     this.config = config;
     this.instance = axios.create({
@@ -83,6 +113,9 @@ export class ApiClient {
     this.setupInterceptors();
   }
 
+  /**
+   * Register request/response interceptors with the underlying Axios instance.
+   */
   private setupInterceptors(): void {
     // Setup request interceptors
     this.config.requestInterceptors?.forEach((interceptor) => {
@@ -107,6 +140,12 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Handle an HTTP error returned from Axios.
+   *
+   * @param error - The Axios error object
+   * @returns A promise that rejects with a normalized {@link ApiError}
+   */
   private async handleResponseError(
     error: AxiosError
   ): Promise<AxiosResponse | never> {
@@ -160,6 +199,12 @@ export class ApiClient {
     throw apiError;
   }
 
+  /**
+   * Determine whether a request should be retried based on configuration.
+   *
+   * @param error - The error returned by Axios
+   * @returns `true` if the request is retryable
+   */
   private shouldRetry(error: AxiosError): boolean {
     if (!this.config.retryConfig) return false;
 
@@ -173,6 +218,12 @@ export class ApiClient {
     return retryableStatuses.includes(error.response?.status || 0);
   }
 
+  /**
+   * Execute a retry with exponential backoff for a failed request.
+   *
+   * @param error - The original Axios error
+   * @returns A promise resolving to the Axios response once retried
+   */
   private async retryRequest(error: AxiosError): Promise<AxiosResponse> {
     const { retries, retryDelay } = this.config.retryConfig!;
     const currentRetry = (error.config as any).__retryCount || 0;
@@ -191,6 +242,13 @@ export class ApiClient {
   }
 
   // Core HTTP methods
+  /**
+   * Perform a HTTP GET request.
+   *
+   * @param url - Endpoint URL relative to the base URL
+   * @param config - Optional Axios request configuration
+   * @returns The formatted API response
+   */
   async get<T = any>(
     url: string,
     config?: AxiosRequestConfig
@@ -199,6 +257,9 @@ export class ApiClient {
     return this.formatResponse(response);
   }
 
+  /**
+   * Perform a HTTP POST request.
+   */
   async post<T = any>(
     url: string,
     data?: any,
@@ -208,6 +269,9 @@ export class ApiClient {
     return this.formatResponse(response);
   }
 
+  /**
+   * Perform a HTTP PUT request.
+   */
   async put<T = any>(
     url: string,
     data?: any,
@@ -217,6 +281,9 @@ export class ApiClient {
     return this.formatResponse(response);
   }
 
+  /**
+   * Perform a HTTP PATCH request.
+   */
   async patch<T = any>(
     url: string,
     data?: any,
@@ -226,6 +293,9 @@ export class ApiClient {
     return this.formatResponse(response);
   }
 
+  /**
+   * Perform a HTTP DELETE request.
+   */
   async delete<T = any>(
     url: string,
     config?: AxiosRequestConfig
@@ -235,6 +305,9 @@ export class ApiClient {
   }
 
   // Streaming support for AI responses
+  /**
+   * Create an {@link EventSource} connection for GET streaming endpoints.
+   */
   async stream(
     url: string,
     data?: any,
@@ -251,6 +324,9 @@ export class ApiClient {
   }
 
   // WebSocket streaming for real-time AI responses
+  /**
+   * Create an {@link EventSource} connection for POST endpoints.
+   */
   async streamPost(
     url: string,
     data?: any,
@@ -272,6 +348,9 @@ export class ApiClient {
   }
 
   // File upload support
+  /**
+   * Upload a file using multipart/form-data.
+   */
   async uploadFile<T = any>(
     url: string,
     file: File,
@@ -299,6 +378,9 @@ export class ApiClient {
   }
 
   // Utility methods
+  /**
+   * Convert an Axios response into the simplified {@link ApiResponse} shape.
+   */
   private formatResponse<T>(response: AxiosResponse<T>): ApiResponse<T> {
     return {
       data: response.data,
@@ -309,6 +391,9 @@ export class ApiClient {
   }
 
   // Add interceptor dynamically
+  /**
+   * Register a new request interceptor at runtime.
+   */
   addRequestInterceptor(interceptor: RequestInterceptor): void {
     this.instance.interceptors.request.use(
       interceptor.onRequest,
@@ -316,6 +401,9 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Register a new response interceptor at runtime.
+   */
   addResponseInterceptor(interceptor: ResponseInterceptor): void {
     this.instance.interceptors.response.use(
       interceptor.onResponse,
@@ -324,11 +412,17 @@ export class ApiClient {
   }
 
   // Get the underlying axios instance for advanced usage
+  /**
+   * Expose the underlying Axios instance for advanced customisation.
+   */
   getInstance(): AxiosInstance {
     return this.instance;
   }
 
   // Update base configuration
+  /**
+   * Update the base client configuration and underlying Axios defaults.
+   */
   updateConfig(updates: Partial<ApiClientConfig>): void {
     if (updates.baseURL) {
       this.instance.defaults.baseURL = updates.baseURL;
@@ -348,6 +442,9 @@ export class ApiClient {
 }
 
 // Default interceptors for FARM framework
+/**
+ * Basic request interceptor that attaches a bearer token from local storage.
+ */
 export const authInterceptor: RequestInterceptor = {
   name: "auth",
   onRequest: (config) => {
@@ -359,6 +456,9 @@ export const authInterceptor: RequestInterceptor = {
   },
 };
 
+/**
+ * Simple response interceptor that logs requests in development mode.
+ */
 export const loggingInterceptor: ResponseInterceptor = {
   name: "logging",
   onResponse: (response) => {
@@ -384,6 +484,11 @@ export const loggingInterceptor: ResponseInterceptor = {
 };
 
 // Factory function for creating configured API clients
+/**
+ * Convenience helper for creating a pre-configured {@link ApiClient}.
+ *
+ * @param config - Partial configuration that overrides the defaults
+ */
 export function createApiClient(
   config: Partial<ApiClientConfig> = {}
 ): ApiClient {
