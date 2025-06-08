@@ -2,11 +2,20 @@ import fs from "fs-extra";
 import path from "path";
 import { diffLines } from "diff";
 
+/**
+ * Utility class used to detect schema changes between generations.
+ */
 export class TypeDiffer {
+  /**
+   * Determine if two JSON schema objects differ.
+   */
   hasSchemaChanges(prev: any, next: any): boolean {
     return JSON.stringify(prev) !== JSON.stringify(next);
   }
 
+  /**
+   * Produce a diff of files between two directories.
+   */
   async compareDirectories(dirA: string, dirB: string) {
     const diffs: { file: string; message: string }[] = [];
     const filesA = await fs.readdir(dirA);

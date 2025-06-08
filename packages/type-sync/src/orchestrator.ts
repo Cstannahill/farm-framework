@@ -12,6 +12,9 @@ import type { OpenAPISchema } from "./types";
 const fs = fsExtra;
 const { ensureDir } = fsExtra;
 
+/**
+ * Configuration options controlling the type synchronization process.
+ */
 export interface SyncOptions {
   apiUrl: string;
   outputDir: string;
@@ -22,6 +25,9 @@ export interface SyncOptions {
   };
 }
 
+/**
+ * Result summary returned after running a synchronization cycle.
+ */
 export interface SyncResult {
   filesGenerated: number;
   fromCache: boolean;
@@ -32,6 +38,10 @@ interface Generator {
   generate: (schema: OpenAPISchema, opts: any) => Promise<{ path: string }>; // minimal
 }
 
+/**
+ * Coordinates extraction of OpenAPI schemas and generation of TypeScript
+ * artifacts used by the framework.
+ */
 export class TypeSyncOrchestrator {
   private extractor = new OpenAPIExtractor();
   private cache = new GenerationCache(".farm/cache/types");
@@ -39,10 +49,16 @@ export class TypeSyncOrchestrator {
   private generators = new Map<string, Generator>();
   private config: SyncOptions | null = null;
 
+  /**
+   * Instantiate the orchestrator with default generators.
+   */
   constructor() {
     this.initializeGenerators();
   }
 
+  /**
+   * Register built-in generator implementations.
+   */
   private initializeGenerators() {
     this.generators.set(
       "types",
@@ -62,11 +78,17 @@ export class TypeSyncOrchestrator {
     );
   }
 
+  /**
+   * Prepare the orchestrator for operation.
+   */
   async initialize(config: SyncOptions) {
     this.config = config;
     await ensureDir(config.outputDir);
   }
 
+  /**
+   * Determine whether a generator should run based on current feature flags.
+   */
   private isFeatureEnabled(genType: string): boolean {
     if (!this.config) return false;
     if (genType === "client") return this.config.features.client;
@@ -75,6 +97,9 @@ export class TypeSyncOrchestrator {
     return true;
   }
 
+  /**
+   * Run a single synchronization cycle, generating any necessary artifacts.
+   */
   async syncOnce(opts?: Partial<SyncOptions>): Promise<SyncResult> {
     if (!this.config) throw new Error("Orchestrator not initialized");
     const config = { ...this.config, ...opts } as SyncOptions;
@@ -98,6 +123,9 @@ export class TypeSyncOrchestrator {
     };
   }
 
+  /**
+   * Generate all artifacts for the provided schema.
+   */
   private async generateArtifacts(schema: OpenAPISchema, outputDir: string) {
     const results: { path: string }[] = [];
     const order = ["types", "client", "hooks", "ai-hooks"];
