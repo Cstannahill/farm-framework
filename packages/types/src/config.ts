@@ -1,6 +1,7 @@
 /**
  * FARM Configuration Types
  */
+import type { DatabaseConfig } from "./database.js";
 
 export interface FarmConfig {
   // Project metadata
@@ -41,11 +42,6 @@ export type FeatureType =
   | "search"
   | "analytics";
 
-export interface DatabaseConfig {
-  type: "mongodb" | "postgresql" | "mysql" | "sqlite";
-  url: string;
-  options?: Record<string, any>;
-}
 
 export interface AIConfig {
   providers: {

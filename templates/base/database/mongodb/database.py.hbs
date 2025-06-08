@@ -1,0 +1,21 @@
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from typing import Optional
+
+class DatabaseManager:
+    client: Optional[AsyncIOMotorClient] = None
+
+    async def connect(self) -> None:
+        self.client = AsyncIOMotorClient("{{database.connectionUrl}}", serverSelectionTimeoutMS=5000)
+        await self.client.admin.command("ping")
+
+    async def close(self) -> None:
+        if self.client:
+            self.client.close()
+
+    async def init_models(self, models) -> None:
+        if not self.client:
+            return
+        await init_beanie(database=self.client.get_default_database(), document_models=models)
+
+db = DatabaseManager()
