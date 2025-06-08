@@ -1,0 +1,14 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ProductGrid from './components/products/ProductGrid';
+import CartSidebar from './components/cart/CartSidebar';
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <CartSidebar />
+      <Routes>
+        <Route path="/" element={<ProductGrid />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}

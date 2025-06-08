@@ -1,0 +1,20 @@
+# {{projectName}}
+
+{{description}}
+
+This project was generated with the **FARM Stack Framework** using the `ecommerce` template. It provides a FastAPI backend with product, cart and order APIs and a React frontend with shopping cart and checkout flows.
+
+## Development
+
+Install dependencies and start the development servers:
+
+```bash
+# Frontend
+cd apps/web && npm install && npm run dev
+# Backend
+cd ../api && pip install -r requirements.txt && uvicorn src.main:app --reload
+```
+
+## Environment Variables
+
+See `.env.example` for the variables required to run the application.
