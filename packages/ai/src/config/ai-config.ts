@@ -141,6 +141,12 @@ export class AIConfigManager extends EventEmitter {
   private environment: string;
   private configPath?: string;
 
+  /**
+   * Create a new configuration manager instance.
+   *
+   * @param initialConfig - Optional configuration overrides
+   * @param environment - Current runtime environment
+   */
   constructor(
     initialConfig?: Partial<AIConfig>,
     environment: string = "development"
@@ -151,6 +157,11 @@ export class AIConfigManager extends EventEmitter {
   }
 
   // Configuration loading and validation
+  /**
+   * Load a configuration object and emit the appropriate events.
+   *
+   * @param config - Partial configuration to load
+   */
   public loadConfig(config: Partial<AIConfig>): void {
     const previousConfig = { ...this.config };
 
@@ -163,6 +174,12 @@ export class AIConfigManager extends EventEmitter {
     }
   }
 
+  /**
+   * Validate and normalize a configuration object using zod schemas.
+   *
+   * @param config - Partial configuration to validate
+   * @returns The parsed and normalized configuration
+   */
   public validateAndNormalize(config: Partial<AIConfig>): AIConfig {
     const result = AIConfigSchema.safeParse(config);
 
@@ -177,18 +194,32 @@ export class AIConfigManager extends EventEmitter {
   }
 
   // Configuration access
+  /**
+   * Retrieve a copy of the current configuration.
+   */
   public getConfig(): AIConfig {
     return { ...this.config };
   }
 
+  /**
+   * Get the configuration object for a specific provider.
+   *
+   * @param name - Provider identifier
+   */
   public getProviderConfig(name: string): ProviderConfig | undefined {
     return this.config.providers[name];
   }
 
+  /**
+   * Return configurations for all providers.
+   */
   public getProviderConfigs(): Record<string, ProviderConfig> {
     return { ...this.config.providers };
   }
 
+  /**
+   * Retrieve only the providers that are currently enabled.
+   */
   public getEnabledProviders(): Record<string, ProviderConfig> {
     return Object.fromEntries(
       Object.entries(this.config.providers).filter(
@@ -197,19 +228,33 @@ export class AIConfigManager extends EventEmitter {
     );
   }
 
+  /**
+   * Get the configured provider routing table.
+   */
   public getRoutingConfig(): AIRoutingConfig {
     return this.config.routing || {};
   }
 
+  /**
+   * Access the enabled feature configuration.
+   */
   public getFeaturesConfig(): AIFeaturesConfig {
     return this.config.features;
   }
 
+  /**
+   * Retrieve global configuration settings shared across providers.
+   */
   public getGlobalConfig(): AIConfig["global"] {
     return this.config.global;
   }
 
   // Provider routing
+  /**
+   * Determine which provider should be used for a given environment.
+   *
+   * @param environment - Optional environment override
+   */
   public getProviderForEnvironment(environment?: string): string | undefined {
     const env = environment || this.environment;
     const routing = this.getRoutingConfig();
@@ -231,10 +276,16 @@ export class AIConfigManager extends EventEmitter {
     return firstProvider;
   }
 
+  /**
+   * Shortcut for {@link getProviderForEnvironment} using the current environment.
+   */
   public getDefaultProvider(): string | undefined {
     return this.getProviderForEnvironment();
   }
 
+  /**
+   * Return a list of enabled providers sorted by configured priority.
+   */
   public getProvidersByPriority(): Array<{
     name: string;
     config: ProviderConfig;
@@ -245,6 +296,12 @@ export class AIConfigManager extends EventEmitter {
   }
 
   // Configuration updates
+  /**
+   * Update configuration for a named provider.
+   *
+   * @param name - Provider identifier
+   * @param updates - Partial configuration updates
+   */
   public updateProviderConfig(
     name: string,
     updates: Partial<ProviderConfig>
@@ -271,6 +328,12 @@ export class AIConfigManager extends EventEmitter {
     });
   }
 
+  /**
+   * Add a new provider configuration entry.
+   *
+   * @param name - Provider identifier
+   * @param config - Provider configuration values
+   */
   public addProvider(name: string, config: ProviderConfig): void {
     if (this.hasProvider(name)) {
       throw new Error(`Provider "${name}" already exists`);
@@ -287,6 +350,12 @@ export class AIConfigManager extends EventEmitter {
     this.emit("provider-added", { name, config: result.data });
   }
 
+  /**
+   * Remove a provider from the configuration.
+   *
+   * @param name - Provider identifier
+   * @returns `true` if the provider existed and was removed
+   */
   public removeProvider(name: string): boolean {
     if (!this.hasProvider(name)) {
       return false;
@@ -297,30 +366,50 @@ export class AIConfigManager extends EventEmitter {
     return true;
   }
 
+  /**
+   * Update the global feature configuration block.
+   */
   public updateFeatures(updates: Partial<AIFeaturesConfig>): void {
     this.config.features = { ...this.config.features, ...updates };
     this.emit("features-updated", { features: this.config.features, updates });
   }
 
+  /**
+   * Update the provider routing configuration.
+   */
   public updateRouting(updates: Partial<AIRoutingConfig>): void {
     this.config.routing = { ...this.config.routing, ...updates };
     this.emit("routing-updated", { routing: this.config.routing, updates });
   }
 
   // Utility methods
+  /**
+   * Check if a provider entry exists in the configuration.
+   */
   public hasProvider(name: string): boolean {
     return name in this.config.providers;
   }
 
+  /**
+   * Determine if a provider is both configured and enabled.
+   */
   public isProviderEnabled(name: string): boolean {
     const config = this.getProviderConfig(name);
     return config?.enabled || false;
   }
 
+  /**
+   * Check if a specific feature flag is enabled.
+   */
   public isFeatureEnabled(feature: keyof AIFeaturesConfig): boolean {
     return this.config.features[feature] || false;
   }
 
+  /**
+   * Get all providers that match a specific implementation type.
+   *
+   * @param type - Provider type label
+   */
   public getProvidersByType(
     type: ProviderConfig["type"]
   ): Array<{ name: string; config: ProviderConfig }> {
@@ -330,17 +419,29 @@ export class AIConfigManager extends EventEmitter {
   }
 
   // Environment management
+  /**
+   * Change the current environment and emit a change event.
+   */
   public setEnvironment(environment: string): void {
     const previousEnvironment = this.environment;
     this.environment = environment;
     this.emit("environment-changed", { environment, previousEnvironment });
   }
 
+  /**
+   * Get the name of the currently configured environment.
+   */
   public getEnvironment(): string {
     return this.environment;
   }
 
   // Configuration validation helpers
+  /**
+   * Validate a raw provider configuration object.
+   *
+   * @param config - Unknown object to validate
+   * @returns Parsed provider configuration
+   */
   public validateProviderConfig(config: unknown): ProviderConfig {
     const result = ProviderConfigSchema.safeParse(config);
     if (!result.success) {
@@ -352,16 +453,25 @@ export class AIConfigManager extends EventEmitter {
   }
 
   // Configuration serialization
+  /**
+   * Serialize the configuration to a plain object.
+   */
   public toJSON(): AIConfig {
     return this.getConfig();
   }
 
+  /**
+   * Create a new {@link AIConfigManager} from a JSON string or object.
+   */
   public static fromJSON(json: string | object): AIConfigManager {
     const config = typeof json === "string" ? JSON.parse(json) : json;
     return new AIConfigManager(config);
   }
 
   // Default configurations
+  /**
+   * Get a baseline configuration suitable for an Ollama provider.
+   */
   public static getDefaultOllamaConfig(): OllamaConfig {
     return {
       enabled: true,
@@ -382,6 +492,11 @@ export class AIConfigManager extends EventEmitter {
     };
   }
 
+  /**
+   * Get a baseline configuration for the OpenAI provider.
+   *
+   * @param apiKey - API key used for authentication
+   */
   public static getDefaultOpenAIConfig(apiKey: string): OpenAIConfig {
     return {
       enabled: true,

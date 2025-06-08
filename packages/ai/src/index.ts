@@ -306,6 +306,11 @@ export class AISystem extends EventEmitter {
   }
 
   // Private helper methods
+  /**
+   * Initialize providers defined in the supplied configuration.
+   *
+   * @param config - Parsed AI configuration
+   */
   private async initializeProvidersFromConfig(config: AIConfig): Promise<void> {
     const enabledProviders = this.configManager.getEnabledProviders();
 
@@ -332,6 +337,12 @@ export class AISystem extends EventEmitter {
     }
   }
 
+  /**
+   * Choose an appropriate provider based on preference and health status.
+   *
+   * @param preferredProvider - Optional preferred provider name
+   * @returns The selected provider instance or `null` if none available
+   */
   private async selectProvider(
     preferredProvider?: string
   ): Promise<BaseAIProvider | null> {
@@ -356,6 +367,10 @@ export class AISystem extends EventEmitter {
     return await this.registry.getHealthyProvider();
   }
 
+  /**
+   * Register event handlers for the configuration manager, registry and
+   * health checker to forward events to consumers.
+   */
   private setupEventHandlers(): void {
     // Configuration events
     this.configManager.on("provider-added", (event) => {
@@ -399,18 +414,22 @@ export class AISystem extends EventEmitter {
   }
 
   // Getters for accessing components
+  /** Get access to the underlying {@link AIConfigManager}. */
   public get config(): AIConfigManager {
     return this.configManager;
   }
 
+  /** Access the provider registry used by this system. */
   public get providers(): ProviderRegistry {
     return this.registry;
   }
 
+  /** Retrieve the health checker instance monitoring providers. */
   public get health(): HealthChecker {
     return this.healthChecker;
   }
 
+  /** Get the global error handler used by the system. */
   public get errors(): AIErrorHandler {
     return this.errorHandler;
   }
