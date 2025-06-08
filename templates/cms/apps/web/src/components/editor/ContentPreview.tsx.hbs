@@ -1,0 +1,7 @@
+import React from 'react';
+
+export default function ContentPreview({ html }: { html: string }) {
+  return (
+    <div className="prose" dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}

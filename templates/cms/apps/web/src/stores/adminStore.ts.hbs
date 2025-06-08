@@ -1,0 +1,15 @@
+import { create } from 'zustand';
+
+interface AdminState {
+  users: string[];
+  roles: string[];
+  addUser: (name: string) => void;
+  addRole: (role: string) => void;
+}
+
+export const useAdminStore = create<AdminState>((set) => ({
+  users: [],
+  roles: [],
+  addUser: (name) => set((state) => ({ users: [...state.users, name] })),
+  addRole: (role) => set((state) => ({ roles: [...state.roles, role] })),
+}));

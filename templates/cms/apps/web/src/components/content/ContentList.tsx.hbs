@@ -1,0 +1,13 @@
+import React from 'react';
+import ContentCard from './ContentCard';
+import type { Content } from '../../stores/contentStore';
+
+export default function ContentList({ items }: { items: Content[] }) {
+  return (
+    <div className="space-y-4">
+      {items.map(item => (
+        <ContentCard key={item.id} content={item} />
+      ))}
+    </div>
+  );
+}
