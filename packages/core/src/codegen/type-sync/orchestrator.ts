@@ -1,9 +1,9 @@
 // packages/core/src/codegen/type-sync/orchestrator.ts
-import { OpenAPIExtractor } from '../../../tools/codegen/openapi-extractor';
-import { TypeScriptGenerator } from '../../../tools/codegen/typescript-generator';
-import { APIClientGenerator } from '../../../tools/codegen/api-client-generator';
-import { ReactHookGenerator } from '../../../tools/codegen/react-hook-generator';
-import { AIHookGenerator } from '../../../tools/codegen/ai-hook-generator';
+import { OpenAPIExtractor } from '../extractors/openapi';
+import { TypeScriptGenerator } from '../generators/typescript';
+import { APIClientGenerator } from '../generators/api-client';
+import { ReactHookGenerator } from '../generators/react-hooks';
+import { AIHookGenerator } from '../generators/ai-hooks';
 import { GenerationCache } from './cache';
 import { TypeDiffer } from './differ';
 import fs from 'fs-extra';
