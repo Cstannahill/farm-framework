@@ -1,0 +1,14 @@
+import { useEffect, useState } from 'react';
+
+export default function ConnectionStatus() {
+  const [online, setOnline] = useState(false);
+
+  useEffect(() => {
+    const ws = new WebSocket(`ws://${window.location.host}/ws`);
+    ws.onopen = () => setOnline(true);
+    ws.onclose = () => setOnline(false);
+    return () => ws.close();
+  }, []);
+
+  return <span>{online ? 'Online' : 'Offline'}</span>;
+}

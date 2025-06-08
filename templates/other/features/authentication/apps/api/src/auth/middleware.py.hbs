@@ -1,0 +1,11 @@
+from fastapi import Request, HTTPException
+from fastapi.security.utils import get_authorization_scheme_param
+from .jwt import verify_token
+
+async def auth_middleware(request: Request, call_next):
+    auth = request.headers.get('Authorization')
+    if auth:
+        scheme, token = get_authorization_scheme_param(auth)
+        if scheme.lower() == 'bearer' and verify_token(token):
+            return await call_next(request)
+    raise HTTPException(status_code=401, detail='Not authenticated')

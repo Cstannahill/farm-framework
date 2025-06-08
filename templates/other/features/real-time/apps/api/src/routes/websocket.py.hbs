@@ -1,0 +1,15 @@
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from ..websocket.manager import ConnectionManager
+
+router = APIRouter()
+manager = ConnectionManager()
+
+@router.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await manager.connect(ws)
+    try:
+        while True:
+            data = await ws.receive_text()
+            await manager.broadcast(data)
+    except WebSocketDisconnect:
+        manager.disconnect(ws)

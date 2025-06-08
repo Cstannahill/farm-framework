@@ -1,0 +1,8 @@
+"""GPU utility helpers."""
+
+def has_cuda() -> bool:
+    try:
+        import torch  # type: ignore
+        return torch.cuda.is_available()
+    except Exception:
+        return False

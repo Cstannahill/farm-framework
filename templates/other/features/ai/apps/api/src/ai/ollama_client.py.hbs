@@ -1,0 +1,11 @@
+import httpx
+
+class OllamaClient:
+    def __init__(self, base_url: str = "http://localhost:11434"):
+        self.client = httpx.AsyncClient(base_url=base_url)
+
+    async def generate(self, prompt: str, model: str) -> str:
+        resp = await self.client.post("/api/generate", json={"model": model, "prompt": prompt, "stream": False})
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("response") or data.get("generated", "")

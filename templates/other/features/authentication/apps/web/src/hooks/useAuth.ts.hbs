@@ -1,0 +1,42 @@
+import { createContext, useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLocalStorage } from 'usehooks-ts';
+
+type AuthContextType = {
+  token: string | null;
+  login: (u: string, p: string) => Promise<void>;
+  logout: () => void;
+};
+
+const AuthContext = createContext<AuthContextType>(null as any);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [token, setToken] = useLocalStorage<string | null>('token', null);
+  const navigate = useNavigate();
+
+  const login = async (username: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setToken(data.access_token);
+      navigate('/');
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    navigate('/login');
+  };
+
+  return (
+    <AuthContext.Provider value={{ token, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);

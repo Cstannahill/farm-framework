@@ -1,0 +1,6 @@
+from .manager import ConnectionManager
+
+manager = ConnectionManager()
+
+async def send_update(message: str):
+    await manager.broadcast(message)
