@@ -30,8 +30,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Make build scripts executable
+        run: chmod +x ./scripts/build.sh
+
       - name: Build CLI
-        run: pnpm build
+        run: ./scripts/build.sh
 
       - name: Run Docker Manager unit tests
         run: pnpm test:docker-manager

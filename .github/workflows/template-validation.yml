@@ -135,8 +135,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build
+      - name: Make script executable
+        run: chmod +x ./scripts/s-build.sh
+
+      - name: Build CLI
+        run: ./scripts/s-build.sh
 
       - name: Run performance benchmarks
         run: |
