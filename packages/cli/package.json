@@ -4,6 +4,7 @@
   "description": "FARM Stack Framework CLI",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/ts/index.d.ts",
   "bin": {
     "farm": "dist/index.js"
   },
@@ -11,13 +12,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build:bundle": "tsup",
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@farm/cli": "^0.1.0",
     "@farm/core": "workspace:*",
     "@farm/types": "workspace:*",
     "@inquirer/prompts": "^7.5.3",
@@ -31,9 +31,11 @@
     "ora": "^8.0.1"
   },
   "devDependencies": {
+    "@types/chokidar": "2.1.7",
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.7",
     "@types/node": "^20.8.0",
+    "chokidar": "^3.6.0",
     "tsup": "^8.0.2",
     "typescript": "^5.8.3"
   },

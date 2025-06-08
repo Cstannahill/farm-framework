@@ -1,17 +1,16 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "./packages/types"
-    },
-    {
-      "path": "./packages/core"
-    },
-    {
-      "path": "./packages/cli"
-    },
-    {
-      "path": "./packages/ui-components"
-    }
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["packages/**/*", "tools/**/*", "apps/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    ".next",
+    ".turbo",
+    "templates/**/*"
   ]
 }

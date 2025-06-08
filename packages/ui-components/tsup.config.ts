@@ -3,8 +3,8 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.tsx"],
   format: ["cjs", "esm"],
-  dts: true,
-  clean: true,
+  dts: false, // Use tsc for declarations
+  clean: false, // Don't clean to preserve tsc output in dist/ts
   sourcemap: true,
   external: ["@farm/types", "react", "react-dom"],
   outDir: "dist",

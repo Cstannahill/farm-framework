@@ -1,7 +1,6 @@
 // packages/cli/src/utils/prompts.ts
 import inquirer from "inquirer";
 import { input, select, checkbox, confirm } from "@inquirer/prompts";
-import type { CreateOptions } from "../commands/create.js";
 
 export interface PromptChoice {
   name: string;

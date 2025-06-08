@@ -20,3 +20,6 @@ export async function initialize() {
     ready: true,
   };
 }
+
+// Codegen exports
+export * from "./codegen";

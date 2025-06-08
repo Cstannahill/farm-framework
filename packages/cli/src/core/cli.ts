@@ -6,7 +6,7 @@ import { join, dirname } from "path";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { styles, icons, messages } from "../utils/styling.js";
-import { createProject } from "../commands/create.js";
+import { createCreateCommand } from "../commands/create.js";
 import { getErrorMessage } from "../utils/error-handling.js";
 
 // Resolve __dirname based on module URL for both CJS and ESM
@@ -422,7 +422,7 @@ export class FarmCLI {
   private registerCommands(): void {
     try {
       // Register create command
-      const createCommand = createProject();
+      const createCommand = createCreateCommand();
       this.program.addCommand(createCommand);
 
       // Register help command

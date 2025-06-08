@@ -1,8 +1,8 @@
-import type { OpenAPIV3 } from 'openapi-types';
+type OpenAPIV3 = any;
 
-export function validateSchema(schema: unknown): schema is OpenAPIV3.Document {
+export function validateSchema(schema: unknown): boolean {
   return (
-    typeof schema === 'object' &&
+    typeof schema === "object" &&
     !!schema &&
     (schema as any).openapi !== undefined &&
     (schema as any).info !== undefined &&

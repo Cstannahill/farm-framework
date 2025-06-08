@@ -1,11 +1,11 @@
 // packages/core/src/watcher/file-watcher.ts
-import chokidar from "chokidar";
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
 import path from "path";
 import { CodeGenerator } from "../codegen/generator";
 import { debounce } from "lodash";
 import type { FarmConfig } from "@farm/types";
+import chokidar from "chokidar";
 
 export interface FileChangeEvent {
   type: "change" | "add" | "unlink";

@@ -1,18 +1,18 @@
 // packages/cli/src/template/registry.ts - Updated file patterns for monorepo structure
-import { TemplateDefinition, TemplateType } from "./types.js";
+import { TemplateDefinition, TemplateName } from "./types.js";
 
 export class TemplateRegistry {
-  private templates = new Map<TemplateType, TemplateDefinition>();
+  private templates = new Map<TemplateName, TemplateDefinition>();
 
   constructor() {
     this.registerBuiltinTemplates();
   }
 
   register(template: TemplateDefinition): void {
-    this.templates.set(template.name as TemplateType, template);
+    this.templates.set(template.name as TemplateName, template);
   }
 
-  get(templateName: TemplateType): TemplateDefinition | undefined {
+  get(templateName: TemplateName): TemplateDefinition | undefined {
     return this.templates.get(templateName);
   }
 
@@ -25,101 +25,92 @@ export class TemplateRegistry {
     this.register({
       name: "basic",
       description: "Simple React + FastAPI + MongoDB setup",
-      requiredFeatures: [],
-      supportedFeatures: ["auth", "realtime", "storage", "analytics", "ai"],
-      defaultFeatures: [],
+      features: ["auth", "ai", "realtime", "storage"],
       supportedDatabases: ["mongodb", "postgresql", "mysql", "sqlite"],
       defaultDatabase: "mongodb",
       files: [
         // Root files
         {
-          sourcePath: "base/package.json.hbs",
-          targetPath: "package.json",
-          transform: true,
+          src: "base/package.json.hbs",
+          dest: "package.json",
         },
         {
-          sourcePath: "base/README.md.hbs",
-          targetPath: "README.md",
-          transform: true,
+          src: "base/README.md.hbs",
+          dest: "README.md",
         },
-        { sourcePath: "base/.gitignore", targetPath: ".gitignore" },
+        { src: "base/.gitignore", dest: ".gitignore" },
         {
-          sourcePath: "base/farm.config.ts.hbs",
-          targetPath: "farm.config.ts",
-          transform: true,
+          src: "base/farm.config.ts.hbs",
+          dest: "farm.config.ts",
         },
 
         // Docker files
         {
-          sourcePath: "base/docker-compose.yml.hbs",
-          targetPath: "docker-compose.yml",
-          transform: true,
-          condition: (ctx) => ctx.docker,
+          src: "base/docker-compose.yml.hbs",
+          dest: "docker-compose.yml",
         },
 
         // Frontend files (React) - only if not API-only
         {
-          sourcePath: "frontend/basic/package.json.hbs",
-          targetPath: "apps/web/package.json",
-          transform: true,
+          src: "frontend/basic/package.json.hbs",
+          dest: "apps/web/package.json",
+
           condition: (ctx) => ctx.template !== "api-only",
         },
         {
-          sourcePath: "frontend/basic/vite.config.ts.hbs",
-          targetPath: "apps/web/vite.config.ts",
-          transform: true,
+          src: "frontend/basic/vite.config.ts.hbs",
+          dest: "apps/web/vite.config.ts",
+
           condition: (ctx) => ctx.template !== "api-only",
         },
         {
-          sourcePath: "frontend/basic/index.html.hbs",
-          targetPath: "apps/web/index.html",
-          transform: true,
+          src: "frontend/basic/index.html.hbs",
+          dest: "apps/web/index.html",
+
           condition: (ctx) => ctx.template !== "api-only",
         },
         {
-          sourcePath: "frontend/basic/src/**/*",
-          targetPath: "apps/web/src/",
+          src: "frontend/basic/src/**/*",
+          dest: "apps/web/src/",
           condition: (ctx) => ctx.template !== "api-only",
         },
         {
-          sourcePath: "frontend/basic/public/**/*",
-          targetPath: "apps/web/public/",
+          src: "frontend/basic/public/**/*",
+          dest: "apps/web/public/",
           condition: (ctx) => ctx.template !== "api-only",
         },
 
         // Backend files (FastAPI)
         {
-          sourcePath: "backend/basic/src/**/*",
-          targetPath: "apps/api/src/",
-          transform: true,
+          src: "backend/basic/src/**/*",
+          dest: "apps/api/src/",
         },
         {
-          sourcePath: "backend/basic/tests/**/*",
-          targetPath: "apps/api/tests/",
+          src: "backend/basic/tests/**/*",
+          dest: "apps/api/tests/",
         },
         {
-          sourcePath: "backend/basic/requirements.txt.hbs",
-          targetPath: "apps/api/requirements.txt",
-          transform: true,
+          src: "backend/basic/requirements.txt.hbs",
+          dest: "apps/api/requirements.txt",
         },
         {
-          sourcePath: "backend/basic/pyproject.toml.hbs",
-          targetPath: "apps/api/pyproject.toml",
-          transform: true,
+          src: "backend/basic/pyproject.toml.hbs",
+          dest: "apps/api/pyproject.toml",
         },
 
         // Feature-specific files
         {
-          sourcePath: "backend/auth/**/*",
-          targetPath: "apps/api/src/",
+          src: "backend/auth/**/*",
+          dest: "apps/api/src/",
           condition: (ctx) => ctx.features.includes("auth"),
         },
         {
-          sourcePath: "backend/ai/**/*",
-          targetPath: "apps/api/src/",
+          src: "backend/ai/**/*",
+          dest: "apps/api/src/",
           condition: (ctx) => ctx.features.includes("ai"),
         },
       ],
+      directories: [],
       dependencies: this.getBasicTemplateDependencies(),
     });
 
@@ -127,6 +118,7 @@ export class TemplateRegistry {
     this.register({
       name: "ai-chat",
       description: "Chat application with streaming AI responses",
+      features: ["ai", "realtime"], // Add a features array for compatibility
       requiredFeatures: ["ai"],
       supportedFeatures: ["auth", "ai", "realtime", "storage"],
       defaultFeatures: ["ai", "realtime"],
@@ -138,24 +130,25 @@ export class TemplateRegistry {
 
         // AI-specific frontend components
         {
-          sourcePath: "frontend/ai-chat/**/*",
-          targetPath: "apps/web/src/",
+          src: "frontend/ai-chat/**/*",
+          dest: "apps/web/src/",
           condition: (ctx) => ctx.template !== "api-only",
         },
 
         // AI-specific backend files
-        { sourcePath: "backend/ai/**/*", targetPath: "apps/api/src/" },
+        { src: "backend/ai/**/*", dest: "apps/api/src/" },
 
         // WebSocket support
         {
-          sourcePath: "backend/features/realtime/**/*",
-          targetPath: "apps/api/src/",
+          src: "backend/features/realtime/**/*",
+          dest: "apps/api/src/",
           condition: (ctx) => ctx.features.includes("realtime"),
         },
 
         // Docker Ollama setup
-        { sourcePath: "docker/ollama/**/*", targetPath: "docker/ollama/" },
+        { src: "docker/ollama/**/*", dest: "docker/ollama/" },
       ],
+      directories: [], // Add an empty directories array for compatibility
       dependencies: this.getAIChatTemplateDependencies(),
     });
 
@@ -163,6 +156,7 @@ export class TemplateRegistry {
     this.register({
       name: "api-only",
       description: "FastAPI backend only, no React frontend",
+      features: [],
       requiredFeatures: [],
       supportedFeatures: ["auth", "ai", "storage", "email", "search"],
       defaultFeatures: [],
@@ -171,43 +165,38 @@ export class TemplateRegistry {
       files: [
         // Root files (no frontend package.json)
         {
-          sourcePath: "base/package.json.hbs",
-          targetPath: "package.json",
-          transform: true,
+          src: "base/package.json.hbs",
+          dest: "package.json",
         },
         {
-          sourcePath: "base/README.md.hbs",
-          targetPath: "README.md",
-          transform: true,
+          src: "base/README.md.hbs",
+          dest: "README.md",
         },
-        { sourcePath: "base/.gitignore", targetPath: ".gitignore" },
+        { src: "base/.gitignore", dest: ".gitignore" },
         {
-          sourcePath: "base/farm.config.ts.hbs",
-          targetPath: "farm.config.ts",
-          transform: true,
+          src: "base/farm.config.ts.hbs",
+          dest: "farm.config.ts",
         },
 
         // Only backend files
         {
-          sourcePath: "backend/basic/src/**/*",
-          targetPath: "apps/api/src/",
-          transform: true,
+          src: "backend/basic/src/**/*",
+          dest: "apps/api/src/",
         },
         {
-          sourcePath: "backend/basic/tests/**/*",
-          targetPath: "apps/api/tests/",
+          src: "backend/basic/tests/**/*",
+          dest: "apps/api/tests/",
         },
         {
-          sourcePath: "backend/basic/requirements.txt.hbs",
-          targetPath: "apps/api/requirements.txt",
-          transform: true,
+          src: "backend/basic/requirements.txt.hbs",
+          dest: "apps/api/requirements.txt",
         },
         {
-          sourcePath: "backend/basic/pyproject.toml.hbs",
-          targetPath: "apps/api/pyproject.toml",
-          transform: true,
+          src: "backend/basic/pyproject.toml.hbs",
+          dest: "apps/api/pyproject.toml",
         },
       ],
+      directories: [],
       dependencies: this.getAPIOnlyTemplateDependencies(),
     });
   }
@@ -216,25 +205,21 @@ export class TemplateRegistry {
     // Return the basic file set for reuse in other templates
     return [
       {
-        sourcePath: "base/package.json.hbs",
-        targetPath: "package.json",
-        transform: true,
+        src: "base/package.json.hbs",
+        dest: "package.json",
       },
       {
-        sourcePath: "base/README.md.hbs",
-        targetPath: "README.md",
-        transform: true,
+        src: "base/README.md.hbs",
+        dest: "README.md",
       },
-      { sourcePath: "base/.gitignore", targetPath: ".gitignore" },
+      { src: "base/.gitignore", dest: ".gitignore" },
       {
-        sourcePath: "base/farm.config.ts.hbs",
-        targetPath: "farm.config.ts",
-        transform: true,
+        src: "base/farm.config.ts.hbs",
+        dest: "farm.config.ts",
       },
       {
-        sourcePath: "backend/basic/src/**/*",
-        targetPath: "apps/api/src/",
-        transform: true,
+        src: "backend/basic/src/**/*",
+        dest: "apps/api/src/",
       },
     ];
   }

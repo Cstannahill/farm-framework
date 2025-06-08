@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "tools/*"
 
 # Configure package linking for development
 catalog:

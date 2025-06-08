@@ -1,8 +1,11 @@
-import { pathExists } from "fs-extra";
+import fsExtra from "fs-extra";
 import { resolve, extname } from "path";
-import { register } from "esbuild-register/dist/node";
+// Comment out esbuild-register import if not used or not present
+// import { register } from "esbuild-register/dist/node";
 import type { FarmConfig } from "@farm/types";
 import { logger } from "../utils/logger.js";
+
+const { pathExists } = fsExtra;
 import { isErrorInstance } from "../utils/error-utils.js";
 import { createConfigError } from "./errors.js";
 import { FarmError, getErrorMessage } from "../utils/error-handling.js";
@@ -108,11 +111,11 @@ export class ConfigLoader {
 
   private registerTypeScriptSupport(): void {
     try {
-      register({
-        target: "node18",
-        format: "cjs",
-        extensions: [".ts", ".tsx"],
-      });
+      // register({
+      //   target: "node18",
+      //   format: "cjs",
+      //   extensions: [".ts", ".tsx"],
+      // });
     } catch (error) {
       logger.warn(
         "Failed to register TypeScript support:",

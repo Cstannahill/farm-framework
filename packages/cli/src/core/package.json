@@ -9,7 +9,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build:bundle": "tsup",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit"

@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build:bundle": "tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "type-check": "tsc --noEmit"

@@ -183,12 +183,17 @@ export interface TemplateFile {
   src: string;
   dest: string;
   condition?: (context: TemplateContext) => boolean;
+  sourcePath?: string; // Allow legacy property for compatibility
+  targetPath?: string; // Allow legacy property for compatibility
+  transform?: boolean;
 }
 
 export interface TemplateDirectory {
   src: string;
   dest: string;
   condition?: (context: TemplateContext) => boolean;
+  sourcePath?: string; // Allow legacy property for compatibility
+  targetPath?: string; // Allow legacy property for compatibility
 }
 
 export interface TemplateDefinition {
@@ -198,6 +203,12 @@ export interface TemplateDefinition {
   files: TemplateFile[];
   directories: TemplateDirectory[];
   postProcess?: (context: TemplateContext, outputPath: string) => Promise<void>;
+  // Allow extra fields for template registry compatibility
+  supportedFeatures?: FeatureName[];
+  defaultFeatures?: FeatureName[];
+  supportedDatabases?: DatabaseType[];
+  defaultDatabase?: DatabaseType;
+  [key: string]: any; // Allow any additional custom fields
 }
 
 // =============================================================================

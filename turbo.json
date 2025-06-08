@@ -6,6 +6,11 @@
       "outputs": ["dist/**", "build/**", ".next/**", "!.next/cache/**"],
       "cache": true
     },
+    "build:bundle": {
+      "dependsOn": ["^build:bundle"],
+      "outputs": ["build/**"],
+      "cache": true
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

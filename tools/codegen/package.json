@@ -8,7 +8,7 @@
     "farm-codegen": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build:bundle": "tsup",
     "build:watch": "tsc --watch",
     "dev": "ts-node src/cli/index.ts",
     "test": "vitest",

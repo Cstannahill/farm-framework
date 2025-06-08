@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build:bundle": "tsup",
     "dev": "tsc --watch"
   },
   "dependencies": {

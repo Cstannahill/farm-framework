@@ -1,5 +1,5 @@
 // packages/cli/src/template/dependencies.ts
-import { TemplateContext, TemplateDependencies } from "./types.js";
+import { TemplateContext } from "./types.js";
 
 export class DependencyResolver {
   generateRootPackageJson(context: TemplateContext) {

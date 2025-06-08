@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/type-sync" },
+    { "path": "./packages/core" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/ui-components" }
+  ]
+}

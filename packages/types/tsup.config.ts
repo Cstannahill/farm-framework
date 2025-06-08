@@ -3,8 +3,9 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["cjs", "esm"],
-  dts: true,
+  dts: false, // Use tsc for declarations in dist/ts
   splitting: false,
   sourcemap: true,
-  clean: true,
+  clean: false, // Don't clean to preserve tsc output in dist/ts
+  outDir: "dist",
 });

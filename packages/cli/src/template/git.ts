@@ -3,7 +3,7 @@ import { execSync } from "child_process";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { TemplateContext } from "./types.js";
-import { getErrorMessage, isErrorInstance } from "../utils/error-utils.js";
+import { getErrorMessage } from "../utils/error-handling.js";
 
 export class GitInitializer {
   async initializeRepository(

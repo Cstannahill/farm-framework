@@ -10,14 +10,16 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build:ts": "tsc -b tsconfig.build.json --pretty",
+    "build:bundle": "turbo run build:bundle",
+    "build": "pnpm build:ts && pnpm build:bundle",
+    "clean": "tsc -b tsconfig.build.json --clean && turbo run clean && pnpm run clean:cache",
     "test-turbo": "turbo run test",
     "test-turbo:watch": "turbo run test:watch",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "validate:templates": "cd tools/testing && npm run validate-templates",
     "type-check": "turbo run type-check",
-    "clean": "turbo run clean && pnpm run clean:cache",
     "clean:cache": "rm -rf node_modules/.cache .turbo",
     "reset": "pnpm clean && rm -rf node_modules pnpm-lock.yaml && pnpm install",
     "changeset": "changeset",
@@ -40,14 +42,22 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
+    "@tanstack/react-query": "^5.80.6",
+    "@tanstack/react-query-devtools": "^5.80.6",
     "@turbo/gen": "^1.12.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/lodash": "^4.14.202",
+    "@types/lodash-es": "^4.17.12",
     "@types/node": "^20.11.0",
+    "@types/semver": "^7.7.0",
     "@vitest/coverage-v8": "^3.2.2",
     "@vitest/ui": "^3.2.2",
+    "diff": "^8.0.2",
     "happy-dom": "^14.12.0",
     "prettier": "^3.2.0",
+    "tsup": "^8.5.0",
     "turbo": "^2.5.4",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "vitest": "^3.2.2"
   },
   "packageManager": "pnpm@8.15.1",
@@ -56,7 +66,6 @@
     "pnpm": ">=8.0.0"
   },
   "dependencies": {
-    "diff": "^8.0.2",
     "fs-extra": "^11"
   }
 }
