@@ -9,6 +9,7 @@ import { createBuildCommand } from './commands/build.js';
 import { createGenerateCommand } from './commands/generate.js';
 import { createValidateCommands } from './commands/validate';
 import { registerTypeCommands } from './commands/types/index.js';
+import { createAddUICommand } from './commands/add-ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -31,6 +32,7 @@ export function createCLI(): Command {
   program.addCommand(createDevCommand());
   program.addCommand(createBuildCommand());
   program.addCommand(createGenerateCommand());
+  program.addCommand(createAddUICommand());
   program.addCommand(createValidateCommands());
   registerTypeCommands(program);
 
