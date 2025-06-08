@@ -22,6 +22,11 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Install dependencies
         run: pnpm install
 
@@ -30,6 +35,8 @@ jobs:
 
       - name: Run Docker Manager unit tests
         run: pnpm test:docker-manager
+        # Only run Docker tests on platforms where Docker is reliably available
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Run Docker integration tests
         run: pnpm test:docker-integration
@@ -37,3 +44,10 @@ jobs:
 
       - name: Test template generation
         run: pnpm test:templates
+
+      - name: Debug environment
+        run: |
+          echo "Node version: $(node --version)"
+          echo "pnpm version: $(pnpm --version)"
+          echo "Available scripts:"
+          cat package.json | grep -A 10 '"scripts"'

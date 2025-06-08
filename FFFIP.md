@@ -31,7 +31,8 @@ Proposed Architecture Integration
     ├── core/
     │   └── src/
     │       ├── codegen/
-    │       │   ├── generator.ts          # Core generation orchestrator
+    │       │   ├── generator.ts          # Core generation orchestr
+    ator
     │       │   ├── type-sync/           # New: Real-time sync module
     │       │   │   ├── watcher.ts       # File watching integration
     │       │   │   ├── differ.ts        # Type diff detection
@@ -56,7 +57,8 @@ Proposed Architecture Integration
     ```typescript
     // packages/cli/src/commands/types/sync.ts
     import { Command } from 'commander';
-    import { TypeSyncOrchestrator } from '@farm/core/codegen/type-sync';
+    import { TypeSyncOrchest
+    rator } from '@farm/core/codegen/type-sync';
     import { ConfigLoader } from '@farm/core/config';
     import chalk from 'chalk';
 
@@ -430,33 +432,33 @@ Type Check Command for CI:
     }
     ```
 
-Directory Structure Recommendations
-Based on the current structure analysis, I recommend the following reorganization:
 
-Consolidate Code Generation:
+        ```plaintext
+    codegen
+    │   │   ├── extractors
+    │   │   │   ├── graphql.ts
+    │   │   │   └── openapi.ts
+    │   │   ├── generator.ts
+    │   │   ├── generators
+    │   │   │   ├── ai-hooks.ts
+    │   │   │   ├── api-client.ts
+    │   │   │   ├── react-hooks.ts
+    │   │   │   └── typescript.ts
+    │   │   ├── index.ts
+    │   │   ├── orchestrator.ts
+    │   │   ├── type-sync
+    │   │   │   ├── __tests__
+    │   │   │   │   └── orchestrator.test.ts
+    │   │   │   ├── cache.ts
+    │   │   │   ├── differ.ts
+    │   │   │   ├── index.ts
+    │   │   │   ├── orchestrator.ts
+    │   │   └── utils
+    │   │       ├── ast-helpers.ts
+    │   │       └── schema-validator.ts
+    │   ├── index.ts
 
-    ```plaintext
-
-    packages/core/src/codegen/
-    ├── index.ts                    # Main exports
-    ├── orchestrator.ts             # Central coordination
-    ├── extractors/
-    │   ├── openapi.ts             # Move from tools/codegen
-    │   └── graphql.ts             # Future: GraphQL support
-    ├── generators/
-
-    │   ├── typescript.ts          # Type generation
-    │   ├── api-client.ts          # Client generation
-    │   ├── react-hooks.ts         # Hook generation
-    │   └── ai-hooks.ts           # AI-specific hooks
-    ├── type-sync/
-    │   ├── watcher.ts            # File watching
-    │   ├── cache.ts              # Generation caching
-    │   └── differ.ts             # Change detection
-    └── utils/
-        ├── schema-validator.ts    # OpenAPI validation
-        └── ast-helpers.ts         # AST manipulation
-        ```
+    ```
 
 Remove Duplicate Files:
 
