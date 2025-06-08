@@ -69,3 +69,45 @@ export interface TemplateContext {
   timestamp: string;
   farmVersion: string;
 }
+
+/**
+ * Basic template configuration used by the template validator
+ * and various tooling. This mirrors the structure previously
+ * defined locally in `tools/template-validator`.
+ */
+export interface TemplateConfig {
+  name: string;
+  template: string;
+  features: string[];
+  database: string;
+  ai?: {
+    providers: string[];
+    models: string[];
+  };
+  realtime?: boolean;
+  auth?: boolean;
+}
+
+/**
+ * Individual test case result for template validation.
+ */
+export interface TestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+  duration?: number;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Overall validation result for a template configuration.
+ */
+export interface ValidationResult {
+  templateName: string;
+  configName: string;
+  success: boolean;
+  duration: number;
+  error?: string;
+  tests: TestResult[];
+  metadata?: Record<string, any>;
+}

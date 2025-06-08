@@ -2,7 +2,8 @@
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
-import { TemplateConfig, ValidationResult, ProviderConfig } from "./types";
+import type { TemplateConfig, ValidationResult, TestResult } from "@farm/types";
+import type { ProviderConfig } from "./types";
 
 export class TemplateValidator {
   private tempDir: string;

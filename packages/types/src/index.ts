@@ -30,6 +30,9 @@ export type {
   TemplatePrompt,
   PromptChoice,
   TemplateContext,
+  TemplateConfig,
+  TestResult,
+  ValidationResult,
 } from "./templates.js";
 
 // Plugin types
