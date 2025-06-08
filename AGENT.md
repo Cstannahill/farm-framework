@@ -1,8 +1,8 @@
-# Implementation Directives for AI Agent (Assistant-UI Integration)
+# Implementation Directives for AI Agent (Database Flexibility)
 
 ## Goal
 
-Use the accompanying `FEATURE_PLAN.md` for **Assistant-UI Integration** to implement all described features in a **production-grade** manner across the FARM monorepo. This work must reflect high engineering standards, be modular, scalable, and maintainable. Every change must align with modern TypeScript and Python practices and be written as if intended for long-term use in a public framework.
+Use the accompanying `database.md` to implement all described features for **PostgreSQL + MongoDB support** in a **production-grade** manner across the FARM monorepo. This work must reflect high engineering standards, support extensibility, and maintain FARM's type-safe, AI-first architecture.
 
 ---
 
@@ -12,130 +12,138 @@ Use the accompanying `FEATURE_PLAN.md` for **Assistant-UI Integration** to imple
 
 - All TypeScript code must use **strict type checking**.
 - No `any` or `unknown` unless deeply justified with comments.
-- Properly typed props, return types, hook parameters, and async responses.
+- Shared database types (`DatabaseConfig`, `DatabaseFeature`, `ModelDefinition`) must be centrally defined and reused.
+- If you encounter types that aren't currently shared and should be, or if you notice duplicated types across the codebase, extract and consolidate them into a single file under `types/src/{entityName}.ts` and import them properly from `@farm/types`.
+- No `any` or `unknown` unless deeply justified with comments.
+- Shared database types (`DatabaseConfig`, `DatabaseFeature`, `ModelDefinition`) must be centrally defined and reused.
 
 ### ✅ Error Handling
 
 - Wrap all async operations in `try/catch`.
-- Provide user-friendly and developer-meaningful error messages.
-- Use styled logging (chalk, colors) for CLI commands.
-- Ensure no partial execution or silent failures.
+- Log CLI and system errors with developer-friendly output.
+- Ensure Docker config updates and file writes fail clearly and never partially apply.
 
 ### ✅ Modular Design
 
-- Encapsulate `AssistantProvider`, hooks, pages, and runtime logic.
-- CLI logic (`farm add ui assistant`) must use isolated generators and utilities.
-- Use DI where extensibility is required.
+- Encapsulate:
+
+  - `DatabaseSelector`
+  - `DatabaseGenerator`
+  - CLI `add`, `switch`, `migrate` flows
+
+- Ensure that each database (MongoDB, PostgreSQL) can be dropped in or swapped with minimal coupling.
 
 ### ✅ File System & CLI
 
 - CLI commands:
 
-  - Must support `--help`
-  - Validate inputs
-  - Verbosely log results
+  - Must support `--help`, `--type`, `--yes`
+  - Clearly validate input types
 
 - File generation:
 
-  - Atomic
-  - Idempotent (no duplicates or overwrites unless intended)
-  - Respect Tailwind config format
+  - Atomic and idempotent
+  - Detect existing configs and update instead of overwriting
 
 ### ✅ Dev Ergonomics
 
-- `farm add ui assistant` should work out-of-the-box:
+- `farm db add` should:
 
-  - Install required packages
-  - Modify Tailwind config
-  - Scaffold files and routes
-  - Be dry-run safe and re-runnable
+  - Scaffold config and base model
+  - Update `farm.config.ts`
+  - Install all dependencies
+  - Patch Docker services
+  - Recommend next steps clearly
 
 ### ✅ Testing & Validation
 
-- Add CLI unit tests for the `add` command
-- Add Playwright E2E tests for basic UI chat flow
-- Add contract tests for `/chat` proxy route using Schemathesis or similar
-- Add performance test via Lighthouse for LCP/CLS
+- Add CLI unit tests for:
+
+  - `add`, `switch`, `info`, `migrate`
+
+- Ensure PostgreSQL migrations generate correctly with Alembic
+- Verify Docker healthchecks per provider
+- Validate generated models and types per DB engine
 
 ---
 
 ## Implementation Scope
 
-1. **CLI Generator**
+1. **Shared Types**
 
-   - `farm add ui assistant` command in `packages/cli`
-   - Uses shared utility methods: `installPackages`, `generateFile`, `modifyConfig`
+   - `packages/types/src/database.ts` and `config.ts`
+   - Define interfaces: `DatabaseConfig`, `ModelDefinition`, `FieldConstraints`, etc.
 
-2. **File Scaffolding**
+2. **Selector + Generator**
 
-   - Generate:
+   - `DatabaseSelector` handles DB choice, metadata, validation
+   - `DatabaseGenerator` builds config, base models, migration support
 
-     - `apps/web/src/providers/AssistantProvider.tsx`
-     - `apps/web/src/hooks/useFarmAssistant.ts`
-     - `apps/web/src/pages/AssistantChat.tsx`
+3. **CLI Integration**
 
-   - Create `/api/assistant` proxy with `http-proxy-middleware`
+   - Add `farm db` namespace:
 
-3. **Styling Setup**
+     - `farm db add`
+     - `farm db switch`
+     - `farm db migrate`
+     - `farm db info`
 
-   - Inject `@assistant-ui/react-tailwind` plugin into `tailwind.config.ts`
-   - Ensure compatibility with ShadCN and existing styles
+4. **Template Support**
 
-4. **Playground**
+   - Add `templates/base/database/*.hbs`
+   - Render into target project structure (`/src/core`, `/src/models`)
 
-   - Create `examples/assistant-chat` with minimal setup
-   - Must work standalone and within `apps/web`
+5. **Migration Support**
 
-5. **Documentation**
+   - PostgreSQL: Generate Alembic base config and env
+   - Scaffold model auto-discovery and SQLModel reflection
 
-   - Add quickstart guide in `/docs/quickstart/chat-ui.mdx`
-   - Update CLI reference and changelog
+6. **Model Generator**
 
-6. **Testing Integration**
+   - Adapt model template generation per DB type
+   - Maintain MongoDB + PostgreSQL generation logic in single orchestrator
 
-   - `vitest` for CLI
-   - `playwright` for UI
-   - `schemathesis` for proxy
+7. **Dev Server Support**
+
+   - Patch Docker Compose + runtime config for local DB boot
+   - Validate ports, volumes, and healthcheck logic
 
 ---
 
 ## Coding Standards
 
-- TypeScript: Modern ES syntax, no magic strings, strict mode.
-- Python: PEP8, type hints, docstrings, async endpoints.
-- Tailwind: Utility-first, theme-aware classes.
-- CLI: Colorized output, clear logs, early exits on error.
+- TypeScript: `strict`, modern module syntax, CLI-safe flags
+- Python: PEP8, async-first DB clients, docstring-complete
+- Docker: Clean, namespace-safe service definitions
 
 ---
 
 ## Output Expectations
 
-- `apps/web/...` contains generated UI components
-- `apps/api/...` contains proxy route
-- `tailwind.config.ts` updated safely
-- `examples/assistant-chat` directory exists
-- CLI command is discoverable with `farm --help`
+- `src/core/database.py` and `models/base.py` for both DBs
+- Alembic migrations initialized if PostgreSQL
+- `docker-compose.yml` patched with correct volumes/ports
+- Config file (`farm.config.ts`) correctly updated with connection + options
 
 ---
 
 ## DO NOT
 
-- Hardcode paths—use `project.root`
-- Omit required dependencies—install and pin them
-- Skip docs or testing—stub if not complete
-- Overwrite Tailwind config destructively
+- Hardcode paths or credentials (use ENV vars and config)
+- Omit validation for DB types or connection strings
+- Overwrite user changes without a backup or prompt
+- Skip adding model registry updates
 
 ---
 
 ## Review Criteria
 
-- [ ] Chat UI is usable within 60 seconds after CLI execution
-- [ ] Markdown rendering and basic assistant functionality works
-- [ ] Proxy is correctly wired and testable
-- [ ] Files are correctly placed and scoped
-- [ ] CLI is clean, useful, and doesn't crash
-- [ ] Docs and playground are committed
+- [ ] `farm db add --type postgresql` works cleanly end-to-end
+- [ ] Switching from one DB to another is safe, reversible, and well logged
+- [ ] Model generation respects target DB syntax and patterns
+- [ ] Alembic migrations can be created and upgraded from CLI
+- [ ] Template files are reused, isolated, and extensible
 
 ---
 
-_“Ship the UI, not just the API.”_
+_“Choose your database, not your framework.”_
