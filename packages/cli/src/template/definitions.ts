@@ -1,4 +1,7 @@
 // packages/cli/src/templates/definitions.ts
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface TemplateDefinition {
   name: string;
   displayName: string;

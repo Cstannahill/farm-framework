@@ -23,6 +23,9 @@ export enum ErrorSeverity {
   CRITICAL = "critical",
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface ErrorContext {
   provider?: string;
   model?: string;

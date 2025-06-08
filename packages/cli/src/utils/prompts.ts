@@ -2,6 +2,9 @@
 import inquirer from "inquirer";
 import { input, select, checkbox, confirm } from "@inquirer/prompts";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface PromptChoice {
   name: string;
   value: string;

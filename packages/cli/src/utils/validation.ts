@@ -4,6 +4,9 @@ import { homedir } from "os";
 import { readFile } from "fs/promises";
 import { join } from "path";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface ValidationResult {
   valid: boolean;
   error?: string;

@@ -69,6 +69,9 @@ export interface DevServerOptions {
 }
 
 // FARM configuration types (from existing types package)
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface FarmConfig {
   name?: string;
   template: TemplateType;
@@ -79,6 +82,9 @@ export interface FarmConfig {
   plugins?: PluginConfig[];
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export type TemplateType =
   | "basic"
   | "ai-chat"
@@ -87,6 +93,9 @@ export type TemplateType =
   | "cms"
   | "api-only";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export type FeatureType =
   | "auth"
   | "ai"
@@ -97,12 +106,18 @@ export type FeatureType =
   | "search"
   | "analytics";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DatabaseConfig {
   type: "mongodb" | "postgresql" | "mysql" | "sqlite";
   url?: string;
   options?: Record<string, any>;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface AIConfig {
   providers?: {
     ollama?: OllamaConfig;
@@ -122,6 +137,9 @@ export interface AIConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface OllamaConfig {
   enabled: boolean;
   url?: string;
@@ -132,6 +150,9 @@ export interface OllamaConfig {
   gpu?: boolean;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface OpenAIConfig {
   enabled: boolean;
   apiKey?: string;
@@ -143,6 +164,9 @@ export interface OpenAIConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface HuggingFaceConfig {
   enabled: boolean;
   token?: string;
@@ -150,6 +174,9 @@ export interface HuggingFaceConfig {
   device?: "auto" | "cpu" | "cuda";
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DevelopmentConfig {
   ports?: {
     frontend?: number;
@@ -166,6 +193,9 @@ export interface DevelopmentConfig {
   ssl?: boolean;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export type PluginConfig = string | [string, Record<string, any>];
 
 // Development server events
@@ -306,6 +336,9 @@ export type Awaitable<T> = T | Promise<T>;
 export type EventHandler<T extends keyof DevServerEvents> = DevServerEvents[T];
 
 // Configuration validation
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];

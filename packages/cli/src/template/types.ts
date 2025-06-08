@@ -26,6 +26,9 @@ export type TemplateName =
   | "api-only";
 export type EnvironmentName = "development" | "staging" | "production";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DatabaseConfig {
   type: DatabaseType;
   url?: string;
@@ -48,6 +51,9 @@ export interface AIProviderConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface AIConfig {
   providers?: {
     ollama?: AIProviderConfig;
@@ -67,6 +73,9 @@ export interface AIConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DevelopmentConfig {
   ports?: {
     frontend?: number;
@@ -82,6 +91,9 @@ export interface DevelopmentConfig {
   ssl?: boolean;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface BuildConfig {
   target?: string;
   sourcemap?: boolean;
@@ -90,14 +102,23 @@ export interface BuildConfig {
   outDir?: string;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DeploymentConfig {
   platform?: "vercel" | "netlify" | "aws" | "gcp" | "docker";
   regions?: string[];
   environment?: Record<string, string>;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export type PluginConfig = string | [string, Record<string, any>];
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface FarmConfig {
   // Project metadata
   name: string;
@@ -144,6 +165,7 @@ export interface FarmConfig {
 /**
  * Template context that gets passed to Handlebars templates
  * This extends FarmConfig with additional computed properties
+ * @deprecated Moved to `@farm/types` package
  */
 export interface TemplateContext extends FarmConfig {
   // The config property allows templates to access the full config
@@ -196,6 +218,9 @@ export interface TemplateDirectory {
   targetPath?: string; // Allow legacy property for compatibility
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface TemplateDefinition {
   name: TemplateName;
   description: string;

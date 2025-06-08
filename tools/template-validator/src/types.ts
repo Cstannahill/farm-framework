@@ -17,6 +17,9 @@ export interface ProviderConfig {
   defaultModel: string;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface AIConfig {
   providers: ProviderConfig[];
   routing: {
@@ -32,6 +35,9 @@ export interface AIConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface DatabaseConfig {
   type: "mongodb" | "postgresql" | "mysql" | "sqlite";
   url: string;
@@ -185,6 +191,9 @@ export interface TestConfiguration {
 }
 
 // Provider-specific configurations
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface OllamaConfig extends ProviderConfig {
   gpu: boolean;
   autoStart: boolean;
@@ -192,6 +201,9 @@ export interface OllamaConfig extends ProviderConfig {
   memoryLimit?: string;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface OpenAIConfig extends ProviderConfig {
   organization?: string;
   rateLimiting: {
@@ -200,6 +212,9 @@ export interface OpenAIConfig extends ProviderConfig {
   };
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface HuggingFaceConfig extends ProviderConfig {
   token?: string;
   device: "auto" | "cpu" | "cuda";

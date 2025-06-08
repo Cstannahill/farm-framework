@@ -1,5 +1,8 @@
 // tools/testing/types.ts
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface TemplateConfig {
   template:
     | "basic"
