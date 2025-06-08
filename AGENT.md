@@ -1,8 +1,8 @@
-# Implementation Directives for AI Agent
+# Implementation Directives for AI Agent (Assistant-UI Integration)
 
 ## Goal
 
-Use the accompanying FFFIP.md to implement all described features in a **production-grade** manner across the FARM monorepo. This work must reflect high engineering standards, be modular, scalable, and maintainable. Every change should align with modern TypeScript and Python practices and be written as if it were intended for long-term use in a public framework.
+Use the accompanying `FEATURE_PLAN.md` for **Assistant-UI Integration** to implement all described features in a **production-grade** manner across the FARM monorepo. This work must reflect high engineering standards, be modular, scalable, and maintainable. Every change must align with modern TypeScript and Python practices and be written as if intended for long-term use in a public framework.
 
 ---
 
@@ -10,107 +10,132 @@ Use the accompanying FFFIP.md to implement all described features in a **product
 
 ### ✅ Type Safety
 
-- All TypeScript code must use **strict type checking** (`strict: true` in tsconfig).
+- All TypeScript code must use **strict type checking**.
 - No `any` or `unknown` unless deeply justified with comments.
-- Infer types from OpenAPI wherever possible, and validate schema structures accordingly.
+- Properly typed props, return types, hook parameters, and async responses.
 
 ### ✅ Error Handling
 
-- All async operations must use `try/catch` blocks.
-- Propagate meaningful error messages.
-- Use descriptive logging (with chalk, colors, etc.) for CLI output.
-- Ensure failures do not silently continue or corrupt files.
+- Wrap all async operations in `try/catch`.
+- Provide user-friendly and developer-meaningful error messages.
+- Use styled logging (chalk, colors) for CLI commands.
+- Ensure no partial execution or silent failures.
 
 ### ✅ Modular Design
 
-- New modules (like `type-sync`) should be completely encapsulated.
-- Avoid coupling; use dependency injection or interface abstraction where appropriate.
+- Encapsulate `AssistantProvider`, hooks, pages, and runtime logic.
+- CLI logic (`farm add ui assistant`) must use isolated generators and utilities.
+- Use DI where extensibility is required.
 
-### ✅ File System Interaction
+### ✅ File System & CLI
 
-- Use **atomic writes** and avoid race conditions.
-- Do not overwrite generated files unless diffing confirms changes.
-- Cache schema hashes and artifacts using checksum logic.
+- CLI commands:
 
-### ✅ CLI Tooling
-
-- All CLI commands must:
-  - Support help output (`--help`)
+  - Must support `--help`
   - Validate inputs
-  - Provide rich feedback (logs, warnings, success states)
+  - Verbosely log results
+
+- File generation:
+
+  - Atomic
+  - Idempotent (no duplicates or overwrites unless intended)
+  - Respect Tailwind config format
 
 ### ✅ Dev Ergonomics
 
-- Watchers must debounce rebuilds.
-- Notify frontend automatically after generation (e.g., via file touch).
-- Include DX flags like `--no-client`, `--output`, `--dry-run`.
+- `farm add ui assistant` should work out-of-the-box:
+
+  - Install required packages
+  - Modify Tailwind config
+  - Scaffold files and routes
+  - Be dry-run safe and re-runnable
 
 ### ✅ Testing & Validation
 
-- Include placeholder unit tests or testable utilities.
-- Include a `types:check` command in CI pipelines.
-- Ensure output files match expectations by comparing against committed outputs.
+- Add CLI unit tests for the `add` command
+- Add Playwright E2E tests for basic UI chat flow
+- Add contract tests for `/chat` proxy route using Schemathesis or similar
+- Add performance test via Lighthouse for LCP/CLS
 
 ---
 
 ## Implementation Scope
 
-1. **Directory Restructuring**
+1. **CLI Generator**
 
-   - Move files into proposed `codegen/` and `.farm/` structure.
-   - Refactor imports and exports cleanly with barrel files.
+   - `farm add ui assistant` command in `packages/cli`
+   - Uses shared utility methods: `installPackages`, `generateFile`, `modifyConfig`
 
-2. **Type Sync System**
+2. **File Scaffolding**
 
-   - Implement `TypeSyncOrchestrator` per spec.
-   - Implement file watching, diffing, caching, and OpenAPI parsing.
-   - Use extensible pipeline for types, hooks, clients, AI hooks.
+   - Generate:
 
-3. **Streaming-Aware Support**
+     - `apps/web/src/providers/AssistantProvider.tsx`
+     - `apps/web/src/hooks/useFarmAssistant.ts`
+     - `apps/web/src/pages/AssistantChat.tsx`
 
-   - Generate interfaces for streaming endpoints.
-   - Include AI-aware behavior in React hooks.
+   - Create `/api/assistant` proxy with `http-proxy-middleware`
 
-4. **CLI Integration**
+3. **Styling Setup**
 
-   - Create `types:sync`, `types:check` commands.
-   - Ensure reusable logic between one-time and watch-based sync.
+   - Inject `@assistant-ui/react-tailwind` plugin into `tailwind.config.ts`
+   - Ensure compatibility with ShadCN and existing styles
 
-5. **CI Readiness**
-   - Add `check.ts` to validate out-of-sync types.
-   - Ensure proper exit codes and log formatting.
+4. **Playground**
+
+   - Create `examples/assistant-chat` with minimal setup
+   - Must work standalone and within `apps/web`
+
+5. **Documentation**
+
+   - Add quickstart guide in `/docs/quickstart/chat-ui.mdx`
+   - Update CLI reference and changelog
+
+6. **Testing Integration**
+
+   - `vitest` for CLI
+   - `playwright` for UI
+   - `schemathesis` for proxy
 
 ---
 
 ## Coding Standards
 
-- TypeScript: Use ES modules, modern syntax, and `strict` type mode.
-- Python (if edited): Use PEP8, type hints, `pydantic` for schemas, and async-friendly APIs.
-- File I/O: Use `fs/promises` API. Avoid callbacks or legacy `fs`.
+- TypeScript: Modern ES syntax, no magic strings, strict mode.
+- Python: PEP8, type hints, docstrings, async endpoints.
+- Tailwind: Utility-first, theme-aware classes.
+- CLI: Colorized output, clear logs, early exits on error.
 
 ---
 
 ## Output Expectations
 
-- Each module should be properly exported and documented.
-- All commands must be functional and discoverable via `--help`.
-- Output directories must match the `.farm/types/generated/` structure.
+- `apps/web/...` contains generated UI components
+- `apps/api/...` contains proxy route
+- `tailwind.config.ts` updated safely
+- `examples/assistant-chat` directory exists
+- CLI command is discoverable with `farm --help`
 
 ---
 
 ## DO NOT
 
-- Hardcode environment values—use config where possible.
-- Skip features due to complexity—log `TODO:` or create stub with comments.
-- Leave behind dead or unused code.
+- Hardcode paths—use `project.root`
+- Omit required dependencies—install and pin them
+- Skip docs or testing—stub if not complete
+- Overwrite Tailwind config destructively
 
 ---
 
 ## Review Criteria
 
-At the end, the project must:
+- [ ] Chat UI is usable within 60 seconds after CLI execution
+- [ ] Markdown rendering and basic assistant functionality works
+- [ ] Proxy is correctly wired and testable
+- [ ] Files are correctly placed and scoped
+- [ ] CLI is clean, useful, and doesn't crash
+- [ ] Docs and playground are committed
 
-- Fully support real-time type sync.
-- Be easily extensible (e.g., adding GraphQL support).
-- Have consistent, traceable logs and well-organized outputs.
-- Be ready for CI usage in real projects.
+---
+
+_“Ship the UI, not just the API.”_

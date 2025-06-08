@@ -432,33 +432,33 @@ Type Check Command for CI:
     }
     ```
 
+Directory Structure Recommendations
+Based on the current structure analysis, I recommend the following reorganization:
 
-        ```plaintext
-    codegen
-    │   │   ├── extractors
-    │   │   │   ├── graphql.ts
-    │   │   │   └── openapi.ts
-    │   │   ├── generator.ts
-    │   │   ├── generators
-    │   │   │   ├── ai-hooks.ts
-    │   │   │   ├── api-client.ts
-    │   │   │   ├── react-hooks.ts
-    │   │   │   └── typescript.ts
-    │   │   ├── index.ts
-    │   │   ├── orchestrator.ts
-    │   │   ├── type-sync
-    │   │   │   ├── __tests__
-    │   │   │   │   └── orchestrator.test.ts
-    │   │   │   ├── cache.ts
-    │   │   │   ├── differ.ts
-    │   │   │   ├── index.ts
-    │   │   │   ├── orchestrator.ts
-    │   │   └── utils
-    │   │       ├── ast-helpers.ts
-    │   │       └── schema-validator.ts
-    │   ├── index.ts
+Consolidate Code Generation:
 
-    ```
+    ```plaintext
+
+    packages/core/src/codegen/
+    ├── index.ts                    # Main exports
+    ├── orchestrator.ts             # Central coordination
+    ├── extractors/
+    │   ├── openapi.ts             # Move from tools/codegen
+    │   └── graphql.ts             # Future: GraphQL support
+    ├── generators/
+
+    │   ├── typescript.ts          # Type generation
+    │   ├── api-client.ts          # Client generation
+    │   ├── react-hooks.ts         # Hook generation
+    │   └── ai-hooks.ts           # AI-specific hooks
+    ├── type-sync/
+    │   ├── watcher.ts            # File watching
+    │   ├── cache.ts              # Generation caching
+    │   └── differ.ts             # Change detection
+    └── utils/
+        ├── schema-validator.ts    # OpenAPI validation
+        └── ast-helpers.ts         # AST manipulation
+        ```
 
 Remove Duplicate Files:
 
