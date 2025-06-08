@@ -1,5 +1,11 @@
 // packages/ai/src/config/ai-config.ts - Fix missing import
 // import type { AIConfig } from "@farm/types";
+
+/**
+ * Utility classes and helpers for managing AI provider configuration. This file
+ * defines zod based schemas that validate the configuration structure used by
+ * the FARM framework and exposes a manager class for runtime manipulation.
+ */
 import { z } from "zod";
 import { EventEmitter } from "events";
 import { getErrorMessage } from "@farm/cli";
@@ -123,6 +129,13 @@ export type AIFeaturesConfig = z.infer<typeof AIFeaturesConfigSchema>;
 export type AIConfig = z.infer<typeof AIConfigSchema>;
 
 // Configuration manager class
+/**
+ * Manages AI provider configuration at runtime. Consumers can load, validate
+ * and query provider settings using this class. It also emits a variety of
+ * events whenever configuration values change.
+ *
+ * @extends EventEmitter
+ */
 export class AIConfigManager extends EventEmitter {
   private config: AIConfig;
   private environment: string;
@@ -391,6 +404,12 @@ export class AIConfigManager extends EventEmitter {
 }
 
 // Utility functions
+/**
+ * Create a minimal default configuration object conforming to the
+ * {@link AIConfigSchema}. Useful for bootstrapping new projects.
+ *
+ * @returns {AIConfig} Parsed default configuration structure
+ */
 export function createDefaultAIConfig(): AIConfig {
   return AIConfigSchema.parse({
     providers: {},
@@ -399,6 +418,14 @@ export function createDefaultAIConfig(): AIConfig {
   });
 }
 
+/**
+ * Merge two AI configuration objects using the schema for validation. The
+ * base configuration is overwritten by the values from `override`.
+ *
+ * @param base - The existing configuration values
+ * @param override - A partial configuration to merge in
+ * @returns {AIConfig} A new validated configuration object
+ */
 export function mergeAIConfigs(
   base: AIConfig,
   override: Partial<AIConfig>
