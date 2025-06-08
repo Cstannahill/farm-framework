@@ -2,11 +2,22 @@ import fs from "fs-extra";
 import path from "path";
 import type { OpenAPISchema } from "../types/openapi";
 
+/** Options for the {@link TypeScriptGenerator}. */
 export interface TypeScriptGenerationOptions {
   outputDir: string;
 }
 
+/**
+ * Generates raw TypeScript type declarations from an OpenAPI schema.
+ */
 export class TypeScriptGenerator {
+  /**
+   * Generate the type declaration file.
+   *
+   * @param _schema - Parsed OpenAPI schema
+   * @param opts - Generation options
+   * @returns Path to the generated file
+   */
   async generate(
     _schema: OpenAPISchema,
     opts: TypeScriptGenerationOptions

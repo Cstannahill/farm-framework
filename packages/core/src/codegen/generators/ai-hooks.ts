@@ -2,11 +2,22 @@ import fs from "fs-extra";
 import path from "path";
 import type { OpenAPISchema } from "../types/openapi";
 
+/** Options for the {@link AIHookGenerator}. */
 export interface AIHookGeneratorOptions {
   outputDir: string;
 }
 
+/**
+ * Generates custom React hooks for interacting with AI endpoints.
+ */
 export class AIHookGenerator {
+  /**
+   * Generate AI hook source files from an OpenAPI schema.
+   *
+   * @param _schema - Parsed OpenAPI schema
+   * @param opts - Generation options
+   * @returns Path to the generated file
+   */
   async generate(
     _schema: OpenAPISchema,
     opts: AIHookGeneratorOptions

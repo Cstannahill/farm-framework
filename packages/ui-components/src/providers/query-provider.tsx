@@ -11,11 +11,13 @@ interface QueryErrorInfo {
   error: Error | null;
 }
 
+/** Props for {@link QueryProvider}. */
 interface QueryProviderProps {
   children: ReactNode;
   client?: QueryClient;
 }
 
+// Error handler functions with proper typing
 // Error handler functions with proper typing
 const defaultQueryErrorHandler = (error: Error, query: any) => {
   console.error("Query error:", error, query);
@@ -61,6 +63,10 @@ const createQueryClient = () => {
   });
 };
 
+/**
+ * Wrapper component that provides a configured React Query client to the
+ * component tree.
+ */
 export function QueryProvider({ children, client }: QueryProviderProps) {
   const queryClient = client || createQueryClient();
 
@@ -73,6 +79,9 @@ export function QueryProvider({ children, client }: QueryProviderProps) {
 }
 
 // Query invalidation helper hook
+/**
+ * Convenience hook providing helpers to invalidate cached queries.
+ */
 export function useInvalidateQueries() {
   const queryClient = useQueryClient();
 
@@ -100,6 +109,10 @@ interface QueryErrorBoundaryProps {
   fallback?: (error: Error) => ReactNode;
 }
 
+/**
+ * React error boundary that specifically handles errors thrown from React
+ * Query hooks within its child component tree.
+ */
 export class QueryErrorBoundary extends Component<
   QueryErrorBoundaryProps,
   QueryErrorBoundaryState

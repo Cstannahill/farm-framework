@@ -5,6 +5,9 @@ import { APIClientGenerator } from "./generators/api-client";
 import { ReactHookGenerator } from "./generators/react-hooks";
 import { AIHookGenerator } from "./generators/ai-hooks";
 
+/**
+ * Options controlling the behaviour of the {@link CodegenOrchestrator}.
+ */
 export interface CodegenOptions {
   apiUrl: string;
   outputDir: string;
@@ -15,6 +18,9 @@ export interface CodegenOptions {
   };
 }
 
+/**
+ * Result object returned from a code generation run.
+ */
 export interface CodegenResult {
   filesGenerated: number;
   artifacts?: string[];
@@ -24,6 +30,11 @@ interface Generator {
   generate: (schema: OpenAPISchema, opts: any) => Promise<{ path: string }>;
 }
 
+/**
+ * Coordinates extraction of API schemas and generation of TypeScript artifacts
+ * such as clients and hooks. Acts as the top-level entry point for the
+ * code-generation pipeline.
+ */
 export class CodegenOrchestrator {
   private extractor = new OpenAPIExtractor();
   private generators = new Map<string, Generator>();
@@ -52,6 +63,11 @@ export class CodegenOrchestrator {
     );
   }
 
+  /**
+   * Configure the orchestrator prior to execution.
+   *
+   * @param config - Runtime options for code generation
+   */
   async initialize(config: CodegenOptions) {
     this.config = config;
   }
@@ -64,6 +80,11 @@ export class CodegenOrchestrator {
     return true;
   }
 
+  /**
+   * Execute the full code generation pipeline.
+   *
+   * @returns Summary information about the generated artifacts
+   */
   async run(): Promise<CodegenResult> {
     if (!this.config) throw new Error("Orchestrator not initialized");
     const schema = await this.extractor

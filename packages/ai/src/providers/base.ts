@@ -1,6 +1,13 @@
 // packages/ai/src/providers/base.ts
 import { EventEmitter } from "events";
 
+/**
+ * Contains foundational types and the {@link BaseAIProvider} abstract class
+ * that all concrete AI provider implementations must extend. These definitions
+ * establish a consistent interface for interacting with AI models and services
+ * within the FARM framework.
+ */
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -74,6 +81,13 @@ export interface ProviderHealthCheck {
   models?: string[];
 }
 
+/**
+ * Abstract base class that all AI provider implementations must extend. It
+ * defines a common lifecycle and set of operations for interacting with AI
+ * models regardless of the underlying service.
+ *
+ * @extends EventEmitter
+ */
 export abstract class BaseAIProvider extends EventEmitter {
   public readonly name: string;
   public readonly type: string;
@@ -204,18 +218,36 @@ export abstract class BaseAIProvider extends EventEmitter {
 
 // Provider factory interface
 export interface ProviderFactory {
+  /**
+   * Create a new provider instance given a name and configuration.
+   *
+   * @param name - Unique provider identifier
+   * @param config - Provider configuration object
+   */
   create(name: string, config: ProviderConfig): BaseAIProvider;
+
+  /**
+   * Determine if this factory supports the given provider type.
+   *
+   * @param type - Provider type string
+   */
   supports(type: string): boolean;
 }
 
 // Provider registry interface
 export interface IProviderRegistry {
+  /** Register a provider factory */
   register(factory: ProviderFactory): void;
+  /** Create and register a provider instance */
   create(name: string, type: string, config: ProviderConfig): BaseAIProvider;
+  /** Get a list of supported provider types */
   getAvailableTypes(): string[];
 }
 
 // Error types
+/**
+ * Base error type thrown by provider implementations when an operation fails.
+ */
 export class ProviderError extends Error {
   constructor(message: string, public provider: string, public cause?: Error) {
     super(message);
@@ -223,6 +255,9 @@ export class ProviderError extends Error {
   }
 }
 
+/**
+ * Thrown when a requested model cannot be found by the provider.
+ */
 export class ModelNotFoundError extends ProviderError {
   constructor(model: string, provider: string) {
     super(`Model "${model}" not found in provider "${provider}"`, provider);
@@ -230,6 +265,9 @@ export class ModelNotFoundError extends ProviderError {
   }
 }
 
+/**
+ * Indicates that the provider service is currently unavailable.
+ */
 export class ProviderUnavailableError extends ProviderError {
   constructor(provider: string, cause?: Error) {
     super(`Provider "${provider}" is unavailable`, provider, cause);
@@ -237,6 +275,9 @@ export class ProviderUnavailableError extends ProviderError {
   }
 }
 
+/**
+ * Error thrown when a generation request is invalid or malformed.
+ */
 export class InvalidRequestError extends ProviderError {
   constructor(message: string, provider: string) {
     super(message, provider);

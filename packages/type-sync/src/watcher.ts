@@ -4,6 +4,10 @@ import fs from "fs-extra";
 import { debounce } from "lodash";
 import { TypeSyncOrchestrator } from "./orchestrator";
 
+/**
+ * Watches Python source files for changes and triggers TypeScript type
+ * regeneration when modifications are detected.
+ */
 export class TypeSyncWatcher {
   private watcher: chokidar.FSWatcher | null = null;
   private syncInProgress = false;
@@ -12,6 +16,9 @@ export class TypeSyncWatcher {
     // Debounce is now applied directly to the event handler registration, not to the method itself.
   }
 
+  /**
+   * Begin watching the configured file globs and respond to changes.
+   */
   async start() {
     this.watcher = chokidar.watch(
       [
@@ -32,6 +39,9 @@ export class TypeSyncWatcher {
     console.log("👀 Watching for Python model changes...");
   }
 
+  /**
+   * Stop watching for file changes.
+   */
   async stop() {
     await this.watcher?.close();
   }
@@ -55,6 +65,10 @@ export class TypeSyncWatcher {
     }
   };
 
+  /**
+   * Touch a file within the generated types directory so that the frontend
+   * development server can react to new types.
+   */
   private async notifyFrontend() {
     const triggerPath = ".farm/types/generated/.timestamp";
     await fs.ensureFile(triggerPath);
