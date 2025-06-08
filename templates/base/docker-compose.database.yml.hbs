@@ -1,0 +1,34 @@
+{{#if_database "mongodb"}}
+services:
+  mongodb:
+    image: {{database.dockerConfig.image}}
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: {{database.dockerConfig.environment.MONGO_INITDB_ROOT_USERNAME}}
+      MONGO_INITDB_ROOT_PASSWORD: {{database.dockerConfig.environment.MONGO_INITDB_ROOT_PASSWORD}}
+      MONGO_INITDB_DATABASE: {{database.dockerConfig.environment.MONGO_INITDB_DATABASE}}
+    volumes:
+      - mongodb_data:/data/db
+{{/if_database}}
+{{#if_database "postgresql"}}
+services:
+  postgres:
+    image: {{database.dockerConfig.image}}
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: {{database.dockerConfig.environment.POSTGRES_DB}}
+      POSTGRES_USER: {{database.dockerConfig.environment.POSTGRES_USER}}
+      POSTGRES_PASSWORD: {{database.dockerConfig.environment.POSTGRES_PASSWORD}}
+      PGDATA: {{database.dockerConfig.environment.PGDATA}}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+{{/if_database}}
+volumes:
+{{#if_database "mongodb"}}
+  mongodb_data:
+{{/if_database}}
+{{#if_database "postgresql"}}
+  postgres_data:
+{{/if_database}}
