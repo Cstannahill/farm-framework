@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: {{projectName}}
+      POSTGRES_PASSWORD: development
+      POSTGRES_DB: {{projectName}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://{{projectName}}:development@db:5432/{{projectName}}
+      - STRIPE_API_KEY=${STRIPE_API_KEY}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+    depends_on:
+      - db
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+volumes:
+  db_data:

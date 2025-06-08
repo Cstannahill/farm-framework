@@ -1,0 +1,16 @@
+{
+  "name": "{{projectName}}",
+  "version": "0.1.0",
+  "description": "{{description}}",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "cd apps/web && npm run dev",
+    "build:web": "cd apps/web && npm run build",
+    "dev:api": "cd apps/api && uvicorn src.main:app --reload --host 0.0.0.0 --port 8000"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
