@@ -1,34 +1,5 @@
 // tools/template-validator/src/types.ts
-export interface TemplateConfig {
-  name: string;
-  template: string;
-  features: string[];
-  database: string;
-  ai?: {
-    providers: string[];
-    models: string[];
-  };
-  realtime?: boolean;
-  auth?: boolean;
-}
-
-export interface ValidationResult {
-  templateName: string;
-  configName: string;
-  success: boolean;
-  duration: number;
-  error?: string;
-  tests: TestResult[];
-  metadata?: Record<string, any>;
-}
-
-export interface TestResult {
-  name: string;
-  passed: boolean;
-  error?: string;
-  duration?: number;
-  metadata?: Record<string, any>;
-}
+import type { TemplateConfig, ValidationResult, TestResult } from "@farm/types";
 
 export interface ServiceProcess {
   name: string;
