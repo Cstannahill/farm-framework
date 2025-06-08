@@ -2,6 +2,9 @@
  * Error handling utilities for FARM CLI
  */
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface ErrorContext {
   command?: string;
   operation?: string;

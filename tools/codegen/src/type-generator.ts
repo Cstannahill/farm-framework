@@ -521,6 +521,9 @@ export interface ApiError {
   timestamp: string;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 export interface AIProvider {
   name: 'ollama' | 'openai' | 'huggingface';
   status: 'healthy' | 'unhealthy' | 'loading';

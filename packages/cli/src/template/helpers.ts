@@ -17,10 +17,16 @@ interface HandlebarsOptions {
   inverse: (context: any) => string;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 interface DatabaseConfig {
   type?: "mongodb" | "postgresql" | "mysql" | "sqlite";
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 interface AIProviderConfig {
   enabled?: boolean;
   url?: string;
@@ -33,6 +39,9 @@ interface AIProviderConfig {
   gpu?: boolean;
 }
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 interface AIConfig {
   providers?: {
     ollama?: AIProviderConfig;
@@ -71,6 +80,9 @@ type TemplateName =
 type DatabaseType = "mongodb" | "postgresql" | "mysql" | "sqlite";
 type EnvironmentName = "development" | "staging" | "production";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 interface TemplateContext {
   // Project configuration
   config?: TemplateContext;

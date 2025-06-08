@@ -10,6 +10,9 @@ import { SchemaWatcher, SchemaWatcherOptions } from "../watcher";
 import { getErrorMessage } from "@farm/cli";
 import { get } from "lodash";
 
+/**
+ * @deprecated Moved to `@farm/types` package
+ */
 interface CLIOptions {
   projectRoot?: string;
   output?: string;
