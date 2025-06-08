@@ -85,6 +85,9 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Health check management
+  /**
+   * Begin monitoring all currently registered providers.
+   */
   public startMonitoring(): void {
     const providers = this.registry.getAllProviders();
 
@@ -98,6 +101,9 @@ export class HealthChecker extends EventEmitter {
     });
   }
 
+  /**
+   * Stop all monitoring intervals for every provider.
+   */
   public stopMonitoring(): void {
     for (const [name, interval] of this.intervals) {
       clearInterval(interval);
@@ -107,6 +113,12 @@ export class HealthChecker extends EventEmitter {
     this.emit("monitoring-stopped");
   }
 
+  /**
+   * Start periodic health checks for a specific provider.
+   *
+   * @param name - Provider identifier
+   * @param provider - Provider instance to monitor
+   */
   public startProviderMonitoring(name: string, provider: BaseAIProvider): void {
     // Stop existing monitoring if any
     this.stopProviderMonitoring(name);
@@ -131,6 +143,11 @@ export class HealthChecker extends EventEmitter {
     setImmediate(() => this.checkProviderHealth(name, provider));
   }
 
+  /**
+   * Stop health monitoring for the given provider.
+   *
+   * @param name - Provider identifier
+   */
   public stopProviderMonitoring(name: string): void {
     const interval = this.intervals.get(name);
     if (interval) {
@@ -140,6 +157,13 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Health checking
+  /**
+   * Run all configured health checks against a single provider.
+   *
+   * @param name - Provider identifier
+   * @param provider - Provider instance to evaluate
+   * @returns Detailed health report for the provider
+   */
   public async checkProviderHealth(
     name: string,
     provider: BaseAIProvider
@@ -220,6 +244,10 @@ export class HealthChecker extends EventEmitter {
     return report;
   }
 
+  /**
+   * Perform health checks on every registered provider and generate a summary
+   * report describing the overall system state.
+   */
   public async checkAllProviders(): Promise<SystemHealthReport> {
     const providers = this.registry.getAllProviders();
     const reports: Record<string, ProviderHealthReport> = {};
@@ -275,6 +303,13 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Health check execution
+  /**
+   * Execute a single health check with timeout handling.
+   *
+   * @param provider - Provider instance being tested
+   * @param healthCheck - Health check definition
+   * @returns Result of the health check
+   */
   private async runHealthCheck(
     provider: BaseAIProvider,
     healthCheck: HealthCheck
@@ -303,6 +338,11 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Metrics management
+  /**
+   * Create and store an empty metrics object for a provider.
+   *
+   * @param providerName - Identifier of the provider
+   */
   private initializeMetrics(providerName: string): void {
     this.metrics.set(providerName, {
       responseTime: 0,
@@ -314,6 +354,13 @@ export class HealthChecker extends EventEmitter {
     });
   }
 
+  /**
+   * Update stored metrics for a provider following a health check.
+   *
+   * @param providerName - Provider being updated
+   * @param success - Whether the last check succeeded
+   * @param duration - Duration of the request in milliseconds
+   */
   private updateMetrics(
     providerName: string,
     success: boolean,
@@ -358,6 +405,9 @@ export class HealthChecker extends EventEmitter {
     }
   }
 
+  /**
+   * Generate a blank metrics structure for initialisation.
+   */
   private createEmptyMetrics(): HealthMetrics {
     return {
       responseTime: 0,
@@ -370,6 +420,9 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Built-in health checks
+  /**
+   * Register the default set of health checks executed for each provider.
+   */
   private setupBuiltInChecks(): void {
     this.builtInChecks = [
       {
@@ -454,6 +507,10 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Registry event handlers
+  /**
+   * Listen to registry events in order to start or stop monitoring providers
+   * when they are added or removed.
+   */
   private setupRegistryEventHandlers(): void {
     this.registry.on("provider-added", ({ name, provider }) => {
       this.startProviderMonitoring(name, provider);
@@ -466,6 +523,9 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Utility methods
+  /**
+   * Wrap a promise with a timeout rejecting if exceeded.
+   */
   private async withTimeout<T>(
     promise: Promise<T>,
     timeoutMs: number,
@@ -478,6 +538,9 @@ export class HealthChecker extends EventEmitter {
     return Promise.race([promise, timeout]);
   }
 
+  /**
+   * Produce a human readable summary message from individual check results.
+   */
   private generateOverallMessage(
     checkResults: Record<string, HealthCheckResult>
   ): string {
@@ -494,11 +557,19 @@ export class HealthChecker extends EventEmitter {
   }
 
   // Public API for custom checks
+  /**
+   * Register a custom health check to be executed for all providers.
+   */
   public addCustomCheck(check: HealthCheck): void {
     this.customChecks.push(check);
     this.emit("custom-check-added", check);
   }
 
+  /**
+   * Remove a previously added custom health check by name.
+   *
+   * @returns `true` if the check was found and removed
+   */
   public removeCustomCheck(name: string): boolean {
     const index = this.customChecks.findIndex((check) => check.name === name);
     if (index >= 0) {
@@ -509,14 +580,23 @@ export class HealthChecker extends EventEmitter {
     return false;
   }
 
+  /**
+   * Retrieve metrics for a specific provider.
+   */
   public getMetrics(providerName: string): HealthMetrics | undefined {
     return this.metrics.get(providerName);
   }
 
+  /**
+   * Get a copy of all recorded metrics for every provider.
+   */
   public getAllMetrics(): Map<string, HealthMetrics> {
     return new Map(this.metrics);
   }
 
+  /**
+   * Clear stored metrics for one or all providers.
+   */
   public clearMetrics(providerName?: string): void {
     if (providerName) {
       this.metrics.delete(providerName);
@@ -527,6 +607,11 @@ export class HealthChecker extends EventEmitter {
 }
 
 // Utility functions for creating custom health checks
+/**
+ * Convenience factory for a simple connectivity health check.
+ *
+ * @param timeout - Optional timeout override in milliseconds
+ */
 export function createConnectivityCheck(timeout?: number): HealthCheck {
   return {
     name: "custom-connectivity",
@@ -543,6 +628,11 @@ export function createConnectivityCheck(timeout?: number): HealthCheck {
   };
 }
 
+/**
+ * Create a health check that attempts to load a specific model.
+ *
+ * @param modelName - Model that should be loaded
+ */
 export function createModelLoadCheck(modelName: string): HealthCheck {
   return {
     name: `model-load-${modelName}`,

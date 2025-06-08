@@ -4,6 +4,7 @@ import { join } from "path";
 
 const { readFile, writeFile, ensureDir } = fsExtra;
 
+/** Options controlling how the OpenAPI schema is extracted. */
 export interface OpenAPIExtractionOptions {
   include?: string[];
   exclude?: string[];
@@ -12,9 +13,17 @@ export interface OpenAPIExtractionOptions {
   timeout?: number;
 }
 
+/**
+ * Helper responsible for retrieving an OpenAPI schema from a FastAPI project.
+ */
 export class OpenAPIExtractor {
   private options: OpenAPIExtractionOptions;
 
+  /**
+   * Create a new extractor instance.
+   *
+   * @param options - Optional default extraction settings
+   */
   constructor(options: OpenAPIExtractionOptions = {}) {
     this.options = {
       host: "localhost",
@@ -24,6 +33,13 @@ export class OpenAPIExtractor {
     };
   }
 
+  /**
+   * Extract the schema from a running or temporary FastAPI server.
+   *
+   * @param apiPath - Path to the FastAPI application
+   * @param outputPath - File path where the schema should be written
+   * @param options - Additional extraction options
+   */
   async extractFromFastAPI(
     apiPath: string,
     outputPath: string,
@@ -47,6 +63,9 @@ export class OpenAPIExtractor {
     }
   }
 
+  /**
+   * Attempt to fetch the schema from a currently running server.
+   */
   private async fetchSchemaFromServer(
     options: OpenAPIExtractionOptions
   ): Promise<any | null> {
@@ -62,6 +81,10 @@ export class OpenAPIExtractor {
     return null;
   }
 
+  /**
+   * Launch a temporary server to generate the OpenAPI schema when one isn't
+   * already running.
+   */
   private async generateSchemaWithTempServer(
     apiPath: string,
     outputPath: string,

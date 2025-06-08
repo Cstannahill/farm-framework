@@ -115,6 +115,12 @@ export abstract class BaseAIProvider extends EventEmitter {
   ): AsyncIterable<StreamChunk>;
 
   // Common provider functionality
+  /**
+   * Determine whether the provider is healthy by invoking its {@link healthCheck}
+   * method. Any errors are caught and emitted as an "error" event.
+   *
+   * @returns `true` when the provider reports a healthy status
+   */
   public async isHealthy(): Promise<boolean> {
     try {
       const health = await this.healthCheck();
@@ -125,6 +131,11 @@ export abstract class BaseAIProvider extends EventEmitter {
     }
   }
 
+  /**
+   * Get the current status information for the provider.
+   *
+   * @returns Structured status data describing the provider health
+   */
   public getStatus(): ProviderStatus {
     return {
       name: this.name,
@@ -135,51 +146,105 @@ export abstract class BaseAIProvider extends EventEmitter {
     };
   }
 
+  /**
+   * List the capabilities supported by this provider implementation.
+   *
+   * @returns Array of capability strings
+   */
   public getCapabilities(): string[] {
     return ["chat", "completion"];
   }
 
+  /**
+   * Determine if a particular model is available from this provider.
+   *
+   * @param modelName - Name of the model to check
+   * @returns `true` if the model has been registered
+   */
   public hasModel(modelName: string): boolean {
     return this.models.has(modelName);
   }
 
+  /**
+   * Retrieve metadata about a specific model.
+   *
+   * @param modelName - Model identifier
+   * @returns Model details if loaded
+   */
   public getModel(modelName: string): ModelInfo | undefined {
     return this.models.get(modelName);
   }
 
+  /**
+   * Get a list of all models currently known to the provider.
+   */
   public getAvailableModels(): ModelInfo[] {
     return Array.from(this.models.values());
   }
 
+  /**
+   * Update the provider configuration at runtime.
+   *
+   * @param newConfig - Partial configuration values to merge in
+   */
   public updateConfig(newConfig: Partial<ProviderConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.emit("config-updated", this.config);
   }
 
+  /**
+   * Retrieve a copy of the current provider configuration.
+   */
   public getConfig(): ProviderConfig {
     return { ...this.config };
   }
 
   // Event handlers for provider lifecycle
+  /**
+   * Notify listeners that a model has been loaded.
+   *
+   * @param model - Loaded model metadata
+   */
   protected onModelLoaded(model: ModelInfo): void {
     this.models.set(model.name, model);
     this.emit("model-loaded", model);
   }
 
+  /**
+   * Notify listeners that a model has been unloaded.
+   *
+   * @param modelName - Identifier of the removed model
+   */
   protected onModelUnloaded(modelName: string): void {
     this.models.delete(modelName);
     this.emit("model-unloaded", modelName);
   }
 
+  /**
+   * Emit a normalized error event for consumers.
+   *
+   * @param error - Error instance
+   * @param context - Optional contextual message
+   */
   protected onError(error: Error, context?: string): void {
     this.emit("error", { error, context, provider: this.name });
   }
 
+  /**
+   * Emit a status change event for monitoring tools.
+   *
+   * @param status - Updated provider status
+   */
   protected onStatusChange(status: ProviderStatus): void {
     this.emit("status-change", status);
   }
 
   // Utility methods
+  /**
+   * Validate an incoming generation request and throw if invalid.
+   *
+   * @param request - Request payload to validate
+   */
   protected validateRequest(request: GenerationRequest): void {
     if (!request.messages || request.messages.length === 0) {
       throw new Error("Messages array cannot be empty");
@@ -200,6 +265,14 @@ export abstract class BaseAIProvider extends EventEmitter {
     }
   }
 
+  /**
+   * Helper to create a {@link GenerationResponse} object.
+   *
+   * @param content - Response body from the model
+   * @param model - Name of the model producing the response
+   * @param usage - Optional token usage information
+   * @param metadata - Additional metadata to attach
+   */
   protected createGenerationResponse(
     content: string,
     model: string,
