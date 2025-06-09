@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@farm/types": "workspace:*",
+    "@farm/type-sync": "workspace:*",
     "@types/lodash": "^4.14.202",
     "lodash": "^4.17.21"
   },
