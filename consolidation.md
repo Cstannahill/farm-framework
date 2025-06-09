@@ -1,73 +1,61 @@
-# FARM Code Generation Consolidation Plan
+# Type-Sync Consolidation Guide
 
-This document outlines a cautious approach for merging the existing code generation implementations inside the repository. The goal is to unify the logic from `packages/type-sync`, `packages/core/src/codegen`, and `tools/codegen` without breaking existing functionality.
+This document describes how to merge the existing type generation logic into a single maintainable package. The goal is to minimize breakage while moving code to its new home.
 
-## Overview of Current State
+## Implementation Strategy
 
-- **packages/type-sync** – Contains a `TypeSyncOrchestrator` with caching, diffing, and watching logic. Generator implementations are largely placeholders.
-- **packages/core/src/codegen** – Mirrors the orchestrator and generators found in `type-sync` but lacks caching. Also includes a duplicated `type-sync` folder.
-- **tools/codegen** – An older, more complete pipeline with full generator implementations and CLI helpers.
+### Phase 1: Consolidate Core Logic
+- **packages/type-sync** becomes the source of truth for type synchronization.
+- Move real generator implementations from `tools/codegen` here.
+- Export `TypeSyncOrchestrator`, `TypescriptGenerator`, and `APIClientGenerator` from this package.
 
-## Objectives
+### Phase 2: CLI Integration
+- `packages/core/src/codegen` acts as a thin wrapper.
+- Re-export `TypeSyncOrchestrator`, `SyncOptions`, and `TypeSyncWatcher` from `@farm/type-sync`.
+- Introduce a small `CodegenOrchestrator` that instantiates `TypeSyncOrchestrator` and adds any framework-specific hooks.
+- Update CLI commands in `packages/cli` to import from `@farm/core`.
 
-1. Establish `packages/type-sync` as the single source of truth for type synchronization logic.
-2. Port real generator implementations from `tools/codegen` into `packages/type-sync`.
-3. Reduce `packages/core/src/codegen` to a thin wrapper that re-exports features from `packages/type-sync` and handles framework-specific orchestration.
-4. Integrate CLI commands to use the consolidated implementation.
-5. Remove or archive outdated directories only after confirming functionality.
+### Phase 3: Template Generation Remains Separate
+- `farm --create` templates continue to live under `templates/`.
+- Type synchronization is an independent development-time tool.
 
-## Step-by-Step Approach
+## Benefits
+- **Single source of truth** for type generation.
+- **Clean public API** via `@farm/core`.
+- **Reusable** `type-sync` package that can be published on its own.
+- Existing commands keep working with minimal changes.
 
-### 1. Prepare a Temporary Workspace
+## Potential Concerns & Solutions
+- **Framework-specific needs in type-sync?** Keep the core generic and let `@farm/core` pass configuration down.
+- **Duplicate folder in `packages/core`?** Remove it only after confirming nothing imports it.
+- **Legacy `tools/codegen`?** Keep it as a reference until all features are ported, then archive.
 
-- Work on a new Git branch locally to test the migration without affecting `main`.
-- Ensure all existing tests pass before starting.
+## Step-by-Step Plan
 
-### 2. Migrate Generators from `tools/codegen`
-
-1. Copy the concrete generator logic from `tools/codegen` into `packages/type-sync/src/generators`.
-2. Replace the placeholder generator implementations in `packages/type-sync` with these real versions.
-3. Update any import paths or TypeScript configurations as needed.
-4. Run unit tests (or add new ones) to verify the generators produce expected files.
-
-### 3. Remove Duplicate Logic from `packages/core/src/codegen/type-sync`
-
-1. Confirm that no other modules import from `packages/core/src/codegen/type-sync`.
-2. If safe, delete the duplicated folder `packages/core/src/codegen/type-sync`.
-3. Update internal imports in `packages/core/src/codegen` to reference `@farm/type-sync` instead.
-4. Add re-export statements in `packages/core/src/codegen/index.ts` to expose the orchestrator and watcher from `@farm/type-sync`.
-
-### 4. Thin the Core Orchestrator
-
-1. Modify `packages/core/src/codegen/orchestrator.ts` so that it internally instantiates `TypeSyncOrchestrator` from `@farm/type-sync`.
-2. Keep any framework-specific behaviour (e.g., custom output paths) in this wrapper class.
-3. Ensure the public API of `@farm/core` remains stable for CLI consumers.
-
-### 5. Update CLI Commands
-
-1. Point the `types:sync` commands in `packages/cli` to use the consolidated implementation exported from `@farm/core`.
-2. Test `farm types:sync` (and watch mode if available) in a sample project to confirm end-to-end behaviour.
-
-### 6. Validate and Clean Up
-
-1. Run the entire code generation flow using the new setup and confirm artifacts are created correctly.
-2. Search the repository for any remaining imports from `tools/codegen` or the removed `type-sync` folder.
-3. Once confirmed, move `tools/codegen` to an `archive/` directory or delete it.
-4. Commit the changes with clear messages summarizing the migration.
-
-### 7. Document the Final Architecture
-
-- Update README files to explain the new structure:
-  - `packages/type-sync` – core implementation with generators and watcher.
-  - `packages/core` – framework integration layer.
-  - CLI commands referencing `@farm/core`.
-- Provide migration notes for anyone who previously used `tools/codegen` directly.
+1. **Create a working branch.** Ensure current tests pass before starting.
+2. **Move generators.** Copy the real generator logic from `tools/codegen` into `packages/type-sync/src/generators` and update imports.
+3. **Wire up exports.** Re-export these generators from `packages/type-sync`.
+4. **Adapt `@farm/core`.** Replace duplicated logic with thin wrappers that call into `@farm/type-sync`.
+5. **Update CLI commands.** Point `packages/cli/src/commands/types/sync.ts` to the new orchestrator via `@farm/core`.
+6. **Test thoroughly.** Run `farm types:sync` and watch mode in a sample app. Verify generated files match previous output.
+7. **Search for stray imports.** Ensure no code depends on the soon-to-be removed paths.
+8. **Archive old directories.** After confirming functionality, move `tools/codegen` to an `archive/` folder and delete `packages/core/src/codegen/type-sync`.
+9. **Document final structure.** Update READMEs to show:
+   \`\`\`
+packages/
+├── type-sync/      # core implementation
+├── core/
+│   └── src/codegen/  # thin wrapper + orchestrator
+└── cli/
+    └── commands/
+        ├── create.ts  # project scaffolding
+        └── types/     # uses @farm/core
+   \`\`\`
+10. **Tag the repo.** Create a git tag before deleting old code so recovery is easy.
 
 ## Cautious Practices
+- **Incremental removal.** Only delete a directory after confirming the new path works and no other code depends on it.
+- **Back up.** Keep a branch or tag with the original files during the transition.
+- **Automated tests.** Run the full test suite at every step to catch regressions early.
 
-- **Incremental removal:** Keep old directories until the new logic is verified in multiple scenarios.
-- **Tests first:** Each step should be accompanied by unit or integration tests to catch regressions.
-- **Backups:** Tag the repository before deleting large directories so they can be restored if needed.
-
-Following this plan should consolidate the code generation logic without breaking existing workflows.
-
+Following this guide will consolidate code generation while keeping the framework stable.
