@@ -1,7 +1,7 @@
 # Tools: CLI helpers
 
 Command modules used internally by the monorepo.  The `generate` command
-wraps the code generation pipeline defined in `@farm/codegen`.
+relies on the type-sync utilities provided by `@farm/type-sync`.
 
 ## Structure
 

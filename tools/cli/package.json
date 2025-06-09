@@ -9,7 +9,7 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@farm/codegen": "workspace:*",
+    "@farm/type-sync": "workspace:*",
     "commander": "^11.0.0",
     "fs-extra": "^11.1.1",
     "chalk": "^5.3.0"

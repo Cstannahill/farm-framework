@@ -1,7 +1,7 @@
 // tools/cli/commands/generate.ts
 import { Command } from "commander";
 import { readFile } from "fs-extra";
-import { join } from "path";
+import { ReactHookGenerator } from "@farm/type-sync";
 
 // Type definitions for command options
 interface GenerateAllOptions {
@@ -47,15 +47,23 @@ export function createGenerateCommand(): Command {
 
         const configPath = options.config || "./farm.config.ts";
 
-        // Dynamic import to avoid circular dependencies
-        const { runCodeGeneration, startCodeGenerationWatcher } = await import(
-          "@farm/codegen"
+        // Use TypeSync orchestrator for code generation
+        const { TypeSyncOrchestrator, TypeSyncWatcher } = await import(
+          "@farm/type-sync"
         );
+        const config = {
+          apiUrl: "http://localhost:8000",
+          outputDir: ".farm/types/generated",
+          features: { client: true, hooks: true, streaming: false },
+        };
+        const orchestrator = new TypeSyncOrchestrator();
+        await orchestrator.initialize(config);
 
         if (options.watch) {
-          await startCodeGenerationWatcher(configPath);
+          const watcher = new TypeSyncWatcher(orchestrator);
+          await watcher.start();
         } else {
-          await runCodeGeneration(configPath);
+          await orchestrator.syncOnce();
         }
       } catch (error) {
         console.error("❌ Code generation failed:", error);
@@ -86,12 +94,12 @@ export function createGenerateCommand(): Command {
           options.schema || "./apps/web/src/schemas/openapi.json";
         const outputPath = options.output || "./apps/web/src/hooks";
 
-        // Dynamic import to avoid circular dependencies
-        const { generateReactHooks } = await import("@farm/codegen");
+        // Load and parse the OpenAPI schema
+        const schemaContent = await readFile(schemaPath, "utf-8");
+        const schema = JSON.parse(schemaContent);
 
-        await generateReactHooks(schemaPath, outputPath, {
-          enableAI: options.ai,
-        });
+        const generator = new ReactHookGenerator();
+        await generator.generate(schema, { outputDir: outputPath });
 
         console.log("✅ React hooks generated successfully!");
       } catch (error) {
@@ -123,20 +131,15 @@ export function createGenerateCommand(): Command {
         const outputPath = options.output || "./apps/web/src/types";
 
         // Dynamic import to avoid circular dependencies
-        const { TypeScriptGenerator } = await import("@farm/codegen");
-        const { readFile } = await import("fs-extra");
+        const { TypeScriptGenerator } = await import("@farm/type-sync");
 
         // Read and parse the OpenAPI schema
         const schemaContent = await readFile(schemaPath, "utf-8");
         const schema = JSON.parse(schemaContent);
 
         // Create generator with proper constructor arguments
-        const generator = new TypeScriptGenerator(schema, {
-          outputDir: outputPath,
-        });
-
-        // Use the correct method name
-        await generator.generateTypes();
+        const generator = new TypeScriptGenerator();
+        await generator.generate(schema, { outputDir: outputPath });
 
         console.log("✅ TypeScript types generated successfully!");
       } catch (error) {
@@ -169,17 +172,13 @@ export function createGenerateCommand(): Command {
         const outputPath = options.output || "./apps/web/src/services";
 
         // Dynamic import to avoid circular dependencies
-        const { APIClientGenerator } = await import("@farm/codegen");
+        const { APIClientGenerator } = await import("@farm/type-sync");
 
-        // Create generator with proper constructor arguments
-        const generator = new APIClientGenerator({
-          enableAI: options.ai,
-        });
+        const schemaContent = await readFile(schemaPath, "utf-8");
+        const schema = JSON.parse(schemaContent);
 
-        // Use the correct method signature
-        await generator.generateFromSchema(schemaPath, outputPath, {
-          enableAI: options.ai,
-        });
+        const generator = new APIClientGenerator();
+        await generator.generate(schema, { outputDir: outputPath });
 
         console.log("✅ API client generated successfully!");
       } catch (error) {
