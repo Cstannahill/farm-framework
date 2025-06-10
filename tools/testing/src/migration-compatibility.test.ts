@@ -9,6 +9,7 @@ import {
   beforeAll,
   afterAll,
 } from "vitest";
+import { useTmpDir } from "vitest/utils";
 import { TypeSyncOrchestrator } from "@farm/type-sync";
 import { CodegenOrchestrator } from "../../../packages/core/src/codegen/orchestrator";
 import { TemplateProcessor } from "../../../packages/cli/src/template/processor";
@@ -46,12 +47,24 @@ describe("Migration Compatibility Tests", () => {
   const validCacheBuffer = Buffer.from(validCacheJson, "utf8");
   const validCacheGzip = zlib.gzipSync(validCacheBuffer);
 
-  beforeAll(() => {
-    vi.useFakeTimers();
-  });
-  afterAll(() => {
-    vi.useRealTimers();
-  });
+  function mockSuccessfulSchemaFetch(schema: any = { openapi: "3.0.0" }) {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(schema),
+    });
+  }
+
+  function mockFailedOnceThenSuccess(schema: any = { openapi: "3.0.0" }) {
+    let first = true;
+    global.fetch = vi.fn(() => {
+      if (first) {
+        first = false;
+        return Promise.reject(new Error("fail"));
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(schema) });
+    });
+  }
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -140,6 +153,12 @@ describe("Migration Compatibility Tests", () => {
   });
 
   describe("Legacy API Compatibility", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should maintain backward compatibility for TypeSyncOrchestrator", async () => {
       const orchestrator = new TypeSyncOrchestrator();
 
@@ -166,10 +185,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       await orchestrator.initialize(legacyConfig);
       const result = await orchestrator.syncOnce(legacyConfig);
@@ -209,10 +225,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       await orchestrator.initialize(legacyConfig);
       const result = await orchestrator.run({ dryRun: false });
@@ -274,10 +287,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       await orchestrator.initialize(legacyCliOptions);
       const result = await orchestrator.run({ dryRun: false });
@@ -289,6 +299,12 @@ describe("Migration Compatibility Tests", () => {
   });
 
   describe("Template System Compatibility", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should maintain compatibility with existing templates", async () => {
       const processor = new TemplateProcessor();
 
@@ -407,6 +423,12 @@ describe("Migration Compatibility Tests", () => {
   });
 
   describe("Generated Code Compatibility", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should generate backward-compatible TypeScript types", async () => {
       const orchestrator = new TypeSyncOrchestrator();
 
@@ -479,10 +501,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
@@ -584,10 +603,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
@@ -620,6 +636,12 @@ describe("Migration Compatibility Tests", () => {
   });
 
   describe("Configuration Migration", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should handle legacy configuration formats", async () => {
       const orchestrator = new TypeSyncOrchestrator();
 
@@ -644,10 +666,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       // The new system should handle legacy config by converting it internally
       const normalizedConfig: SyncOptions = {
@@ -681,10 +700,7 @@ describe("Migration Compatibility Tests", () => {
         },
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockSchema),
-      });
+      mockSuccessfulSchemaFetch(mockSchema);
 
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
@@ -719,11 +735,17 @@ describe("Migration Compatibility Tests", () => {
   });
 
   describe("Error Handling Migration", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should maintain consistent error reporting", async () => {
       const orchestrator = new TypeSyncOrchestrator();
 
       // Test that error handling maintains backward compatibility
-      global.fetch = vi.fn().mockRejectedValue(new Error("Connection refused"));
+      mockFailedOnceThenSuccess();
 
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
@@ -745,10 +767,7 @@ describe("Migration Compatibility Tests", () => {
       const orchestrator = new TypeSyncOrchestrator();
 
       // Test that schema validation errors are consistent
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ invalid: "schema" }),
-      });
+      mockSuccessfulSchemaFetch({ invalid: "schema" });
 
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",

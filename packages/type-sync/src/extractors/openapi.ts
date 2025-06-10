@@ -17,6 +17,8 @@ export interface OpenAPIExtractionOptions {
   cacheTimeout?: number;
   serverStartupTime?: number;
   healthCheckEndpoint?: string;
+  /** Custom sleep function for retry delays */
+  sleepFn?: (ms: number) => Promise<void>;
 }
 
 export interface ExtractionResult {
@@ -28,7 +30,9 @@ export interface ExtractionResult {
 }
 
 export class OpenAPIExtractor {
-  private options: Required<OpenAPIExtractionOptions>;
+  private options: Required<Omit<OpenAPIExtractionOptions, "sleepFn">> & {
+    sleepFn: (ms: number) => Promise<void>;
+  };
   private runningServer?: ChildProcess;
   private lastSchemaCache?: { schema: any; timestamp: number; path: string };
 
@@ -43,6 +47,7 @@ export class OpenAPIExtractor {
       cacheTimeout: 60000, // 1 minute
       serverStartupTime: 5000,
       healthCheckEndpoint: "/health",
+      sleepFn: (ms: number) => new Promise((r) => setTimeout(r, ms)),
       include: [],
       exclude: [],
       ...options,
@@ -425,7 +430,7 @@ export class OpenAPIExtractor {
    * Delay utility
    */
   private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return this.options.sleepFn(ms);
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   beforeAll,
   afterAll,
 } from "vitest";
+import { useTmpDir } from "vitest/utils";
 import {
   TypeSyncOrchestrator,
   TypeSyncWatcher,
@@ -32,17 +33,18 @@ describe("Type-Sync Package", () => {
   let existsSyncSpy: any;
   let readFileSpy: any;
 
-  beforeAll(() => {
-    vi.useFakeTimers();
-  });
-  afterAll(() => {
-    vi.useRealTimers();
-  });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   describe("TypeSyncOrchestrator", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     let orchestrator: TypeSyncOrchestrator;
     let mockConfig: SyncOptions;
 
@@ -81,17 +83,21 @@ describe("Type-Sync Package", () => {
   });
 
   describe("GenerationCache", () => {
+    let tmpDir: Awaited<ReturnType<typeof useTmpDir>>;
     let cache: GenerationCache;
-    const cacheDir = ".farm/test-cache";
-
+    beforeAll(async () => {
+      tmpDir = await useTmpDir();
+    });
     beforeEach(() => {
-      cache = new GenerationCache(cacheDir);
+      vi.useFakeTimers();
+      cache = new GenerationCache(tmpDir.path, { timeout: 0 });
       vi.mock("fs-extra");
       readJsonSpy = vi.spyOn(fs, "readJson").mockResolvedValue({});
       writeJsonSpy = vi.spyOn(fs, "writeJson").mockResolvedValue(undefined);
       ensureDirSpy = vi.spyOn(fs, "ensureDir").mockResolvedValue(undefined);
     });
     afterEach(() => {
+      vi.useRealTimers();
       readJsonSpy.mockRestore();
       writeJsonSpy.mockRestore();
       ensureDirSpy.mockRestore();
@@ -136,6 +142,13 @@ describe("Type-Sync Package", () => {
   });
 
   describe("TypeDiffer", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     let differ: TypeDiffer;
 
     beforeEach(() => {
