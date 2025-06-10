@@ -5,21 +5,26 @@ This document describes the comprehensive refactor plan to consolidate and organ
 ## Current Architecture Analysis
 
 ### Project Creation (`farm --create`)
+
 The `farm --create` command uses a sophisticated template system:
+
 - **Command Entry**: `packages/cli/src/commands/create.ts` handles CLI options and validation
 - **Project Scaffolding**: `ProjectScaffolder` coordinates the entire generation process
 - **Template Processing**: `TemplateProcessor` handles Handlebars rendering from `templates/` directory
 - **File Generation**: `ProjectFileGenerator` creates project files with dynamic content
 - **Structure Generation**: `ProjectStructureGenerator` creates directory hierarchies
 
-### Type Synchronization (`farm types:sync`) 
+### Type Synchronization (`farm types:sync`)
+
 Two overlapping implementations exist:
+
 - **packages/type-sync**: Standalone library with `TypeSyncOrchestrator`, generators, and watcher
 - **packages/core/src/codegen**: Thin wrapper that re-exports from `@farm/type-sync`
 - **archive/codegen** (formerly tools/codegen): Legacy implementation with rich features
 - **CLI Integration**: `packages/cli/src/commands/types/sync.ts` imports from `@farm/core`
 
 ### Current Issues
+
 1. **Duplication**: Multiple orchestrators with similar functionality
 2. **Fragmentation**: Features scattered across different packages
 3. **Legacy Code**: `archive/codegen` contains advanced features not yet migrated
@@ -28,36 +33,44 @@ Two overlapping implementations exist:
 ## Consolidation Strategy
 
 ### Phase 1: Strengthen Core Type-Sync Package
+
 **Objective**: Make `packages/type-sync` the definitive source for all type generation logic.
 
 **Actions**:
+
 - Migrate missing features from `archive/codegen` (CLI helpers, pipeline integration, examples)
 - Enhance generator implementations with advanced features
 - Consolidate caching, diffing, and watch functionality
 - Ensure comprehensive test coverage
 
-### Phase 2: Standardize CLI Integration  
+### Phase 2: Standardize CLI Integration
+
 **Objective**: Create consistent CLI experience across all generation commands.
 
 **Actions**:
+
 - Keep `packages/core/src/codegen` as the framework integration layer
 - Ensure all CLI commands (`create`, `types:sync`, `generate`) use consistent patterns
 - Consolidate common CLI utilities and error handling
 - Maintain backward compatibility
 
 ### Phase 3: Optimize Template System
+
 **Objective**: Improve template processing efficiency and maintainability.
 
 **Actions**:
+
 - Enhance `TemplateProcessor` performance for large projects
-- Expand Handlebars helper system for more complex use cases  
+- Expand Handlebars helper system for more complex use cases
 - Improve template validation and error reporting
 - Document template authoring guidelines
 
 ### Phase 4: Clean Up Legacy Code
+
 **Objective**: Remove redundant code and clarify architecture.
 
 **Actions**:
+
 - Archive `archive/codegen` after feature migration is complete
 - Remove any unused wrapper code in `packages/core`
 - Update documentation to reflect final architecture
@@ -67,21 +80,24 @@ Two overlapping implementations exist:
 
 ### Step 1: Audit and Prepare (Duration: 1-2 days)
 
-#### 1.1 Create Working Branch
+#### 1.1 Create Working Branch (COMPLETE)
+
 ```bash
 git checkout -b consolidate-codegen
 git push -u origin consolidate-codegen
 ```
 
 #### 1.2 Run Full Test Suite
+
 ```bash
-npm run test
-npm run test:api  
-npm run test:web
+pnpm run test
+pnpm run test:api
+pnpm run test:web
 farm types:sync --dry-run  # Verify current functionality
 ```
 
 #### 1.3 Document Current State
+
 - Map all imports/exports between packages
 - Identify all files that depend on `archive/codegen`
 - List all CLI commands that use type generation
@@ -90,33 +106,42 @@ farm types:sync --dry-run  # Verify current functionality
 ### Step 2: Enhance Type-Sync Package (Duration: 3-4 days)
 
 #### 2.1 Migrate Advanced Features from Archive
+
 **From `archive/codegen/src/cli-integration.ts`**:
+
 - `FarmCodeGenerator` class
 - CLI integration helpers
 - Performance monitoring
 - Enhanced error reporting
 
 **From `archive/codegen/src/pipeline-integration.ts`**:
+
 - Pipeline coordination logic
 - Incremental generation strategies
 - Build tool integrations
 
 **From `archive/codegen/src/type-generator.ts`**:
+
 - Advanced type generation algorithms
 - OpenAPI schema optimization
 - Custom type transformations
 
 #### 2.2 Strengthen Generator Implementations
+
 **Location**: `packages/type-sync/src/generators/`
 
 **Enhance TypeScriptGenerator**:
+
 ```typescript
 // packages/type-sync/src/generators/typescript.ts
 export class TypeScriptGenerator {
-  async generate(schema: OpenAPISchema, opts: TypeScriptGenerationOptions): Promise<GenerationResult> {
+  async generate(
+    schema: OpenAPISchema,
+    opts: TypeScriptGenerationOptions
+  ): Promise<GenerationResult> {
     // Migrate advanced features from archive
     // - Complex type unions
-    // - Nested object handling  
+    // - Nested object handling
     // - Enum optimizations
     // - Comment preservation
   }
@@ -124,10 +149,14 @@ export class TypeScriptGenerator {
 ```
 
 **Enhance APIClientGenerator**:
+
 ```typescript
 // packages/type-sync/src/generators/api-client.ts
 export class APIClientGenerator {
-  async generate(schema: OpenAPISchema, opts: APIClientGeneratorOptions): Promise<GenerationResult> {
+  async generate(
+    schema: OpenAPISchema,
+    opts: APIClientGeneratorOptions
+  ): Promise<GenerationResult> {
     // Migrate features from archive
     // - Authentication handling
     // - Request/response interceptors
@@ -138,19 +167,26 @@ export class APIClientGenerator {
 ```
 
 **Create New Generators**:
+
 ```typescript
 // packages/type-sync/src/generators/react-hooks.ts
 export class ReactHookGenerator {
-  async generate(schema: OpenAPISchema, opts: ReactHookGeneratorOptions): Promise<GenerationResult> {
+  async generate(
+    schema: OpenAPISchema,
+    opts: ReactHookGeneratorOptions
+  ): Promise<GenerationResult> {
     // Generate React Query hooks
     // Generate custom hooks for API calls
     // Generate streaming hooks for real-time data
   }
 }
 
-// packages/type-sync/src/generators/ai-hooks.ts  
+// packages/type-sync/src/generators/ai-hooks.ts
 export class AIHookGenerator {
-  async generate(schema: OpenAPISchema, opts: AIHookGeneratorOptions): Promise<GenerationResult> {
+  async generate(
+    schema: OpenAPISchema,
+    opts: AIHookGeneratorOptions
+  ): Promise<GenerationResult> {
     // Generate AI-specific hooks
     // Generate streaming chat hooks
     // Generate model management hooks
@@ -159,6 +195,7 @@ export class AIHookGenerator {
 ```
 
 #### 2.3 Enhance Core Orchestrator
+
 ```typescript
 // packages/type-sync/src/orchestrator.ts
 export class TypeSyncOrchestrator {
@@ -183,6 +220,7 @@ export class TypeSyncOrchestrator {
 ```
 
 #### 2.4 Strengthen Utilities
+
 ```typescript
 // packages/type-sync/src/cache.ts
 export class GenerationCache {
@@ -204,11 +242,12 @@ export class OpenAPIExtractor {
 ### Step 3: Update CLI Integration (Duration: 1-2 days)
 
 #### 3.1 Enhance Core Wrapper
+
 ```typescript
 // packages/core/src/codegen/orchestrator.ts
 export class CodegenOrchestrator {
   private typeSync = new TypeSyncOrchestrator();
-  
+
   constructor(private frameworkConfig?: FarmConfig) {
     // Framework-specific initialization
   }
@@ -228,6 +267,7 @@ export class CodegenOrchestrator {
 ```
 
 #### 3.2 Update CLI Commands
+
 ```typescript
 // packages/cli/src/commands/types/sync.ts
 import { CodegenOrchestrator } from "@farm/core";
@@ -241,12 +281,13 @@ export function createTypeSyncCommand(): Command {
 ```
 
 #### 3.3 Enhance Generate Command
+
 ```typescript
 // packages/cli/src/commands/generate.ts
 export function createGenerateCommand(): Command {
   // Consolidate all generation commands
   // - farm generate types
-  // - farm generate client  
+  // - farm generate client
   // - farm generate hooks
   // - farm generate models
 }
@@ -255,20 +296,28 @@ export function createGenerateCommand(): Command {
 ### Step 4: Improve Template System (Duration: 2-3 days)
 
 #### 4.1 Optimize TemplateProcessor Performance
+
 ```typescript
 // packages/cli/src/template/processor.ts
 export class TemplateProcessor {
   private templateCache = new Map<string, HandlebarsTemplate>();
   private helperRegistry = new HelperRegistry();
 
-  async processTemplate(templateName: string, context: TemplateContext, outputPath: string): Promise<string[]> {
+  async processTemplate(
+    templateName: string,
+    context: TemplateContext,
+    outputPath: string
+  ): Promise<string[]> {
     // Implement template caching
     // Parallel file processing
     // Progress reporting
     // Better error handling
   }
 
-  private async processFilesBatch(files: TemplateFile[], batchSize = 10): Promise<void> {
+  private async processFilesBatch(
+    files: TemplateFile[],
+    batchSize = 10
+  ): Promise<void> {
     // Process files in parallel batches
     // Reduce I/O bottlenecks
   }
@@ -276,6 +325,7 @@ export class TemplateProcessor {
 ```
 
 #### 4.2 Expand Handlebars Helpers
+
 ```typescript
 // packages/cli/src/template/helpers.ts
 export function registerAdvancedHelpers(handlebars: HandlebarsInstance): void {
@@ -288,6 +338,7 @@ export function registerAdvancedHelpers(handlebars: HandlebarsInstance): void {
 ```
 
 #### 4.3 Improve Template Validation
+
 ```typescript
 // packages/cli/src/template/validator.ts
 export class TemplateValidator {
@@ -303,17 +354,18 @@ export class TemplateValidator {
 ### Step 5: Testing and Validation (Duration: 2-3 days)
 
 #### 5.1 Enhanced Test Coverage
+
 ```typescript
 // packages/type-sync/src/__tests__/integration.test.ts
-describe('Type-Sync Integration', () => {
+describe("Type-Sync Integration", () => {
   // Test complete workflows
-  // Test performance benchmarks  
+  // Test performance benchmarks
   // Test error scenarios
   // Test watch mode functionality
 });
 
 // packages/cli/src/__tests__/e2e.test.ts
-describe('CLI End-to-End', () => {
+describe("CLI End-to-End", () => {
   // Test project creation
   // Test type generation
   // Test template processing
@@ -322,9 +374,10 @@ describe('CLI End-to-End', () => {
 ```
 
 #### 5.2 Performance Testing
+
 ```typescript
 // tools/testing/src/performance.test.ts
-describe('Performance Benchmarks', () => {
+describe("Performance Benchmarks", () => {
   // Measure template processing speed
   // Measure type generation speed
   // Memory usage tests
@@ -333,6 +386,7 @@ describe('Performance Benchmarks', () => {
 ```
 
 #### 5.3 Migration Testing
+
 ```bash
 # Test existing projects still work
 farm types:sync  # Should work unchanged
@@ -343,27 +397,33 @@ farm generate client  # Should work unchanged
 ### Step 6: Documentation and Cleanup (Duration: 1-2 days)
 
 #### 6.1 Update Documentation
+
 ```markdown
 # docs/code-generation.md
+
 ## Code Generation Architecture
 
 ### Type Synchronization
+
 - Package: `@farm/type-sync`
 - CLI: `farm types:sync`
 - Configuration: `farm.config.ts`
 
-### Project Creation  
+### Project Creation
+
 - Package: `@farm/cli`
 - CLI: `farm create`
 - Templates: `templates/`
 
 ### Advanced Generation
+
 - Package: `@farm/core`
 - CLI: `farm generate`
 - Extensions: Custom generators
 ```
 
 #### 6.2 Archive Legacy Code
+
 ```bash
 # Only after confirming all features migrated
 git mv tools/codegen archive/codegen-legacy
@@ -371,6 +431,7 @@ git commit -m "Archive legacy codegen implementation"
 ```
 
 #### 6.3 Update Package.json Files
+
 ```json
 // packages/type-sync/package.json
 {
@@ -428,7 +489,7 @@ farm-framework/
 ## Migration Benefits
 
 1. **Unified API**: Single source of truth for type generation
-2. **Better Performance**: Optimized template processing and caching  
+2. **Better Performance**: Optimized template processing and caching
 3. **Enhanced Features**: Migrated advanced capabilities from legacy code
 4. **Maintainability**: Clear separation of concerns and responsibilities
 5. **Extensibility**: Easy to add new generators and features

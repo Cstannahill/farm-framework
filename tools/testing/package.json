@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@farm/types": "workspace:*",
+    "@farm/type-sync": "workspace:*",
+    "@farm/core": "workspace:*",
+    "@farm/cli": "workspace:*",
     "fs-extra": "^11.1.1"
   },
   "devDependencies": {

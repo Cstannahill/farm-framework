@@ -4,6 +4,17 @@
 
 export * from "@farm/types";
 
+// Re-export type-sync types (single source of truth)
+export type {
+  OpenAPISchema,
+  SyncOptions,
+  SyncResult,
+  TypeScriptGenerationOptions,
+  APIClientGeneratorOptions,
+  ReactHookGeneratorOptions,
+  AIHookGeneratorOptions,
+} from "@farm/type-sync";
+
 // Core utilities
 /**
  * Helper used by consuming applications to supply typed configuration.

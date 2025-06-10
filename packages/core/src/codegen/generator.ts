@@ -1,72 +1,54 @@
 // packages/core/src/codegen/generator.ts
-import path from "path";
-// Replace import from @farm/codegen with a local implementation or comment out until the module exists
-// import { FarmCodeGenerator, CodegenConfig } from "@farm/codegen";
+// Re-export generators from type-sync package
+export {
+  TypeScriptGenerator,
+  APIClientGenerator,
+  ReactHookGenerator,
+  AIHookGenerator,
+} from "@farm/type-sync";
+
 import type { FarmConfig } from "@farm/types";
 
-/**
- * CodeGenerator class that acts as an adapter for the FarmCodeGenerator
- * This class provides the interface expected by the file-watcher while
- * delegating to the actual FarmCodeGenerator implementation
- */
+// Legacy adapter for backward compatibility
 export class CodeGenerator {
-  constructor(projectPath: string, config: any) {}
+  constructor(
+    private projectPath: string,
+    private config: any
+  ) {
+    console.warn(
+      "CodeGenerator is deprecated. Use TypeSyncOrchestrator from @farm/type-sync instead."
+    );
+  }
 
-  /**
-   * Generate code using the underlying FarmCodeGenerator
-   */
-  async generate(): Promise<void> {}
+  async generate(): Promise<void> {
+    console.warn("CodeGenerator.generate() is deprecated");
+  }
 
-  /**
-   * Start watching for file changes
-   */
-  async startWatching(): Promise<void> {}
+  async startWatching(): Promise<void> {
+    console.warn("CodeGenerator.startWatching() is deprecated");
+  }
 
-  /**
-   * Stop watching for file changes
-   */
-  async stopWatching(): Promise<void> {}
+  async stopWatching(): Promise<void> {
+    console.warn("CodeGenerator.stopWatching() is deprecated");
+  }
 
-  /**
-   * Get the project path
-   */
   getProjectPath(): string {
-    return "";
+    return this.projectPath;
   }
 
-  /**
-   * Get the configuration
-   */
   getConfig(): FarmConfig {
-    return {} as FarmConfig;
+    return this.config || ({} as FarmConfig);
   }
 
-  /**
-   * Regenerate all code (used by file-watcher)
-   */
-  async regenerateAll(): Promise<{
-    success: boolean;
-    generatedFiles: string[];
-    errors: string[];
-  }> {
+  async regenerateAll() {
     return {
       success: true,
-      generatedFiles: [],
-      errors: [],
+      generatedFiles: [] as string[],
+      errors: [] as string[],
     };
   }
 
-  /**
-   * Regenerate code incrementally (used by file-watcher)
-   */
-  async regenerateIncremental(changes: {
-    models: string[];
-    routes: string[];
-  }): Promise<{
-    success: boolean;
-    generatedFiles: string[];
-    errors: string[];
-  }> {
+  async regenerateIncremental(changes: { models: string[]; routes: string[] }) {
     return this.regenerateAll();
   }
 }

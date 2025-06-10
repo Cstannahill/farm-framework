@@ -1,131 +1,6 @@
-import fs from "fs-extra";
-import path from "path";
-import crypto from "crypto";
-import type { OpenAPISchema } from "../types";
-
-/** Options for the {@link AIHookGenerator}. */
-export interface AIHookGeneratorOptions {
-  outputDir: string;
-  generateComments?: boolean;
-  includeSessionManagement?: boolean;
-  includeBatchInference?: boolean;
-  includeAdvancedFeatures?: boolean;
-  supportedProviders?: Array<"ollama" | "openai" | "huggingface">;
-  defaultProvider?: "ollama" | "openai" | "huggingface";
-  enableErrorHandling?: boolean;
-  enableOptimisticUpdates?: boolean;
-}
-
-export interface AIGenerationResult {
-  path: string;
-  content?: string;
-  size?: number;
-  checksum?: string;
-  generatedAt?: Date;
-  type?: string;
-  hooks?: string[];
-}
-
 /**
- * Generates comprehensive React hooks for interacting with AI endpoints.
- * Provides streaming chat, model management, health monitoring, and session persistence.
- */
-export class AIHookGenerator {
-  private options: AIHookGeneratorOptions;
-
-  constructor(options?: Partial<AIHookGeneratorOptions>) {
-    this.options = {
-      outputDir: "./src/hooks",
-      generateComments: true,
-      includeSessionManagement: true,
-      includeBatchInference: true,
-      includeAdvancedFeatures: true,
-      supportedProviders: ["ollama", "openai", "huggingface"],
-      defaultProvider: "ollama",
-      enableErrorHandling: true,
-      enableOptimisticUpdates: true,
-      ...options,
-    };
-  }
-
-  /**
-   * Generate AI hook source files from an OpenAPI schema.
-   *
-   * @param schema - Parsed OpenAPI schema
-   * @param opts - Generation options
-   * @returns Path to the generated file
-   */
-  async generate(
-    schema: OpenAPISchema,
-    opts: AIHookGeneratorOptions
-  ): Promise<AIGenerationResult> {
-    const finalOpts = { ...this.options, ...opts };
-    await fs.ensureDir(finalOpts.outputDir);
-
-    const content = this.generateAIHooksContent(schema, finalOpts);
-    const outPath = path.join(finalOpts.outputDir, "ai-hooks.ts");
-
-    await fs.writeFile(outPath, content);
-
-    return {
-      path: outPath,
-      content,
-      size: content.length,
-      checksum: this.generateChecksum(content),
-      generatedAt: new Date(),
-      type: "ai-hooks",
-      hooks: this.extractHookNames(content),
-    };
-  }
-
-  private generateAIHooksContent(
-    schema: OpenAPISchema,
-    opts: AIHookGeneratorOptions
-  ): string {
-    const aiEndpoints = this.detectAIEndpoints(schema);
-    const hooks: string[] = [];
-
-    // File header
-    let content = this.generateFileHeader(opts);
-
-    // Core hooks
-    hooks.push(this.generateStreamingChatHook(opts));
-    hooks.push(this.generateAIModelsHook(opts));
-    hooks.push(this.generateAIHealthHook(opts));
-    hooks.push(this.generateAIProviderHook(opts));
-
-    // Optional hooks based on configuration
-    if (opts.includeBatchInference) {
-      hooks.push(this.generateAIInferenceHook(opts));
-    }
-
-    if (opts.includeSessionManagement) {
-      hooks.push(this.generateChatSessionHook(opts));
-    }
-
-    if (opts.includeAdvancedFeatures) {
-      hooks.push(this.generateModelLoaderHook(opts));
-      hooks.push(this.generateAIConfigHook(opts));
-      hooks.push(this.generateTokenCounterHook(opts));
-    }
-
-    // Custom hooks for detected AI endpoints
-    for (const endpoint of aiEndpoints) {
-      hooks.push(this.generateCustomEndpointHook(endpoint, opts));
-    }
-
-    content += hooks.join("\n\n");
-    content += this.generateExports(opts);
-
-    return content;
-  }
-
-  private generateFileHeader(opts: AIHookGeneratorOptions): string {
-    if (!opts.generateComments) return "";
-
-    return `/**
  * Auto-generated AI hooks for FARM framework
- * Generated at: ${new Date().toISOString()}
+ * Generated at: 2025-06-10T18:23:34.968Z
  * DO NOT EDIT - This file is auto-generated
  * 
  * Provides comprehensive React hooks for AI functionality:
@@ -146,22 +21,13 @@ import type * as AI from '../types/ai';
 // AI Hooks
 // =============================================================================
 
-`;
-  }
-
-  private generateStreamingChatHook(opts: AIHookGeneratorOptions): string {
-    const providers =
-      opts.supportedProviders?.map((p) => `'${p}'`).join(" | ") ||
-      "'ollama' | 'openai' | 'huggingface'";
-    const defaultProvider = opts.defaultProvider || "ollama";
-
-    return `/**
+/**
  * Hook for real-time streaming chat with AI providers
- * Supports ${opts.supportedProviders?.join(", ")} with automatic provider routing
+ * Supports ollama, openai, huggingface with automatic provider routing
  * Features: Real-time streaming, error recovery, message persistence
  */
 export function useStreamingChat(options: {
-  provider?: ${providers};
+  provider?: 'ollama' | 'openai' | 'huggingface';
   model?: string;
   initialMessages?: AI.ChatMessage[];
   onMessage?: (message: AI.ChatMessage) => void;
@@ -180,8 +46,8 @@ export function useStreamingChat(options: {
   const eventSourceRef = useRef<EventSource | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Default to ${defaultProvider} in development, configurable in production
-  const defaultProvider = process.env.NODE_ENV === 'development' ? '${defaultProvider}' : (process.env.REACT_APP_AI_PROVIDER || '${defaultProvider}');
+  // Default to ollama in development, configurable in production
+  const defaultProvider = process.env.NODE_ENV === 'development' ? 'ollama' : (process.env.REACT_APP_AI_PROVIDER || 'ollama');
   const provider = options.provider || defaultProvider;
 
   const sendMessage = useCallback(async (
@@ -305,7 +171,7 @@ export function useStreamingChat(options: {
         // Add error message to chat
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: \`❌ \${errorMessage}. Please try again.\`,
+          content: `❌ ${errorMessage}. Please try again.`,
           timestamp: new Date().toISOString()
         }]);
       };
@@ -319,7 +185,7 @@ export function useStreamingChat(options: {
       // Add error message to chat
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: \`❌ Error: \${errorMessage}\`,
+        content: `❌ Error: ${errorMessage}`,
         timestamp: new Date().toISOString()
       }]);
     }
@@ -375,19 +241,13 @@ export function useStreamingChat(options: {
     provider,
     model: options.model
   };
-}`;
-  }
+}
 
-  private generateAIModelsHook(opts: AIHookGeneratorOptions): string {
-    const providers =
-      opts.supportedProviders?.map((p) => `'${p}'`).join(" | ") ||
-      "'ollama' | 'openai' | 'huggingface'";
-
-    return `/**
+/**
  * Hook for managing AI models across different providers
  * Provides model listing, filtering, and metadata
  */
-export function useAIModels(provider?: ${providers}) {
+export function useAIModels(provider?: 'ollama' | 'openai' | 'huggingface') {
   return useQuery({
     queryKey: ['ai-models', provider],
     queryFn: () => aiApi.listModels(provider),
@@ -396,11 +256,9 @@ export function useAIModels(provider?: ${providers}) {
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
-}`;
-  }
+}
 
-  private generateAIHealthHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for monitoring AI provider health and status
  * Provides real-time health monitoring with automatic retries
  */
@@ -412,22 +270,14 @@ export function useAIHealth() {
     retry: 1,
     staleTime: 15000, // Consider data stale after 15 seconds
     cacheTime: 60000, // Keep in cache for 1 minute
-    ${
-      opts.enableErrorHandling
-        ? `
+    
     onError: (error) => {
       console.warn('AI health check failed:', error);
-    }`
-        : ""
     }
   });
-}`;
-  }
+}
 
-  private generateAIProviderHook(opts: AIHookGeneratorOptions): string {
-    const defaultProvider = opts.defaultProvider || "ollama";
-
-    return `/**
+/**
  * Hook for managing AI provider selection and configuration
  * Handles automatic provider detection and fallback logic
  */
@@ -441,8 +291,8 @@ export function useAIProvider() {
   // Auto-select healthy provider if none selected
   useEffect(() => {
     if (!selectedProvider && health) {
-      // Priority order: ${opts.supportedProviders?.join(", ")}
-      const providerPriority = [${opts.supportedProviders?.map((p) => `'${p}'`).join(", ")}];
+      // Priority order: ollama, openai, huggingface
+      const providerPriority = ['ollama', 'openai', 'huggingface'];
       
       for (const provider of providerPriority) {
         if (health[provider]?.status === 'healthy') {
@@ -493,11 +343,9 @@ export function useAIProvider() {
     providerHealth: health,
     isHealthy: selectedProvider ? health?.[selectedProvider]?.status === 'healthy' : false
   };
-}`;
-  }
+}
 
-  private generateAIInferenceHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for single AI inference requests (non-streaming)
  * Optimized for batch processing and caching
  */
@@ -518,15 +366,11 @@ export function useAIInference(options: {
       });
       return response;
     },
-    ${
-      opts.enableOptimisticUpdates
-        ? `
+    
     onMutate: async (variables) => {
       // Optimistic update for immediate UI feedback
       return { timestamp: Date.now() };
-    },`
-        : ""
-    }
+    },
     onSuccess: (data, variables) => {
       if (options.enableCaching !== false) {
         // Cache successful responses for potential reuse
@@ -538,23 +382,17 @@ export function useAIInference(options: {
         queryClient.setQueryData(['ai-inference', cacheKey], data);
       }
     },
-    ${
-      opts.enableErrorHandling
-        ? `
+    
     onError: (error, variables) => {
       console.error('AI inference failed:', error);
       // Could add toast notification here
-    },`
-        : ""
-    }
+    },
     retry: 1,
     retryDelay: 2000
   });
-}`;
-  }
+}
 
-  private generateChatSessionHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for managing persistent chat sessions
  * Provides session storage, loading, and synchronization
  */
@@ -576,7 +414,7 @@ export function useChatSession(sessionId?: string) {
     metadata?: Record<string, any>
   ) => {
     const newSession = {
-      id: sessionId || \`session-\${Date.now()}\`,
+      id: sessionId || `session-${Date.now()}`,
       messages,
       provider,
       model,
@@ -589,7 +427,7 @@ export function useChatSession(sessionId?: string) {
     
     // Save to localStorage for persistence
     try {
-      localStorage.setItem(\`farm-chat-session-\${newSession.id}\`, JSON.stringify({
+      localStorage.setItem(`farm-chat-session-${newSession.id}`, JSON.stringify({
         ...newSession,
         createdAt: newSession.createdAt.toISOString(),
         lastActivity: newSession.lastActivity.toISOString()
@@ -603,7 +441,7 @@ export function useChatSession(sessionId?: string) {
 
   const loadSession = useCallback((id: string) => {
     try {
-      const saved = localStorage.getItem(\`farm-chat-session-\${id}\`);
+      const saved = localStorage.getItem(`farm-chat-session-${id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         setSession({
@@ -621,7 +459,7 @@ export function useChatSession(sessionId?: string) {
 
   const clearSession = useCallback(() => {
     if (session) {
-      localStorage.removeItem(\`farm-chat-session-\${session.id}\`);
+      localStorage.removeItem(`farm-chat-session-${session.id}`);
     }
     setSession(null);
   }, [session]);
@@ -653,11 +491,9 @@ export function useChatSession(sessionId?: string) {
     updateSessionMetadata,
     isLoaded: Boolean(session)
   };
-}`;
-  }
+}
 
-  private generateModelLoaderHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for loading/downloading AI models (primarily for Ollama)
  * Provides progress tracking and error handling
  */
@@ -697,26 +533,20 @@ export function useModelLoader() {
       queryClient.invalidateQueries({ queryKey: ['ai-models'] });
       queryClient.invalidateQueries({ queryKey: ['ai-health'] });
     },
-    ${
-      opts.enableErrorHandling
-        ? `
+    
     onError: (error, variables) => {
-      console.error(\`Failed to load model \${variables.modelName}:\`, error);
-    }`
-        : ""
+      console.error(`Failed to load model ${variables.modelName}:`, error);
     }
   });
-}`;
-  }
+}
 
-  private generateAIConfigHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for managing AI configuration and settings
  * Provides centralized configuration management
  */
 export function useAIConfig() {
   const [config, setConfig] = useState({
-    defaultProvider: '${opts.defaultProvider || "ollama"}',
+    defaultProvider: 'ollama',
     defaultModel: 'llama3.1',
     temperature: 0.7,
     maxTokens: 1000,
@@ -752,7 +582,7 @@ export function useAIConfig() {
     config,
     updateConfig,
     resetConfig: () => setConfig({
-      defaultProvider: '${opts.defaultProvider || "ollama"}',
+      defaultProvider: 'ollama',
       defaultModel: 'llama3.1',
       temperature: 0.7,
       maxTokens: 1000,
@@ -761,11 +591,9 @@ export function useAIConfig() {
       retryAttempts: 2
     })
   };
-}`;
-  }
+}
 
-  private generateTokenCounterHook(opts: AIHookGeneratorOptions): string {
-    return `/**
+/**
  * Hook for estimating and tracking token usage
  * Provides cost estimation and usage analytics
  */
@@ -818,63 +646,22 @@ export function useTokenCounter() {
     trackUsage,
     resetUsage
   };
-}`;
-  }
-
-  private generateCustomEndpointHook(
-    endpoint: any,
-    opts: AIHookGeneratorOptions
-  ): string {
-    // Generate hooks for custom AI endpoints detected in the schema
-    const hookName = this.generateHookName(endpoint.path);
-
-    return `/**
- * Custom hook for ${endpoint.path}
- * Auto-generated from OpenAPI schema
- */
-export function ${hookName}() {
-  return useMutation({
-    mutationFn: (params: any) => aiApi.customRequest('${endpoint.path}', params),
-    ${
-      opts.enableErrorHandling
-        ? `
-    onError: (error) => {
-      console.error('${hookName} failed:', error);
-    }`
-        : ""
-    }
-  });
-}`;
-  }
-
-  private generateExports(opts: AIHookGeneratorOptions): string {
-    const hooks = [
-      "useStreamingChat",
-      "useAIModels",
-      "useAIHealth",
-      "useAIProvider",
-    ];
-
-    if (opts.includeBatchInference) {
-      hooks.push("useAIInference");
-    }
-
-    if (opts.includeSessionManagement) {
-      hooks.push("useChatSession");
-    }
-
-    if (opts.includeAdvancedFeatures) {
-      hooks.push("useModelLoader", "useAIConfig", "useTokenCounter");
-    }
-
-    return `
+}
 
 // =============================================================================
 // Exports
 // =============================================================================
 
 export {
-  ${hooks.join(",\n  ")}
+  useStreamingChat,
+  useAIModels,
+  useAIHealth,
+  useAIProvider,
+  useAIInference,
+  useChatSession,
+  useModelLoader,
+  useAIConfig,
+  useTokenCounter
 };
 
 export type {
@@ -885,60 +672,3 @@ export type {
   AI.ModelInfo,
   AI.ProviderHealthResponse
 } from '../types/ai';
-`;
-  }
-
-  private detectAIEndpoints(schema: OpenAPISchema): any[] {
-    const aiEndpoints: any[] = [];
-
-    if (schema.paths) {
-      for (const [path, methods] of Object.entries(schema.paths)) {
-        if (
-          path.includes("/ai/") ||
-          path.includes("/chat/") ||
-          path.includes("/completion/")
-        ) {
-          for (const [method, operation] of Object.entries(methods as any)) {
-            const operationDef = operation as any;
-            aiEndpoints.push({
-              path,
-              method,
-              operation: operationDef,
-              operationId: operationDef.operationId,
-            });
-          }
-        }
-      }
-    }
-
-    return aiEndpoints;
-  }
-
-  private generateHookName(path: string): string {
-    // Convert "/ai/custom/endpoint" to "useAICustomEndpoint"
-    return (
-      "use" +
-      path
-        .split("/")
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join("")
-    );
-  }
-
-  private extractHookNames(content: string): string[] {
-    const hookRegex = /export function (use\w+)/g;
-    const hooks: string[] = [];
-    let match;
-
-    while ((match = hookRegex.exec(content)) !== null) {
-      hooks.push(match[1]);
-    }
-
-    return hooks;
-  }
-
-  private generateChecksum(content: string): string {
-    return crypto.createHash("md5").update(content).digest("hex").slice(0, 8);
-  }
-}

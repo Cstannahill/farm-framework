@@ -82,14 +82,42 @@ export class ProjectScaffolder {
           projectPath,
           cliContext
         );
-      logger.info(`📁 Created ${createdDirs.length} directories`); // 3. Process and copy template files
-      const templateFiles = await this.templateProcessor.processTemplate(
+      logger.info(`📁 Created ${createdDirs.length} directories`); // 3. Process and copy template files with enhanced processor
+      const processingResult = await this.templateProcessor.processTemplate(
         context.template,
         context,
-        projectPath
+        projectPath,
+        {
+          verbose: this.options.verbose,
+          onProgress: (progress) => {
+            if (this.options.verbose) {
+              logger.info(
+                `📄 Processing: ${progress.currentFile} (${progress.current}/${progress.total})`
+              );
+            }
+          },
+        }
       );
-      generatedFiles.push(...templateFiles);
-      logger.info(`📄 Generated ${templateFiles.length} files from template`); // 4. Generate dependency files
+
+      generatedFiles.push(...processingResult.generatedFiles);
+
+      logger.info(
+        `📄 Generated ${processingResult.generatedFiles.length} files from template`
+      );
+      if (processingResult.skippedFiles.length > 0) {
+        logger.info(
+          `⏭️ Skipped ${processingResult.skippedFiles.length} files based on features/template`
+        );
+      }
+
+      if (this.options.verbose && processingResult.metrics) {
+        logger.info(
+          `⚡ Template processing completed in ${processingResult.metrics.totalProcessingTime}ms`
+        );
+        logger.info(
+          `📊 Cache hit ratio: ${((processingResult.metrics.cacheHits / (processingResult.metrics.cacheHits + processingResult.metrics.cacheMisses)) * 100).toFixed(1)}%`
+        );
+      } // 4. Generate dependency files
       await this.generateDependencyFiles(projectPath, cliContext);
       generatedFiles.push("package.json");
       if (context.template !== "api-only") {
