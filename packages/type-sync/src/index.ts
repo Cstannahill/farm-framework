@@ -4,6 +4,7 @@ export { TypeSyncWatcher } from "./watcher";
 export { GenerationCache } from "./cache";
 export { TypeDiffer } from "./type-sync";
 export { OpenAPIExtractor } from "./extractors/openapi";
+export { fetchWithRetry } from "./utils/fetchWithRetry";
 export { TypeScriptGenerator } from "./generators/typescript";
 export type { TypeScriptGenerationOptions } from "./generators/typescript";
 export { APIClientGenerator } from "./generators/api-client";
