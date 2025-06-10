@@ -9,6 +9,7 @@ import {
   beforeAll,
   afterAll,
 } from "vitest";
+import { useTmpDir } from "vitest/utils";
 import {
   TypeSyncOrchestrator,
   GenerationCache,
@@ -29,19 +30,13 @@ describe("Enhanced Type-Sync Integration", () => {
   let orchestrator: TypeSyncOrchestrator;
   let mockConfig: SyncOptions;
 
-  beforeAll(() => {
-    vi.useFakeTimers();
-  });
-
-  afterAll(() => {
+  afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   beforeEach(async () => {
+    vi.useFakeTimers();
     vi.mock("fs-extra");
     vi.spyOn(fs, "readFile").mockImplementation(() =>
       Promise.resolve(Buffer.from(""))
@@ -76,6 +71,12 @@ describe("Enhanced Type-Sync Integration", () => {
   });
 
   describe("Performance Monitoring", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should track extraction timing", async () => {
       const mockSchema: OpenAPISchema = {
         openapi: "3.0.0",
@@ -127,6 +128,12 @@ describe("Enhanced Type-Sync Integration", () => {
   });
 
   describe("Incremental Generation", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should detect unchanged schema and skip generation", async () => {
       const mockSchema: OpenAPISchema = {
         openapi: "3.0.0",
@@ -188,6 +195,12 @@ describe("Enhanced Type-Sync Integration", () => {
   });
 
   describe("AI Hook Generation", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should generate AI hooks for detected endpoints", async () => {
       const mockSchema: OpenAPISchema = {
         openapi: "3.0.0",
@@ -252,6 +265,12 @@ describe("Enhanced Type-Sync Integration", () => {
   });
 
   describe("Error Handling and Recovery", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
     it("should handle network errors gracefully", async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
@@ -294,15 +313,20 @@ describe("Enhanced Type-Sync Integration", () => {
 
 describe("Enhanced Cache System", () => {
   let cache: GenerationCache;
-  const tempDir = path.join(process.cwd(), "temp-cache");
+  let tmp: Awaited<ReturnType<typeof useTmpDir>>;
+
+  beforeAll(async () => {
+    tmp = await useTmpDir();
+  });
 
   beforeEach(() => {
-    cache = new GenerationCache(tempDir);
-    // No need to call await cache.initialize();
+    vi.useFakeTimers();
+    cache = new GenerationCache(tmp.path);
   });
 
   afterEach(async () => {
-    await fs.remove(tempDir);
+    vi.useRealTimers();
+    await fs.remove(tmp.path);
   });
 
   it("should store and retrieve cached results", async () => {
@@ -347,7 +371,12 @@ describe("Enhanced OpenAPI Extractor", () => {
   let extractor: OpenAPIExtractor;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     extractor = new OpenAPIExtractor();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should retry on network failures", async () => {
@@ -398,7 +427,12 @@ describe("Enhanced AI Hook Generator", () => {
   let generator: AIHookGenerator;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     generator = new AIHookGenerator();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should detect AI endpoints from schema", async () => {
