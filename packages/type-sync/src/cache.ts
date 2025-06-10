@@ -45,6 +45,7 @@ export class GenerationCache {
   private metrics: CacheMetrics;
   private metadataPath: string;
   private cleanupTimer?: NodeJS.Timeout;
+  private logger = console;
 
   constructor(
     private baseDir: string,
@@ -100,6 +101,14 @@ export class GenerationCache {
 
   private metricPath(hash: string): string {
     return path.join(this.baseDir, `${hash}.meta.json`);
+  }
+
+  private async readAndDecompress(file: string): Promise<Buffer> {
+    const data = await fs.readFile(file);
+    if (this.options.enableCompression) {
+      return gunzip(data);
+    }
+    return Buffer.isBuffer(data) ? data : Buffer.from(data);
   }
 
   /**
