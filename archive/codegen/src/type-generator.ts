@@ -522,7 +522,7 @@ export interface ApiError {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to @farm/types package
  */
 export interface AIProvider {
   name: 'ollama' | 'openai' | 'huggingface';

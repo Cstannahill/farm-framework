@@ -15,7 +15,7 @@ export function createTypeCheckCommand(): Command {
       await orchestrator.initialize({
         apiUrl: "http://localhost:8000",
         outputDir: tempDir,
-        features: { client: true, hooks: true, streaming: true },
+        features: { client: true, hooks: true, streaming: true, aiHooks: true },
       });
       await orchestrator.syncOnce();
       const differ = new TypeDiffer();

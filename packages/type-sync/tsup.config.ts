@@ -3,8 +3,8 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["cjs", "esm"],
-  dts: false, // Use tsc for declarations in dist/ts
-  clean: false, // Don't clean to preserve tsc output in dist/ts
+  dts: false, // Disable due to workspace project reference issues
+  clean: true,
   sourcemap: true,
   target: "es2022",
   outDir: "dist",

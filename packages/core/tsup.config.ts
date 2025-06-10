@@ -3,10 +3,11 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["cjs", "esm"],
-  dts: false, // Use tsc for declarations
-  splitting: false,
+  dts: false, // Disable due to workspace project reference issues
+  clean: true,
   sourcemap: true,
-  clean: false, // Don't clean to preserve tsc output in dist/ts
+  target: "es2022",
+  outDir: "dist",
   external: [
     // Node.js built-ins
     "fs",
