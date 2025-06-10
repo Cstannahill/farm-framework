@@ -68,6 +68,15 @@ export interface TemplateContext {
   answers: Record<string, any>;
   timestamp: string;
   farmVersion: string;
+  // Core template properties
+  template: string; // Template name (required for most operations)
+  name: string; // Project name (legacy field name, required)
+  // Optional properties that may be provided by different parts of the system
+  description?: string;
+  typescript?: boolean;
+  docker?: boolean;
+  git?: boolean;
+  install?: boolean; // Whether to install dependencies
 }
 
 /**

@@ -2,7 +2,12 @@
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import fs from "fs-extra";
-import { TemplateContext, TemplateDefinition } from "../template/types.js";
+import { TemplateContext } from "@farm/types";
+import {
+  TemplateDefinition,
+  TemplateName,
+  TemplateContext as CLITemplateContext,
+} from "../template/types.js";
 import { TemplateRegistry } from "../template/registry.js";
 import { TemplateProcessor } from "../template/processor.js";
 import { ProjectStructureGenerator } from "../generators/project-structure.js";
@@ -12,6 +17,16 @@ import { promisify } from "util";
 import { logger } from "../utils/logger.js";
 
 const execAsync = promisify(exec);
+
+// Helper function to convert shared TemplateContext to CLI TemplateContext
+function toCliTemplateContext(context: TemplateContext): CLITemplateContext {
+  return {
+    ...context,
+    template: context.template as TemplateName,
+    // Map any additional fields as needed
+    config: undefined, // Not used in this context
+  } as CLITemplateContext;
+}
 
 export interface ScaffoldResult {
   success: boolean;
@@ -43,12 +58,16 @@ export class ProjectScaffolder {
   ): Promise<ScaffoldResult> {
     const projectPath = join(process.cwd(), projectName);
     const generatedFiles: string[] = [];
-
     try {
       logger.info(`🏗️ Generating ${context.template} project...`);
 
+      // Convert to CLI context for internal operations
+      const cliContext = toCliTemplateContext(context);
+
       // Validate template exists
-      const template = this.templateRegistry.get(context.template);
+      const template = this.templateRegistry.get(
+        context.template as TemplateName
+      );
       if (!template) {
         throw new Error(`Template ${context.template} not found`);
       }
@@ -61,21 +80,17 @@ export class ProjectScaffolder {
       const createdDirs =
         await this.structureGenerator.generateProjectStructure(
           projectPath,
-          context
+          cliContext
         );
-      logger.info(`📁 Created ${createdDirs.length} directories`);
-
-      // 3. Process and copy template files
+      logger.info(`📁 Created ${createdDirs.length} directories`); // 3. Process and copy template files
       const templateFiles = await this.templateProcessor.processTemplate(
         context.template,
         context,
         projectPath
       );
       generatedFiles.push(...templateFiles);
-      logger.info(`📄 Generated ${templateFiles.length} files from template`);
-
-      // 4. Generate dependency files
-      await this.generateDependencyFiles(projectPath, context);
+      logger.info(`📄 Generated ${templateFiles.length} files from template`); // 4. Generate dependency files
+      await this.generateDependencyFiles(projectPath, cliContext);
       generatedFiles.push("package.json");
       if (context.template !== "api-only") {
         generatedFiles.push("apps/web/package.json");
@@ -121,10 +136,9 @@ export class ProjectScaffolder {
       };
     }
   }
-
   private async generateDependencyFiles(
     projectPath: string,
-    context: TemplateContext
+    context: CLITemplateContext
   ): Promise<void> {
     logger.info(`📦 Generating dependency files...`);
 

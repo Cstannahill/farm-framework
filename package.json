@@ -38,7 +38,8 @@
     "test:watch": "vitest --watch",
     "test:manual-dev": "bash ./scripts/test-dev-setup.sh",
     "test:manual-prod": "bash ./scripts/test-prod-build.sh",
-    "test:all-docker": "pnpm test:docker && pnpm test:integration && pnpm test:templates"
+    "test:all-docker": "pnpm test:docker && pnpm test:integration && pnpm test:templates",
+    "tree": "npx tree-node-cli -I `node_modules|dist|build|coverage|.turbo|.git|venv|.farm|__pycache__|.changeset|.git|.idea|.vscode|.cache|.pnpm-store`"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

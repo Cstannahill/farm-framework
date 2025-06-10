@@ -11,11 +11,9 @@
     "baseUrl": ".",
     "paths": {
       "@farm/types": ["../types/src"],
-      "@farm/types/*": ["../types/src/*"],
-      "@farm/type-sync": ["../type-sync/src"],
-      "@farm/type-sync/*": ["../type-sync/src/*"]
+      "@farm/types/*": ["../types/src/*"]
     }
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../types" }]
+  "references": [{ "path": "../types" }, { "path": "../type-sync" }]
 }

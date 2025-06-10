@@ -4,7 +4,7 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import Handlebars from "handlebars";
 import { glob } from "glob";
-import { TemplateContext, TemplateFile } from "./types.js";
+import { TemplateContext } from "@farm/types";
 import { logger } from "../utils/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -105,13 +105,15 @@ export class TemplateProcessor {
 
     return files.map((file) => path.relative(templatePath, file));
   }
-
   private shouldProcessFile(
     filePath: string,
     context: TemplateContext
   ): boolean {
     // Skip frontend files for api-only template
-    if (context.template === "api-only" && filePath.includes("apps/web")) {
+    if (
+      (context.template || "basic") === "api-only" &&
+      filePath.includes("apps/web")
+    ) {
       return false;
     }
 
@@ -130,40 +132,29 @@ export class TemplateProcessor {
 
     return true;
   }
-
   private createTemplateData(context: TemplateContext) {
     const kebabName = this.toKebabCase(context?.projectName as string);
+    const template = context.template || "basic";
 
     return {
       // Basic project info
       projectName: context.projectName,
       projectNamePascal: this.toPascalCase(context.projectName as string),
       projectNameKebab: kebabName,
-      template: context.template,
+      template: template,
       version: "0.1.0",
       description:
         context.description ||
-        `A FARM Stack application using ${context.template} template`,
+        `A FARM Stack application using ${template} template`,
 
       // Features
       features: context.features,
       hasFeature: (feature: string) =>
-        context.features.includes(feature as any),
-
-      // Database configuration
+        context.features.includes(feature as any), // Database configuration
       database: {
         type: context.database,
-        url: this.getDatabaseUrl(
-          typeof context.database === "string"
-            ? context.database
-            : context.database.type,
-          kebabName
-        ),
-        options: this.getDatabaseOptions(
-          typeof context.database === "string"
-            ? context.database
-            : context.database.type
-        ),
+        url: this.getDatabaseUrl(context.database, kebabName),
+        options: this.getDatabaseOptions(context.database),
       },
 
       // AI configuration (only if AI feature enabled)
@@ -174,7 +165,7 @@ export class TemplateProcessor {
                 enabled: true,
                 url: "http://localhost:11434",
                 models:
-                  context.template === "ai-chat"
+                  template === "ai-chat"
                     ? ["llama3.1", "codestral"]
                     : ["llama3.1"],
                 defaultModel: "llama3.1",
@@ -204,12 +195,10 @@ export class TemplateProcessor {
               fallback: true,
             },
           }
-        : undefined,
-
-      // Development configuration
+        : undefined, // Development configuration
       development: {
         ports: {
-          frontend: context.template !== "api-only" ? 3000 : undefined,
+          frontend: template !== "api-only" ? 3000 : undefined,
           backend: 8000,
           proxy: 4000,
           ai: context.features.includes("ai") ? 11434 : undefined,

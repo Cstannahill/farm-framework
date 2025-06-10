@@ -1,7 +1,7 @@
 // packages/type-sync/src/watcher.ts
 import chokidar from "chokidar";
 import fs from "fs-extra";
-import { debounce } from "lodash";
+import { debounce } from "lodash-es";
 import { TypeSyncOrchestrator } from "./orchestrator";
 
 /**
