@@ -3,7 +3,8 @@
 # FARM Framework Pre-Release Health Check
 # This script verifies that everything is ready for an alpha release
 
-set -e
+# Note: We don't use set -e here because we want to continue checking
+# even if individual checks fail
 
 # Colors for output
 RED='\033[0;31m'
