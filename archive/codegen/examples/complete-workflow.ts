@@ -17,7 +17,7 @@ import { TypeGenerationManager } from "../src/generators/manager";
 import { TypeScriptGenerator } from "../src/generators/typescript";
 import { join } from "path";
 import chalk from "chalk";
-import { getErrorMessage } from "@farm/cli";
+import { getErrorMessage } from "@farm-stack/cli";
 
 export class FarmTypeGenerationWorkflow {
   private schemaExtractor: OpenAPISchemaExtractor;

@@ -7,7 +7,16 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "allowJs": false
+    "allowJs": false,
+    "baseUrl": ".",
+    "paths": {
+      "@farm-framework/types": ["../types/src"],
+      "@farm-framework/types/*": ["../types/src/*"],
+      "@farm-framework/type-sync": ["../type-sync/src"],
+      "@farm-framework/type-sync/*": ["../type-sync/src/*"],
+      "@farm-framework/core": ["../core/src"],
+      "@farm-framework/core/*": ["../core/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "references": [

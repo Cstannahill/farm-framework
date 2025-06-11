@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { TypeSyncOrchestrator } from "@farm/type-sync";
+import { TypeSyncOrchestrator } from "@farm-framework/type-sync";
 
 /* ------------------------------------------------------------------ */
 /* Setup temporary workspace                                          */

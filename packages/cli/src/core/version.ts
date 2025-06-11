@@ -32,7 +32,7 @@ const getPackageRoot = (): string => {
         const content = readFileSync(path, "utf-8");
         const pkg = JSON.parse(content);
         // Verify this is actually the CLI package
-        if (pkg.name === "@farm/cli") {
+        if (pkg.name === "@farm-framework/cli") {
           return path;
         }
       } catch {

@@ -6,7 +6,7 @@ export default defineConfig({
   dts: false, // Use tsc for declarations
   clean: false, // Don't clean to preserve tsc output in dist/ts
   sourcemap: true,
-  external: ["@farm/types", "react", "react-dom"],
+  external: ["@farm-framework/types", "react", "react-dom"],
   outDir: "dist",
   tsconfig: "./tsconfig.json",
   target: "es2020",

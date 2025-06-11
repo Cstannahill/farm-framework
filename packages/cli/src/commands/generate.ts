@@ -5,7 +5,7 @@ import {
   CodegenOrchestrator,
   type CodegenOptions,
   type SyncOptions,
-} from "@farm/core";
+} from "@farm-framework/core";
 import { performance } from "perf_hooks";
 
 export interface GenerateCommandOptions {

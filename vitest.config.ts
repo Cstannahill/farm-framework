@@ -29,10 +29,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@farm/cli": resolve(__dirname, "packages/cli/src"),
-      "@farm/core": resolve(__dirname, "packages/core/src"),
-      "@farm/types": resolve(__dirname, "packages/types/src"),
-      "@farm/testing": resolve(__dirname, "tools/testing"),
+      "@farm-framework/cli": resolve(__dirname, "packages/cli/src"),
+      "@farm-framework/core": resolve(__dirname, "packages/core/src"),
+      "@farm-framework/type-sync": resolve(__dirname, "packages/type-sync/src"),
+      "@farm-framework/types": resolve(__dirname, "packages/types/src"),
+      "@farm-framework/testing": resolve(__dirname, "tools/testing"),
     },
   },
 });

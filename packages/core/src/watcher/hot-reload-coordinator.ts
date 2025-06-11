@@ -2,7 +2,7 @@
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
 import path from "path";
-import type { FarmConfig } from "@farm/types";
+import type { FarmConfig } from "@farm-framework/types";
 import type { FarmFileWatcher } from "./file-watcher";
 
 export class HotReloadCoordinator extends EventEmitter {

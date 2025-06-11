@@ -3,7 +3,7 @@
 - FARM Configuration // Generated on
 {{timestamp}}
 
-import { defineConfig } from '@farm/core'; export default defineConfig({ name: '{{project_name}}',
+import { defineConfig } from '@farm-framework/core'; export default defineConfig({ name: '{{project_name}}',
 version: '1.0.0', description: '{{capitalize template}}
 application built with FARM', // Template configuration template: '{{template}}',
 // Enabled features features: [{{#each features}}'{{this}}'{{#unless @last}},
@@ -65,13 +65,13 @@ backend: 8000, proxy: 4000{{#has_ollama}}, ollama: 11434{{/has_ollama}}
 true, splitting: true, outDir: 'dist' }{{#has_features}}, // Plugin
   configuration plugins: [
   {{#if_feature "auth"}}
-    '@farm/plugin-auth',
+    '@farm-framework/plugin-auth',
   {{/if_feature}}
   {{#if_feature "analytics"}}
-    '@farm/plugin-analytics',
+    '@farm-framework/plugin-analytics',
   {{/if_feature}}
   {{#if_feature "storage"}}
-    ['@farm/plugin-storage', { provider: 'local' }]{{#unless @last}},{{/unless}}
+    ['@farm-framework/plugin-storage', { provider: 'local' }]{{#unless @last}},{{/unless}}
   {{/if_feature}}
   ]{{/has_features}}
 });

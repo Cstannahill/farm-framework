@@ -21,8 +21,8 @@
     "types": ["react", "react-dom"],
     "allowJs": false,
     "paths": {
-      "@farm/types": ["../types/src/index.ts"],
-      "@farm/types/*": ["../types/src/*"]
+      "@farm-framework/types": ["../types/src/index.ts"],
+      "@farm-framework/types/*": ["../types/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

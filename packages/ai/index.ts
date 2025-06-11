@@ -1,5 +1,5 @@
 /**
- * Primary exports for the `@farm/ai` package. These re-export the core
+ * Primary exports for the `@farm-framework/ai` package. These re-export the core
  * provider base class, registry and configuration utilities used when
  * integrating AI providers within FARM applications.
  */

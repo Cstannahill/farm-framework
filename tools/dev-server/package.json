@@ -1,5 +1,5 @@
 {
-  "name": "@farm/dev-server",
+  "name": "@farm-framework/dev-server",
   "version": "0.1.0",
   "description": "FARM Framework Development Server",
   "type": "module",

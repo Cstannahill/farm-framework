@@ -1,5 +1,5 @@
 {
-  "name": "@farm/codegen",
+  "name": "@farm-stack/codegen",
   "version": "0.1.0",
   "description": "FARM Framework code generation tools for type-safe full-stack development",
   "main": "dist/index.js",
@@ -33,8 +33,8 @@
     "node-fetch": "^3.3.2",
     "openapi-types": "^12.1.3",
     "ora": "^7.0.1",
-    "@farm/types": "workspace:*",
-    "@farm/cli": "workspace:*",
+    "@farm-stack/types": "workspace:*",
+    "@farm-stack/cli": "workspace:*",
     "glob": "^10.0.0"
   },
   "devDependencies": {

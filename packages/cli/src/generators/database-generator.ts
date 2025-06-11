@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs-extra";
 import { TemplateProcessor } from "../template/processor.js";
-import { DatabaseProvider, DatabaseType } from "@farm/types";
+import { DatabaseProvider, DatabaseType } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 
 const DOCKER_TEMPLATE = "docker-compose.database.yml";

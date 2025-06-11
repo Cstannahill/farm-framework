@@ -8,8 +8,8 @@ export default defineConfig({
   sourcemap: true,
   external: [
     // Farm packages
-    "@farm/types",
-    "@farm/core",
+    "@farm-framework/types",
+    "@farm-framework/core",
     // Node.js built-ins
     "fs",
     "path",

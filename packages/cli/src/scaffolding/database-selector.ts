@@ -3,7 +3,7 @@ import {
   DatabaseType,
   DatabaseConfig,
   DatabaseFeature,
-} from "@farm/types";
+} from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 
 export class DatabaseSelector {
@@ -17,7 +17,9 @@ export class DatabaseSelector {
     const mongo: DatabaseProvider = {
       type: "mongodb",
       connectionUrl: "mongodb://farm:farm123@localhost:27017/farmapp",
-      dependencies: { python: ["beanie>=1.24.0", "motor>=3.3.2", "pymongo>=4.6.0"] },
+      dependencies: {
+        python: ["beanie>=1.24.0", "motor>=3.3.2", "pymongo>=4.6.0"],
+      },
       dockerConfig: {
         image: "mongo:7-jammy",
         environment: {

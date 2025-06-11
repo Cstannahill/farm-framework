@@ -78,10 +78,10 @@ export class APIClientGenerator {
       outputFormat === "typescript"
         ? `
 import { ApiResponse, RequestConfig } from './types';
-import { BaseApiClient } from '@farm/api-client';
+import { BaseApiClient } from '@farm-stack/api-client';
 `
         : `
-const { BaseApiClient } = require('@farm/api-client');
+const { BaseApiClient } = require('@farm-stack/api-client');
 `;
 
     const classDefinition =

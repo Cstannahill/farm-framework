@@ -1,9 +1,9 @@
-import { Command } from 'commander';
-import chalk from 'chalk';
-import path from 'path';
-import fs from 'fs-extra';
-import { PackageInstaller } from '../utils/package-installer.js';
-import { logger } from '../utils/logger.js';
+import { Command } from "commander";
+import chalk from "chalk";
+import path from "path";
+import fs from "fs-extra";
+import { PackageInstaller } from "../utils/package-installer.js";
+import { logger } from "../utils/logger.js";
 
 interface AddUIOptions {
   verbose?: boolean;
@@ -11,14 +11,14 @@ interface AddUIOptions {
 }
 
 export function createAddUICommand(): Command {
-  const addCmd = new Command('add');
-  const uiCmd = new Command('ui');
-  const assistantCmd = new Command('assistant');
+  const addCmd = new Command("add");
+  const uiCmd = new Command("ui");
+  const assistantCmd = new Command("assistant");
   assistantCmd
-    .alias('chat')
-    .description('Add Assistant UI integration')
-    .option('--dry-run', 'Run without writing files')
-    .option('-v, --verbose', 'Verbose output')
+    .alias("chat")
+    .description("Add Assistant UI integration")
+    .option("--dry-run", "Run without writing files")
+    .option("-v, --verbose", "Verbose output")
     .action(async (options: AddUIOptions) => {
       await addAssistantUI(options);
     });
@@ -32,10 +32,10 @@ async function addAssistantUI(options: AddUIOptions): Promise<void> {
   try {
     const projectRoot = process.cwd();
     const packages = [
-      '@assistant-ui/react',
-      '@assistant-ui/react-tailwind',
-      '@assistant-ui/react-markdown',
-      'remark-gfm',
+      "@assistant-ui/react",
+      "@assistant-ui/react-tailwind",
+      "@assistant-ui/react-markdown",
+      "remark-gfm",
     ];
 
     const installer = new PackageInstaller();
@@ -51,48 +51,54 @@ async function addAssistantUI(options: AddUIOptions): Promise<void> {
       logger.success(`Installed ${pkg}`);
     }
 
-    const tailwindPath = path.join(projectRoot, 'apps/web/tailwind.config.ts');
+    const tailwindPath = path.join(projectRoot, "apps/web/tailwind.config.ts");
     await ensureTailwindPlugin(tailwindPath, options.dryRun);
 
     await generateFile(
-      path.join(projectRoot, 'apps/web/src/providers/AssistantProvider.tsx'),
+      path.join(projectRoot, "apps/web/src/providers/AssistantProvider.tsx"),
       providerTemplate,
-      options.dryRun,
+      options.dryRun
     );
     await generateFile(
-      path.join(projectRoot, 'apps/web/src/hooks/useFarmAssistant.ts'),
+      path.join(projectRoot, "apps/web/src/hooks/useFarmAssistant.ts"),
       hookTemplate,
-      options.dryRun,
+      options.dryRun
     );
     await generateFile(
-      path.join(projectRoot, 'apps/web/src/pages/AssistantChat.tsx'),
+      path.join(projectRoot, "apps/web/src/pages/AssistantChat.tsx"),
       pageTemplate,
-      options.dryRun,
+      options.dryRun
     );
 
     await generateFile(
-      path.join(projectRoot, 'apps/web/src/api/assistant.ts'),
+      path.join(projectRoot, "apps/web/src/api/assistant.ts"),
       proxyTemplate,
-      options.dryRun,
+      options.dryRun
     );
 
-    logger.success('Assistant UI added');
+    logger.success("Assistant UI added");
   } catch (error) {
-    logger.error('Failed to add Assistant UI:', error);
+    logger.error("Failed to add Assistant UI:", error);
     process.exit(1);
   }
 }
 
 async function ensureTailwindPlugin(filePath: string, dryRun = false) {
-  let content = '';
+  let content = "";
   if (await fs.pathExists(filePath)) {
-    content = await fs.readFile(filePath, 'utf8');
+    content = await fs.readFile(filePath, "utf8");
   } else {
     content = `import { defineConfig } from 'tailwindcss/helpers';\n\nexport default defineConfig({\n  content: ['./index.html', './src/**/*.{ts,tsx}'],\n  theme: { extend: {} },\n  plugins: [],\n});\n`;
   }
 
-  if (!content.includes("'@assistant-ui/react-tailwind'") && !content.includes('"@assistant-ui/react-tailwind"')) {
-    content = content.replace(/plugins:\s*\[/, match => `${match}\n    require('@assistant-ui/react-tailwind'),`);
+  if (
+    !content.includes("'@assistant-ui/react-tailwind'") &&
+    !content.includes('"@assistant-ui/react-tailwind"')
+  ) {
+    content = content.replace(
+      /plugins:\s*\[/,
+      (match) => `${match}\n    require('@assistant-ui/react-tailwind'),`
+    );
   }
 
   if (!dryRun) {
@@ -125,7 +131,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 `;
 
 const hookTemplate = `import { useLocalRuntime } from '@assistant-ui/react';
-import { useAIChat } from '@farm/ai-hooks';
+import { useAIChat } from '@farm-framework/ai-hooks';
 
 export function useFarmAssistantRuntime() {
   const farmChat = useAIChat();
@@ -164,4 +170,3 @@ export default createProxyMiddleware('/api/assistant', {
   changeOrigin: true,
 });
 `;
-

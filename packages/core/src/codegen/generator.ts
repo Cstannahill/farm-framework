@@ -5,9 +5,9 @@ export {
   APIClientGenerator,
   ReactHookGenerator,
   AIHookGenerator,
-} from "@farm/type-sync";
+} from "@farm-framework/type-sync";
 
-import type { FarmConfig } from "@farm/types";
+import type { FarmConfig } from "@farm-framework/types";
 
 // Legacy adapter for backward compatibility
 export class CodeGenerator {
@@ -16,7 +16,7 @@ export class CodeGenerator {
     private config: any
   ) {
     console.warn(
-      "CodeGenerator is deprecated. Use TypeSyncOrchestrator from @farm/type-sync instead."
+      "CodeGenerator is deprecated. Use TypeSyncOrchestrator from @farm-framework/type-sync instead."
     );
   }
 

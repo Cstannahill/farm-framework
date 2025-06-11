@@ -4,7 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { CodeGenerator } from "../codegen/generator";
 import { debounce } from "lodash";
-import type { FarmConfig } from "@farm/types";
+import type { FarmConfig } from "@farm-framework/types";
 import chokidar from "chokidar";
 
 export interface FileChangeEvent {

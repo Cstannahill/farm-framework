@@ -2,7 +2,11 @@
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
-import type { TemplateConfig, ValidationResult, TestResult } from "@farm/types";
+import type {
+  TemplateConfig,
+  ValidationResult,
+  TestResult,
+} from "@farm-framework/types";
 import type { ProviderConfig } from "./types";
 
 export class TemplateValidator {

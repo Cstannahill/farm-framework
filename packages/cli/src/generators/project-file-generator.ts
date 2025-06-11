@@ -388,7 +388,7 @@ name = "${context.projectName}-api"
 version = "0.1.0"
 description = "FARM API for ${context.projectName}"
 authors = [
-    {name = "FARM CLI", email = "hello@farm-stack.dev"},
+    {name = "FARM CLI", email = "hello@farm-framework.dev"},
 ]
 readme = "README.md"
 requires-python = ">=3.8"
@@ -504,7 +504,7 @@ multi_line_output = 3
         workspaces: ["apps/*", "packages/*"],
         scripts,
         devDependencies: {
-          "@farm/cli": "latest",
+          "@farm-framework/cli": "latest",
         },
       },
       null,
@@ -515,7 +515,7 @@ multi_line_output = 3
   private generateFarmConfig(context: TemplateContext): string {
     const hasAI = context.features.includes("ai");
 
-    let config = `import { defineConfig } from '@farm/core';
+    let config = `import { defineConfig } from '@farm-framework/core';
 
 export default defineConfig({
   name: '${context.projectName}',

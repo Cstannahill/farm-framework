@@ -2,7 +2,7 @@
  * FARM Core Framework
  */
 
-export * from "@farm/types";
+export * from "@farm-framework/types";
 
 // Re-export type-sync types (single source of truth)
 export type {
@@ -13,7 +13,7 @@ export type {
   APIClientGeneratorOptions,
   ReactHookGeneratorOptions,
   AIHookGeneratorOptions,
-} from "@farm/type-sync";
+} from "@farm-framework/type-sync";
 
 // Core utilities
 /**

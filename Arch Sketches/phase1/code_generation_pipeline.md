@@ -36,6 +36,7 @@ The code generation pipeline is the core "magic" that enables type-safe full-sta
 **Purpose:** Extract comprehensive schema from FastAPI application
 
 **Implementation:**
+
 ```python
 # tools/codegen/openapi_extractor.py
 from fastapi.openapi.utils import get_openapi
@@ -45,7 +46,7 @@ import json
 class OpenAPIExtractor:
     def __init__(self, app: FastAPI):
         self.app = app
-    
+
     def extract_schema(self) -> dict:
         """Extract OpenAPI schema from FastAPI app"""
         return get_openapi(
@@ -56,7 +57,7 @@ class OpenAPIExtractor:
             routes=self.app.routes,
             servers=self.app.servers
         )
-    
+
     def save_schema(self, output_path: str):
         """Save schema to file for generation"""
         schema = self.extract_schema()
@@ -69,6 +70,7 @@ class OpenAPIExtractor:
 **Purpose:** Convert OpenAPI schemas to TypeScript interfaces
 
 **Generated File Structure:**
+
 ```
 apps/web/src/types/
 ├── index.ts                 # Main export file
@@ -87,6 +89,7 @@ apps/web/src/types/
 ```
 
 **Generation Logic:**
+
 ```typescript
 // tools/codegen/typescript_generator.js
 class TypeScriptGenerator {
@@ -96,20 +99,24 @@ class TypeScriptGenerator {
 
   generateTypes() {
     const types = {};
-    
+
     // Generate model interfaces from components/schemas
-    for (const [name, schema] of Object.entries(this.schema.components?.schemas || {})) {
+    for (const [name, schema] of Object.entries(
+      this.schema.components?.schemas || {}
+    )) {
       types[name] = this.generateInterface(name, schema);
     }
-    
+
     // Generate request/response types from paths
     for (const [path, methods] of Object.entries(this.schema.paths || {})) {
       for (const [method, operation] of Object.entries(methods)) {
-        types[`${operation.operationId}Request`] = this.generateRequestType(operation);
-        types[`${operation.operationId}Response`] = this.generateResponseType(operation);
+        types[`${operation.operationId}Request`] =
+          this.generateRequestType(operation);
+        types[`${operation.operationId}Response`] =
+          this.generateResponseType(operation);
       }
     }
-    
+
     return types;
   }
 
@@ -125,59 +132,65 @@ class TypeScriptGenerator {
 **Purpose:** Generate type-safe API client functions
 
 **Generated API Client:**
+
 ```typescript
 // apps/web/src/services/api.ts (generated)
-import { ApiClient } from '@farm/api-client';
-import type * as Types from '../types';
+import { ApiClient } from "@farm-stack/api-client";
+import type * as Types from "../types";
 
 const client = new ApiClient({
-  baseURL: process.env.VITE_API_URL || 'http://localhost:8000'
+  baseURL: process.env.VITE_API_URL || "http://localhost:8000",
 });
 
 // User operations
 export const userApi = {
   // GET /api/users
-  list: (params?: Types.ListUsersRequest): Promise<Types.PaginatedResponse<Types.User>> =>
-    client.get('/api/users', { params }),
-  
+  list: (
+    params?: Types.ListUsersRequest
+  ): Promise<Types.PaginatedResponse<Types.User>> =>
+    client.get("/api/users", { params }),
+
   // POST /api/users
   create: (data: Types.CreateUserRequest): Promise<Types.User> =>
-    client.post('/api/users', data),
-  
+    client.post("/api/users", data),
+
   // GET /api/users/{id}
-  getById: (id: string): Promise<Types.User> =>
-    client.get(`/api/users/${id}`),
-  
+  getById: (id: string): Promise<Types.User> => client.get(`/api/users/${id}`),
+
   // PATCH /api/users/{id}
   update: (id: string, data: Types.UpdateUserRequest): Promise<Types.User> =>
     client.patch(`/api/users/${id}`, data),
-  
+
   // DELETE /api/users/{id}
-  delete: (id: string): Promise<void> =>
-    client.delete(`/api/users/${id}`)
+  delete: (id: string): Promise<void> => client.delete(`/api/users/${id}`),
 };
 
 // AI operations with provider support
 export const aiApi = {
   // POST /api/ai/chat - Defaults to Ollama in development
   chat: (data: Types.ChatRequest): Promise<Types.ChatResponse> =>
-    client.post('/api/ai/chat', data),
-  
+    client.post("/api/ai/chat", data),
+
   // POST /api/ai/chat/stream - Streaming with Ollama/OpenAI
   chatStream: (data: Types.ChatRequest): EventSource =>
-    client.streamPost('/api/ai/chat/stream', data),
+    client.streamPost("/api/ai/chat/stream", data),
 
   // GET /api/ai/models - List models by provider
-  listModels: (provider?: 'ollama' | 'openai' | 'huggingface'): Promise<Types.ModelInfo[]> =>
-    client.get('/api/ai/models', { params: { provider } }),
+  listModels: (
+    provider?: "ollama" | "openai" | "huggingface"
+  ): Promise<Types.ModelInfo[]> =>
+    client.get("/api/ai/models", { params: { provider } }),
 
   // GET /api/ai/health - Check all AI provider health
   healthCheck: (): Promise<Record<string, Types.ProviderStatus>> =>
-    client.get('/api/ai/health'),
+    client.get("/api/ai/health"),
 
   // POST /api/ai/models/{model}/load - Load Ollama model
-  loadModel: (modelName: string, provider?: string): Promise<{message: string}> =>
-    client.post(`/api/ai/models/${modelName}/load`, { provider })
+  loadModel: (
+    modelName: string,
+    provider?: string
+  ): Promise<{ message: string }> =>
+    client.post(`/api/ai/models/${modelName}/load`, { provider }),
 };
 ```
 
@@ -186,69 +199,72 @@ export const aiApi = {
 **Purpose:** Generate custom hooks for API operations
 
 **Generated Hooks:**
+
 ```typescript
 // apps/web/src/hooks/api.ts (generated)
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userApi, aiApi } from '../services/api';
-import type * as Types from '../types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { userApi, aiApi } from "../services/api";
+import type * as Types from "../types";
 
 // User hooks
 export function useUsers(params?: Types.ListUsersRequest) {
   return useQuery({
-    queryKey: ['users', params],
-    queryFn: () => userApi.list(params)
+    queryKey: ["users", params],
+    queryFn: () => userApi.list(params),
   });
 }
 
 export function useUser(id: string) {
   return useQuery({
-    queryKey: ['users', id],
+    queryKey: ["users", id],
     queryFn: () => userApi.getById(id),
-    enabled: !!id
+    enabled: !!id,
   });
 }
 
 export function useCreateUser() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: userApi.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
   });
 }
 
 // AI hooks with Ollama support
-export function useAIChat(provider: 'ollama' | 'openai' = 'ollama') {
+export function useAIChat(provider: "ollama" | "openai" = "ollama") {
   return useMutation({
-    mutationFn: (request: Types.ChatRequest) => 
-      aiApi.chat({ ...request, provider })
+    mutationFn: (request: Types.ChatRequest) =>
+      aiApi.chat({ ...request, provider }),
   });
 }
 
-export function useAIModels(provider?: 'ollama' | 'openai') {
+export function useAIModels(provider?: "ollama" | "openai") {
   return useQuery({
-    queryKey: ['ai-models', provider],
+    queryKey: ["ai-models", provider],
     queryFn: () => aiApi.listModels(provider),
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 export function useAIProviderHealth() {
   return useQuery({
-    queryKey: ['ai-health'],
+    queryKey: ["ai-health"],
     queryFn: () => aiApi.healthCheck(),
-    refetchInterval: 30000 // Check every 30 seconds
+    refetchInterval: 30000, // Check every 30 seconds
   });
 }
 
-export function useStreamingChat(defaultProvider: 'ollama' | 'openai' = 'ollama') {
+export function useStreamingChat(
+  defaultProvider: "ollama" | "openai" = "ollama"
+) {
   // Custom streaming hook for real-time AI responses
   // Defaults to Ollama for local development, OpenAI for production
   const [messages, setMessages] = useState<Types.ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  
+
   // Implementation handles EventSource streaming from Ollama/OpenAI
   // ...
 }
@@ -261,10 +277,11 @@ export function useStreamingChat(defaultProvider: 'ollama' | 'openai' = 'ollama'
 ### 1. Development Mode (File Watching)
 
 **File Watcher Configuration:**
+
 ```javascript
 // tools/codegen/file_watcher.js
-import chokidar from 'chokidar';
-import { CodeGenerator } from './generator.js';
+import chokidar from "chokidar";
+import { CodeGenerator } from "./generator.js";
 
 class FarmFileWatcher {
   constructor(projectPath) {
@@ -274,35 +291,35 @@ class FarmFileWatcher {
 
   start() {
     // Watch Python model files
-    const modelWatcher = chokidar.watch('apps/api/src/models/**/*.py', {
-      ignoreInitial: true
+    const modelWatcher = chokidar.watch("apps/api/src/models/**/*.py", {
+      ignoreInitial: true,
     });
 
     // Watch FastAPI route files
-    const routeWatcher = chokidar.watch('apps/api/src/routes/**/*.py', {
-      ignoreInitial: true
+    const routeWatcher = chokidar.watch("apps/api/src/routes/**/*.py", {
+      ignoreInitial: true,
     });
 
     // Trigger regeneration on changes
-    [modelWatcher, routeWatcher].forEach(watcher => {
-      watcher.on('change', this.onPythonFileChange.bind(this));
-      watcher.on('add', this.onPythonFileChange.bind(this));
-      watcher.on('unlink', this.onPythonFileChange.bind(this));
+    [modelWatcher, routeWatcher].forEach((watcher) => {
+      watcher.on("change", this.onPythonFileChange.bind(this));
+      watcher.on("add", this.onPythonFileChange.bind(this));
+      watcher.on("unlink", this.onPythonFileChange.bind(this));
     });
   }
 
   async onPythonFileChange(path) {
     console.log(`🔄 Python file changed: ${path}`);
-    console.log('🏗️  Regenerating TypeScript types...');
-    
+    console.log("🏗️  Regenerating TypeScript types...");
+
     try {
       await this.generator.regenerateTypes();
-      console.log('✅ Types regenerated successfully');
-      
+      console.log("✅ Types regenerated successfully");
+
       // Trigger frontend hot reload
       this.triggerHotReload();
     } catch (error) {
-      console.error('❌ Type generation failed:', error);
+      console.error("❌ Type generation failed:", error);
     }
   }
 
@@ -316,10 +333,11 @@ class FarmFileWatcher {
 ### 2. Build Time Generation
 
 **Build Integration:**
+
 ```javascript
 // apps/web/vite.config.ts
-import { defineConfig } from 'vite';
-import { farmCodegenPlugin } from '@farm/vite-plugin';
+import { defineConfig } from "vite";
+import { farmCodegenPlugin } from "@farm/vite-plugin";
 
 export default defineConfig({
   plugins: [
@@ -327,17 +345,18 @@ export default defineConfig({
       // Generate types before build starts
       generateOnBuild: true,
       // Path to FastAPI app
-      apiPath: '../api/src/main.py',
+      apiPath: "../api/src/main.py",
       // Output directory for generated files
-      outputDir: './src/types'
-    })
-  ]
+      outputDir: "./src/types",
+    }),
+  ],
 });
 ```
 
 ### 3. Manual Generation
 
 **CLI Command:**
+
 ```bash
 # Regenerate all types and API clients
 farm generate types
@@ -363,14 +382,14 @@ def extract_openapi_schema(api_module_path: str) -> dict:
     """
     # Import the FastAPI app dynamically
     app = import_fastapi_app(api_module_path)
-    
+
     # Extract schema
     schema = get_openapi(
         title=app.title,
         version=app.version,
         routes=app.routes
     )
-    
+
     return schema
 ```
 
@@ -380,30 +399,30 @@ def extract_openapi_schema(api_module_path: str) -> dict:
 // Transform OpenAPI schema types to TypeScript
 function transformSchemaToTypeScript(schema: OpenAPISchema): string {
   switch (schema.type) {
-    case 'object':
+    case "object":
       return generateInterfaceFromObject(schema);
-    case 'array':
+    case "array":
       return `Array<${transformSchemaToTypeScript(schema.items)}>`;
-    case 'string':
-      return schema.enum ? generateEnumType(schema.enum) : 'string';
-    case 'integer':
-    case 'number':
-      return 'number';
-    case 'boolean':
-      return 'boolean';
+    case "string":
+      return schema.enum ? generateEnumType(schema.enum) : "string";
+    case "integer":
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
     default:
-      return 'unknown';
+      return "unknown";
   }
 }
 
 function generateInterfaceFromObject(schema: ObjectSchema): string {
   const properties = Object.entries(schema.properties || {})
     .map(([key, prop]) => {
-      const optional = !schema.required?.includes(key) ? '?' : '';
+      const optional = !schema.required?.includes(key) ? "?" : "";
       const type = transformSchemaToTypeScript(prop);
       return `  ${key}${optional}: ${type};`;
     })
-    .join('\n');
+    .join("\n");
 
   return `{\n${properties}\n}`;
 }
@@ -420,14 +439,18 @@ function generateApiClientFromPaths(paths: OpenAPIPaths): string {
     )
   );
 
-  return `export const api = {\n${methods.join(',\n')}\n};`;
+  return `export const api = {\n${methods.join(",\n")}\n};`;
 }
 
-function generateClientMethod(method: string, path: string, operation: OperationObject): string {
+function generateClientMethod(
+  method: string,
+  path: string,
+  operation: OperationObject
+): string {
   const operationId = operation.operationId;
   const requestType = `${operationId}Request`;
   const responseType = `${operationId}Response`;
-  
+
   return `  ${operationId}: (data: ${requestType}): Promise<${responseType}> =>
     client.${method}('${path}', data)`;
 }
@@ -438,19 +461,21 @@ function generateClientMethod(method: string, path: string, operation: Operation
 ## Error Handling & Validation
 
 ### Schema Validation
+
 ```python
 def validate_generated_schema(schema: dict) -> bool:
     """Validate OpenAPI schema before generation"""
     required_fields = ['openapi', 'info', 'paths']
-    
+
     for field in required_fields:
         if field not in schema:
             raise ValueError(f"Missing required field: {field}")
-    
+
     return True
 ```
 
 ### Type Generation Errors
+
 ```typescript
 class TypeGenerationError extends Error {
   constructor(
@@ -465,7 +490,7 @@ class TypeGenerationError extends Error {
 // Handle unsupported types gracefully
 function handleUnsupportedType(schema: any, path: string): string {
   console.warn(`Unsupported schema type at ${path}:`, schema);
-  return 'any'; // Fallback to 'any' type
+  return "any"; // Fallback to 'any' type
 }
 ```
 
@@ -474,6 +499,7 @@ function handleUnsupportedType(schema: any, path: string): string {
 ## Caching & Performance
 
 ### Schema Caching
+
 ```javascript
 class SchemaCache {
   constructor() {
@@ -494,6 +520,7 @@ class SchemaCache {
 ```
 
 ### Incremental Generation
+
 ```typescript
 // Only regenerate changed types, not entire type system
 function generateIncrementalTypes(
@@ -502,11 +529,11 @@ function generateIncrementalTypes(
 ): GenerationResult {
   const changedModels = findChangedModels(previousSchema, currentSchema);
   const changedPaths = findChangedPaths(previousSchema, currentSchema);
-  
+
   return {
     modelsToRegenerate: changedModels,
     clientMethodsToRegenerate: changedPaths,
-    fullRegeneration: false
+    fullRegeneration: false,
   };
 }
 ```
@@ -516,6 +543,7 @@ function generateIncrementalTypes(
 ## Integration Points
 
 ### Development Server Integration
+
 ```python
 # apps/api/src/main.py
 from fastapi import FastAPI
@@ -529,6 +557,7 @@ if os.getenv('FARM_ENV') == 'development':
 ```
 
 ### Build System Integration
+
 ```javascript
 // package.json scripts
 {
@@ -542,4 +571,4 @@ if os.getenv('FARM_ENV') == 'development':
 
 ---
 
-*Status: ✅ Completed - Ready for implementation*
+_Status: ✅ Completed - Ready for implementation_

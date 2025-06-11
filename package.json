@@ -1,19 +1,19 @@
 {
-  "name": "farm-framework",
-  "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "tools/*"
+  ],
+  "version": "0.1.0",
   "description": "AI-first full-stack development framework",
   "type": "module",
   "exports": {
     "./type-sync": "./packages/type-sync/dist/index.js",
     "./core": "./packages/core/dist/index.js"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "pretest": "tsc -b packages/type-sync --noEmit",
+    "pretest": "tsc -b tsconfig.build.json",
     "dev": "turbo run dev",
     "build:ts": "tsc -b tsconfig.build.json --pretty",
     "build:bundle": "turbo run build:bundle",
@@ -28,8 +28,15 @@
     "clean:cache": "rm -rf node_modules/.cache .turbo",
     "reset": "pnpm clean && rm -rf node_modules pnpm-lock.yaml && pnpm install",
     "changeset": "changeset",
+    "changeset:status": "changeset status",
+    "changeset:version": "changeset version",
     "version-packages": "changeset version",
     "release": "pnpm build && changeset publish",
+    "release:alpha": "bash ./scripts/release-alpha.sh",
+    "release:dry-run": "pnpm build && changeset publish --dry-run",
+    "release:snapshot": "pnpm build && changeset version --snapshot alpha && changeset publish --tag alpha",
+    "pre-release": "pnpm test:run && pnpm build",
+    "pre-release:check": "bash ./scripts/pre-release-check.sh",
     "deps:check": "pnpm outdated -r",
     "deps:update": "pnpm update -r --latest",
     "workspace:graph": "pnpm list -r --depth=0",

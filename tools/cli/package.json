@@ -1,5 +1,5 @@
 {
-  "name": "@farm/cli-tools",
+  "name": "@farm-framework/cli-tools",
   "version": "0.1.0",
   "description": "FARM CLI Tools",
   "private": true,
@@ -9,7 +9,7 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@farm/type-sync": "workspace:*",
+    "@farm-framework/type-sync": "workspace:*",
     "commander": "^11.0.0",
     "fs-extra": "^11.1.1",
     "chalk": "^5.3.0"

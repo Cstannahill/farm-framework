@@ -4,7 +4,7 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import Handlebars from "handlebars";
 import { glob } from "glob";
-import { TemplateContext } from "@farm/types";
+import { TemplateContext } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 import { registerHandlebarsHelpers } from "./helpers.js";
 import crypto from "crypto";

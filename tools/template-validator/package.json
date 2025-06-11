@@ -1,5 +1,5 @@
 {
-  "name": "@farm/template-validator",
+  "name": "@farm-framework/template-validator",
   "version": "1.0.0",
   "description": "FARM template validation tool",
   "main": "dist/index.js",

@@ -5,7 +5,7 @@
  */
 
 import type { TemplateContext } from "../template/types.js";
-import type { TemplateDefinition } from "@farm/types/src/templates";
+import type { TemplateDefinition } from "@farm-framework/types/templates";
 
 // Define what your existing ProjectFileGenerator interface looks like
 interface ExistingFileGeneratorInterface {

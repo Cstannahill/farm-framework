@@ -5,7 +5,7 @@
 import fs from "fs-extra";
 import path from "path";
 import { glob } from "glob";
-import type { TemplateDefinition } from "@farm/types";
+import type { TemplateDefinition } from "@farm-framework/types";
 
 export async function loadTemplate(
   templatePath: string

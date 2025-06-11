@@ -1,4 +1,4 @@
-import { defineConfig } from '@farm/core'; export default defineConfig({ name: '{{projectName}}',
+import { defineConfig } from '@farm-framework/core'; export default defineConfig({ name: '{{projectName}}',
 template: '{{template}}', features: [{{#each features}}'{{this}}'{{#unless
     @last
   }}, {{/unless}}{{/each}}], // Database configuration database: { type: '{{database}}',

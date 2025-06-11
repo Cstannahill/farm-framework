@@ -1,5 +1,5 @@
-import { TypeSyncOrchestrator } from "@farm/type-sync";
-import type { SyncOptions, SyncResult } from "@farm/type-sync";
+import { TypeSyncOrchestrator } from "@farm-framework/type-sync";
+import type { SyncOptions, SyncResult } from "@farm-framework/type-sync";
 import type { FarmConfig } from "../config/types";
 import { performance } from "perf_hooks";
 import chalk from "chalk";

@@ -2,7 +2,7 @@
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import fs from "fs-extra";
-import { TemplateContext } from "@farm/types";
+import { TemplateContext } from "@farm-framework/types";
 import {
   TemplateDefinition,
   TemplateName,

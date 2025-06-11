@@ -10,8 +10,10 @@
     "allowJs": false,
     "baseUrl": ".",
     "paths": {
-      "@farm/types": ["../types/src"],
-      "@farm/types/*": ["../types/src/*"]
+      "@farm-framework/types": ["../types/src"],
+      "@farm-framework/types/*": ["../types/src/*"],
+      "@farm-framework/type-sync": ["../type-sync/src"],
+      "@farm-framework/type-sync/*": ["../type-sync/src/*"]
     }
   },
   "include": ["src/**/*"],

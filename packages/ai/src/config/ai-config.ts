@@ -1,5 +1,5 @@
 // packages/ai/src/config/ai-config.ts - Fix missing import
-// import type { AIConfig } from "@farm/types";
+// import type { AIConfig } from "@farm-framework/types";
 
 /**
  * Utility classes and helpers for managing AI provider configuration. This file
@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { EventEmitter } from "events";
-import { getErrorMessage } from "@farm/cli";
+import { getErrorMessage } from "@farm-framework/cli";
 
 // Base configuration schemas
 const BaseProviderConfigSchema = z.object({

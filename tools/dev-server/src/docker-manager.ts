@@ -1,7 +1,7 @@
 // tools/dev-server/src/docker-manager.ts
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
-import { wrapError } from "@farm/cli";
+import { wrapError } from "@farm-framework/cli";
 export interface DockerOptions {
   gpu?: boolean;
   volumes?: string[];

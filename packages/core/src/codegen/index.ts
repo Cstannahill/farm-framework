@@ -7,5 +7,5 @@ export {
   TypeSyncWatcher,
   GenerationCache,
   TypeDiffer,
-} from "@farm/type-sync";
-export type { SyncOptions, SyncResult } from "@farm/type-sync";
+} from "@farm-framework/type-sync";
+export type { SyncOptions, SyncResult } from "@farm-framework/type-sync";

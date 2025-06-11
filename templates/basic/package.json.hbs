@@ -3,10 +3,10 @@
 "farm dev", "build": "farm build", "start": "farm start", "test": "vitest",
 "test:ui": "vitest --ui", "lint": "eslint . --ext ts,tsx
 --report-unused-disable-directives --max-warnings 0", "lint:fix": "eslint .
---ext ts,tsx --fix" }, "dependencies": { "@farm/core": "^0.1.0"{{#if hasAuth}},
-  "@farm/auth": "^0.1.0"{{/if}}{{#if hasAI}}, "@farm/ai": "^0.1.0"{{/if}}{{#if
+--ext ts,tsx --fix" }, "dependencies": { "@farm-framework/core": "^0.1.0"{{#if hasAuth}},
+  "@farm-framework/auth": "^0.1.0"{{/if}}{{#if hasAI}}, "@farm-framework/ai": "^0.1.0"{{/if}}{{#if
   hasRealtime
-}}, "@farm/realtime": "^0.1.0"{{/if}}
+}}, "@farm-framework/realtime": "^0.1.0"{{/if}}
 }, "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.0.0",
 "vitest": "^3.2.2""^1.0.0", "eslint": "^8.0.0",
 "@typescript-eslint/eslint-plugin": "^6.0.0", "@typescript-eslint/parser":

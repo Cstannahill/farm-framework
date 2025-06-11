@@ -1,7 +1,7 @@
 // packages/cli/src/commands/types/check.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { TypeSyncOrchestrator, TypeDiffer } from "@farm/core";
+import { TypeSyncOrchestrator, TypeDiffer } from "@farm-framework/core";
 import fs from "fs-extra";
 
 export function createTypeCheckCommand(): Command {

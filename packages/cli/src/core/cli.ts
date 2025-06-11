@@ -30,7 +30,7 @@ export function getPackageInfo() {
       if (existsSync(packagePath)) {
         const packageJson = JSON.parse(readFileSync(packagePath, "utf-8"));
         // Verify this is the CLI package
-        if (packageJson.name === "@farm/cli") {
+        if (packageJson.name === "@farm-framework/cli") {
           return {
             name: packageJson.name,
             version: packageJson.version,
@@ -45,7 +45,7 @@ export function getPackageInfo() {
 
   // Fallback to default values if package.json not found
   return {
-    name: "@farm/cli",
+    name: "@farm-framework/cli",
     version: "1.0.0",
     description: "FARM Stack Framework CLI",
   };

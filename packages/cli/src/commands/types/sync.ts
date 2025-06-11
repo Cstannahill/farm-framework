@@ -1,12 +1,16 @@
 // packages/cli/src/commands/types/sync.ts
 import { Command } from "commander";
 import chalk from "chalk";
-import { TypeSyncOrchestrator, SyncOptions, TypeSyncWatcher } from "@farm/core";
+import {
+  TypeSyncOrchestrator,
+  SyncOptions,
+  TypeSyncWatcher,
+} from "@farm-framework/core";
 import {
   CodegenOrchestrator,
   type CodegenOptions,
   type ProgressInfo,
-} from "@farm/core";
+} from "@farm-framework/core";
 import { performance } from "perf_hooks";
 
 export function createTypeSyncCommand(): Command {

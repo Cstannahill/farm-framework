@@ -11,7 +11,7 @@ import { resolve, dirname, join, relative, basename } from "path";
 import { glob } from "glob";
 import { FarmError, createFileSystemError } from "./errors.js";
 import { logger } from "../utils/logger.js";
-import { getErrorMessage } from "@farm/cli/utils/error-handling.js";
+import { getErrorMessage } from "../utils/error-handling.js";
 
 export interface CopyOptions {
   overwrite?: boolean;

@@ -1,5 +1,9 @@
 // tools/template-validator/src/types.ts
-import type { TemplateConfig, ValidationResult, TestResult } from "@farm/types";
+import type {
+  TemplateConfig,
+  ValidationResult,
+  TestResult,
+} from "@farm-framework/types";
 
 export interface ServiceProcess {
   name: string;

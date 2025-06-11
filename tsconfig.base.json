@@ -20,14 +20,18 @@
     // Path mapping for monorepo packages
     "baseUrl": ".",
     "paths": {
-      "@farm/types": ["./packages/types/src/index.ts"],
-      "@farm/types/*": ["./packages/types/src/*"],
-      "@farm/core": ["./packages/core/src/index.ts"],
-      "@farm/core/*": ["./packages/core/src/*"],
-      "@farm/cli": ["./packages/cli/src/index.ts"],
-      "@farm/cli/*": ["./packages/cli/src/*"],
-      "@farm/ui-components": ["./packages/ui-components/src/index.ts"],
-      "@farm/ui-components/*": ["./packages/ui-components/src/*"]
+      "@farm-framework/types": ["./packages/types/src/index.ts"],
+      "@farm-framework/types/*": ["./packages/types/src/*"],
+      "@farm-framework/type-sync": ["./packages/type-sync/src/index.ts"],
+      "@farm-framework/type-sync/*": ["./packages/type-sync/src/*"],
+      "@farm-framework/core": ["./packages/core/src/index.ts"],
+      "@farm-framework/core/*": ["./packages/core/src/*"],
+      "@farm-framework/cli": ["./packages/cli/src/index.ts"],
+      "@farm-framework/cli/*": ["./packages/cli/src/*"],
+      "@farm-framework/ui-components": [
+        "./packages/ui-components/src/index.ts"
+      ],
+      "@farm-framework/ui-components/*": ["./packages/ui-components/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", "coverage", ".next", ".turbo"]

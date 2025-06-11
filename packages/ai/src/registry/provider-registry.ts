@@ -8,7 +8,7 @@ import {
   ProviderStatus,
   ProviderError,
 } from "../providers/base.js";
-import { getErrorMessage } from "@farm/cli";
+import { getErrorMessage } from "@farm-framework/cli";
 export interface RegistryConfig {
   healthCheckInterval?: number;
   maxRetries?: number;

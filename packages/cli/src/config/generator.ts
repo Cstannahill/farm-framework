@@ -33,7 +33,7 @@ export class ConfigGenerator {
 
   private async generateFarmConfig(options: ConfigOptions): Promise<void> {
     const config = this.buildFarmConfig(options);
-    const configContent = `import { defineConfig } from '@farm/core';
+    const configContent = `import { defineConfig } from '@farm-framework/core';
 
 export default defineConfig(${JSON.stringify(config, null, 2)});
 `;
@@ -140,7 +140,7 @@ export default defineConfig(${JSON.stringify(config, null, 2)});
         test: "jest",
       },
       devDependencies: {
-        "@farm/cli": "^1.0.0",
+        "@farm-framework/cli": "^1.0.0",
         typescript: "^5.0.0",
         eslint: "^8.0.0",
         jest: "^29.0.0",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // tools/template-validator/src/cli.ts
 import { Command } from "commander";
-import type { ValidationResult } from "@farm/types";
+import type { ValidationResult } from "@farm-framework/types";
 import { TemplateValidator } from "./validator";
 import { ALL_CONFIGURATIONS } from "./configurations";
 

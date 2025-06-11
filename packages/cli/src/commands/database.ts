@@ -4,7 +4,7 @@ import { DatabaseGenerator } from "../generators/database-generator.js";
 import { logger } from "../utils/logger.js";
 import { configLoader } from "../core/config.js";
 import { execAsync } from "../utils/exec.js";
-import type { DatabaseType } from "@farm/types";
+import type { DatabaseType } from "@farm-framework/types";
 
 interface MigrateOptions {
   create?: string;
@@ -109,7 +109,12 @@ async function handleMigrate(options: MigrateOptions): Promise<void> {
 
   try {
     if (options.create) {
-      await execAsync("alembic", ["revision", "--autogenerate", "-m", options.create]);
+      await execAsync("alembic", [
+        "revision",
+        "--autogenerate",
+        "-m",
+        options.create,
+      ]);
     } else if (options.upgrade) {
       await execAsync("alembic", ["upgrade", "head"]);
     } else if (options.downgrade) {

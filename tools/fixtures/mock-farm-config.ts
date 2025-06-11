@@ -1,5 +1,5 @@
 // farm.config.ts - Complete AI provider configuration example
-import { defineConfig } from "@farm/core";
+import { defineConfig } from "@farm-framework/core";
 
 export default defineConfig({
   name: "my-ai-app",
@@ -328,13 +328,13 @@ export default defineConfig({
   // Plugin configuration
   plugins: [
     // AI-related plugins
-    "@farm/plugin-ai-analytics",
-    "@farm/plugin-ai-cache",
+    "@farm-framework/plugin-ai-analytics",
+    "@farm-framework/plugin-ai-cache",
 
     // Other plugins
-    "@farm/plugin-auth",
+    "@farm-framework/plugin-auth",
     [
-      "@farm/plugin-storage",
+      "@farm-framework/plugin-storage",
       {
         provider: "s3",
         bucket: "my-ai-app-storage",

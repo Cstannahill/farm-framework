@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 
 // Export types
-export type { FarmConfig } from "@farm/types";
+export type { FarmConfig } from "@farm-framework/types";
 
 // Component exports (placeholder - will be implemented)
 export interface ButtonProps {

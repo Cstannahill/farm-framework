@@ -145,7 +145,7 @@ export class FarmCodeGenerationPipeline {
     // Generate provider wrapper
     const providerSetup = `// Generated provider setup - DO NOT EDIT MANUALLY
 import React from 'react';
-import { FarmQueryProvider, QueryErrorBoundary } from '@farm/ui-components';
+import { FarmQueryProvider, QueryErrorBoundary } from '@farm-stack/ui-components';
 
 interface AppProvidersProps {
   children: React.ReactNode;

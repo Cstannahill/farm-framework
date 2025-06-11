@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock("@farm/cli", () => ({ wrapError: (e: any) => String(e) }));
+vi.mock("@farm-framework/cli", () => ({ wrapError: (e: any) => String(e) }));
 
 import { DockerManager } from "../docker-manager";
 

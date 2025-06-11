@@ -1,5 +1,5 @@
 {
-  "name": "@farm/ui-components",
+  "name": "@farm-framework/ui-components",
   "version": "0.1.0",
   "description": "FARM Stack UI Components",
   "type": "module",
@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@farm/types": "workspace:*"
+    "@farm-framework/types": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.0.0",

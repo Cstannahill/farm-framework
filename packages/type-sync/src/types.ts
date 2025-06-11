@@ -1,5 +1,5 @@
 /**
- * OpenAPI Schema and Type Definitions for @farm/type-sync
+ * OpenAPI Schema and Type Definitions for @farm-framework/type-sync
  * These types are used throughout the orchestrator, generators, and extractors.
  */
 
@@ -154,5 +154,5 @@ export type DeepPartial<T> = {
   [P in keyof T]?: DeepPartial<T[P]>;
 };
 
-// Re-export types from @farm/types as needed
-export * from "@farm/types";
+// Re-export types from @farm-framework/types as needed
+export * from "@farm-framework/types";

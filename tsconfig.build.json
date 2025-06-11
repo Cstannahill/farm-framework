@@ -5,6 +5,7 @@
     { "path": "./packages/type-sync" },
     { "path": "./packages/core" },
     { "path": "./packages/cli" },
-    { "path": "./packages/ui-components" }
+    { "path": "./packages/ui-components" },
+    { "path": "./tools/cli" }
   ]
 }

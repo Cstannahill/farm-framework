@@ -24,7 +24,7 @@ export enum ErrorSeverity {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface ErrorContext {
   provider?: string;

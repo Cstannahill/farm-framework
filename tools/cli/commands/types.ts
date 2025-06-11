@@ -1,6 +1,6 @@
 // tools/cli/commands/types.ts
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface GenerateOptions {
   watch?: boolean;
@@ -11,7 +11,7 @@ export interface GenerateOptions {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface GenerateAllOptions extends GenerateOptions {
   watch?: boolean;
@@ -19,7 +19,7 @@ export interface GenerateAllOptions extends GenerateOptions {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface GenerateHooksOptions extends GenerateOptions {
   schema?: string;
@@ -28,7 +28,7 @@ export interface GenerateHooksOptions extends GenerateOptions {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface GenerateTypesOptions extends GenerateOptions {
   schema?: string;
@@ -36,7 +36,7 @@ export interface GenerateTypesOptions extends GenerateOptions {
 }
 
 /**
- * @deprecated Moved to `@farm/types` package
+ * @deprecated Moved to `@farm-framework/types` package
  */
 export interface GenerateClientOptions extends GenerateOptions {
   schema?: string;

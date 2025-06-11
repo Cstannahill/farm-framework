@@ -1,5 +1,5 @@
 // tools/template-validator/src/configurations.ts
-import type { TemplateConfig } from "@farm/types";
+import type { TemplateConfig } from "@farm-framework/types";
 
 export const AI_CHAT_CONFIGURATIONS: TemplateConfig[] = [
   {

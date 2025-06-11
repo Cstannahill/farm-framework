@@ -1,5 +1,5 @@
 {
-  "name": "@farm/api-client",
+  "name": "@farm-framework/api-client",
   "version": "0.2.0",
   "description": "HTTP client utilities for FARM framework applications",
   "main": "dist/index.js",

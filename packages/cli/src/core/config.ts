@@ -2,7 +2,7 @@ import fsExtra from "fs-extra";
 import { resolve, extname } from "path";
 // Comment out esbuild-register import if not used or not present
 // import { register } from "esbuild-register/dist/node";
-import type { FarmConfig } from "@farm/types";
+import type { FarmConfig } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 
 const { pathExists } = fsExtra;

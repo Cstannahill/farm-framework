@@ -1,5 +1,5 @@
 {
-  "name": "@farm/testing",
+  "name": "@farm-framework/testing",
   "version": "0.1.0",
   "description": "Testing and validation tools for FARM Framework templates",
   "main": "dist/index.js",
@@ -11,10 +11,10 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@farm/types": "workspace:*",
-    "@farm/type-sync": "workspace:*",
-    "@farm/core": "workspace:*",
-    "@farm/cli": "workspace:*",
+    "@farm-framework/types": "workspace:*",
+    "@farm-framework/type-sync": "workspace:*",
+    "@farm-framework/core": "workspace:*",
+    "@farm-framework/cli": "workspace:*",
     "fs-extra": "^11.1.1"
   },
   "devDependencies": {

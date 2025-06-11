@@ -1,4 +1,4 @@
-// @farm/api-client main exports
+// @farm-framework/api-client main exports
 export {
   ApiClient,
   createApiClient,

@@ -1,7 +1,7 @@
 // tools/cli/commands/generate.ts
 import { Command } from "commander";
 import { readFile } from "fs-extra";
-import { ReactHookGenerator } from "@farm/type-sync";
+import { ReactHookGenerator } from "@farm-framework/type-sync";
 
 // Type definitions for command options
 interface GenerateAllOptions {
@@ -49,7 +49,7 @@ export function createGenerateCommand(): Command {
 
         // Use TypeSync orchestrator for code generation
         const { TypeSyncOrchestrator, TypeSyncWatcher } = await import(
-          "@farm/type-sync"
+          "@farm-framework/type-sync"
         );
         const config = {
           apiUrl: "http://localhost:8000",
@@ -136,7 +136,9 @@ export function createGenerateCommand(): Command {
         const outputPath = options.output || "./apps/web/src/types";
 
         // Dynamic import to avoid circular dependencies
-        const { TypeScriptGenerator } = await import("@farm/type-sync");
+        const { TypeScriptGenerator } = await import(
+          "@farm-framework/type-sync"
+        );
 
         // Read and parse the OpenAPI schema
         const schemaContent = await readFile(schemaPath, "utf-8");
@@ -177,7 +179,9 @@ export function createGenerateCommand(): Command {
         const outputPath = options.output || "./apps/web/src/services";
 
         // Dynamic import to avoid circular dependencies
-        const { APIClientGenerator } = await import("@farm/type-sync");
+        const { APIClientGenerator } = await import(
+          "@farm-framework/type-sync"
+        );
 
         const schemaContent = await readFile(schemaPath, "utf-8");
         const schema = JSON.parse(schemaContent);
