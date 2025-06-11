@@ -1,13 +1,13 @@
 # 🌾 FARM Framework
 
-AI-first full-stack development platform that seamlessly integrates React/TypeScript frontends with Python/FastAPI backends, optimized for modern AI/ML workloads.
+FARM is an AI‑first full‑stack development platform that combines a React/TypeScript frontend with a Python/FastAPI backend. It ships batteries‑included tooling for running local AI models, generating typed clients and hooks, and orchestrating services during development.
 
 ## What is FARM?
 
-- **F**astAPI - Modern Python web framework with automatic API documentation
-- **A**I/ML - Built-in support for Ollama (local), OpenAI, HuggingFace, and GPU inference
-- **R**eact - Component-based frontend with TypeScript and modern tooling
-- **M**ongoDB - Document database with ODM integration (flexible database options)
+- **F**astAPI – modern Python web framework with automatic docs
+- **A**I/ML – local Ollama or cloud providers (OpenAI, HuggingFace)
+- **R**eact – component based frontend with modern tooling
+- **M**ongoDB – default database (other databases supported)
 
 ## 🚀 Quick Start
 
@@ -15,36 +15,61 @@ AI-first full-stack development platform that seamlessly integrates React/TypeSc
 # Install the CLI
 npm install -g @farm/cli
 
-# Create a new AI-powered app
+# Scaffold a new project
 farm create my-ai-app --template ai-chat
 
-# Start development
+# Start the development server
 cd my-ai-app
 farm dev
 ```
 
 ## ✨ Key Features
 
-Zero-cost AI development with local Ollama integration
-Type-safe full-stack with automatic client generation
-Hot reload across the entire stack including AI models
-Provider switching from local (Ollama) to cloud (OpenAI) seamlessly
-Next.js-quality DX for AI-first applications
+- Zero‑cost AI development with local Ollama integration
+- Type‑safe code with automatic client and hook generation
+- Hot reload across backend, frontend and AI models
+- Seamless provider switching between local and cloud
+- Next.js‑quality developer experience for AI applications
 
-## 🏗️ Status
+## Packages
 
-🚧 Under Active Development - MVP target: 8 weeks
+### `@farm/cli`
+Interactive command line interface for scaffolding and managing projects. Provides commands like `create`, `dev`, `build` and `generate`, bundled Ruff binaries for Python formatting and rich logging utilities.
 
-Project architecture complete
-CLI foundation (Week 1-2)
-Type generation system (Week 3-4)
-AI integration (Week 5-6)
-MVP completion (Week 7-8)
+### `@farm/core`
+Framework utilities including the `defineConfig` helper, code generation orchestrator, file watcher and AI provider interfaces used by the CLI and dev server.
 
-## 🤝 Contributing
+### `@farm/type-sync`
+Synchronises types between the FastAPI backend and TypeScript frontend. Extracts the OpenAPI schema, generates TypeScript types, API clients and React Query hooks, and supports caching and watch mode for instant feedback.
 
-We're building in the open! Check out our Implementation Plan and Contributing Guide.
+### `@farm/api-client`
+Thin wrapper around Axios with retry logic, streaming helpers and file upload support. Underpins the generated clients and React hooks used in FARM apps.
 
-## 📄 License
+### `@farm/ai`
+AI orchestration layer that registers providers, loads configuration, performs health checks and handles errors. Supports running Ollama locally or routing requests to cloud services.
+
+### `@farm/types`
+Shared TypeScript definitions for configuration, CLI options, database models, authentication and plugin hooks so that all packages use a single source of truth.
+
+### `@farm/ui-components`
+Reusable React components – like the assistant chat UI – that accelerate interface development.
+
+## Development Server
+
+Running `farm dev` starts the entire stack: database containers, local AI models, FastAPI backend and Vite frontend. The process manager performs health checks, aggregates logs and restarts failed services automatically. Service configuration is read from `farm.config.ts`.
+
+Common options:
+
+```bash
+farm dev --verbose              # detailed logs
+farm dev --frontend-only        # start only the frontend
+farm dev --backend-only         # start backend and dependencies
+```
+
+## Contributing
+
+We build in the open! Check out the contribution guide for details.
+
+## License
 
 MIT © FARM Framework
