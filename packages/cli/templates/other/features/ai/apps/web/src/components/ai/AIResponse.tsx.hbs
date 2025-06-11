@@ -1,0 +1,9 @@
+import React from 'react';
+
+interface Props {
+  content: string;
+}
+
+export default function AIResponse({ content }: Props) {
+  return <pre className="whitespace-pre-wrap">{content}</pre>;
+}

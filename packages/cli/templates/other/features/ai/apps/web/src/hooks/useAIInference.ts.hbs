@@ -1,0 +1,28 @@
+import { useState } from 'react';
+
+export function useAIInference(model: string) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const infer = async (prompt: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model })
+      });
+      if (!res.ok) throw new Error('Inference failed');
+      const data = await res.json();
+      return data.result as string;
+    } catch (e: any) {
+      setError(e.message);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { infer, loading, error };
+}

@@ -1,0 +1,12 @@
+import { useUser } from '../../hooks/useUser';
+
+export default function UserProfile() {
+  const { data } = useUser();
+  if (!data) return null;
+  return (
+    <div className="space-y-1">
+      <div>{data.username}</div>
+      {data.email && <div className="text-sm text-gray-500">{data.email}</div>}
+    </div>
+  );
+}

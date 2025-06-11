@@ -1,0 +1,43 @@
+import { useAIModels } from '../../hooks/useAIModels';
+import { useAIStore } from '../../stores/aiStore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Loader2 } from 'lucide-react';
+
+interface ModelSelectorProps {
+  provider?: string
+};
+
+export function ModelSelector({ provider }: ModelSelectorProps) {
+  const { models, isLoading } = useAIModels(provider);
+  const { selectedModel, setSelectedModel } = useAIStore();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 h-10 px-3 border rounded-md">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm text-muted-foreground">Loading models...</span>
+      </div>
+    );
+  }
+
+  return (
+    <Select value={selectedModel} onValueChange={setSelectedModel}>
+  <SelectTrigger>
+    <SelectValue placeholder="Select a model" />
+  </SelectTrigger>
+  <SelectContent>
+    {models.map((model) => (
+    <SelectItem key="{model.name}" value="{model.name}">
+      <div className="flex items-center justify-between w-full">
+        <span>{model.name}</span>
+        {!model.available && (
+        <span
+          className="text-xs text-muted-foreground ml-2"
+        >(Unavailable)</span>
+        )}
+      </div>
+    </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+) }

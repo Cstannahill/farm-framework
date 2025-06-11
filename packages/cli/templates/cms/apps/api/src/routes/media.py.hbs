@@ -1,0 +1,11 @@
+from fastapi import APIRouter, UploadFile, File
+from ..storage.local import LocalStorage
+
+router = APIRouter(prefix="/media", tags=["media"])
+
+storage = LocalStorage()
+
+@router.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    url = await storage.save_file(file)
+    return {"url": url}

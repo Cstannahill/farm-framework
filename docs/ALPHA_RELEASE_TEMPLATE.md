@@ -31,9 +31,9 @@ _[List known issues that users should be aware of]_
 ### 📦 Installation
 
 ```bash
-npm install -g @farm-framework/cli@alpha
+npm install -g farm-framework@alpha
 # or
-pnpm add -g @farm-framework/cli@alpha
+pnpm add -g farm-framework@alpha
 ```
 
 ### 🚀 Quick Start

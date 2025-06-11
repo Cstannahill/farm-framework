@@ -1,0 +1,79 @@
+#
+{{project_name}}
+- Python Dependencies # Generated on
+{{timestamp}}
+
+# Core FastAPI dependencies fastapi==0.104.1 uvicorn[standard]==0.24.0
+pydantic==2.5.0 # Database dependencies
+{{#if_database "mongodb"}}
+  motor==3.3.2 beanie==1.23.6
+{{/if_database}}
+{{#if_database "postgresql"}}
+  asyncpg==0.29.0 sqlalchemy[asyncio]==2.0.23 alembic==1.13.0
+{{/if_database}}
+{{#if_database "mysql"}}
+  aiomysql==0.2.0 sqlalchemy[asyncio]==2.0.23 alembic==1.13.0
+{{/if_database}}
+{{#if_database "sqlite"}}
+  aiosqlite==0.19.0 sqlalchemy[asyncio]==2.0.23 alembic==1.13.0
+{{/if_database}}
+
+# Authentication dependencies
+{{#if_feature "auth"}}
+  python-jose[cryptography]==3.3.0 passlib[bcrypt]==1.7.4
+  python-multipart==0.0.6
+{{/if_feature}}
+
+# AI/ML dependencies
+{{#if_feature "ai"}}
+  # Base AI dependencies httpx==0.25.2
+  {{#has_ollama}}
+    # Ollama integration ollama==0.1.7
+  {{/has_ollama}}
+  {{#has_openai}}
+    # OpenAI integration openai==1.3.7
+  {{/has_openai}}
+  {{#has_huggingface}}
+    # HuggingFace integration transformers==4.36.0 torch>=2.0.0
+    accelerate==0.25.0
+  {{/has_huggingface}}
+{{/if_feature}}
+
+# Real-time features
+{{#if_feature "realtime"}}
+  python-socketio==5.10.0 redis==5.0.1
+{{/if_feature}}
+
+# Payment processing
+{{#if_feature "payments"}}
+  stripe==7.8.0
+{{/if_feature}}
+
+# Email services
+{{#if_feature "email"}}
+  fastapi-mail==1.4.1 jinja2==3.1.2
+{{/if_feature}}
+
+# File storage
+{{#if_feature "storage"}}
+  boto3==1.34.0 python-multipart==0.0.6 Pillow==10.1.0
+{{/if_feature}}
+
+# Search functionality
+{{#if_feature "search"}}
+  elasticsearch==8.11.0
+{{/if_feature}}
+
+# Analytics
+{{#if_feature "analytics"}}
+  mixpanel==4.10.0
+{{/if_feature}}
+
+# Development dependencies
+{{#is_development}}
+  pytest==7.4.3 pytest-asyncio==0.21.1 httpx==0.25.2 black==23.11.0
+  isort==5.12.0 flake8==6.1.0 mypy==1.7.1
+{{/is_development}}
+
+# Core utilities (always included) python-dotenv==1.0.0 structlog==23.2.0
+rich==13.7.0

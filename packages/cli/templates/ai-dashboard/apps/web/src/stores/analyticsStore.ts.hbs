@@ -1,0 +1,11 @@
+import { create } from 'zustand';
+
+interface AnalyticsState {
+  refreshInterval: number;
+  setRefreshInterval: (ms: number) => void;
+}
+
+export const useAnalyticsStore = create<AnalyticsState>(set => ({
+  refreshInterval: 60000,
+  setRefreshInterval: ms => set({ refreshInterval: ms }),
+}));

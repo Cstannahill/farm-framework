@@ -1,0 +1,8 @@
+from pydantic import BaseModel
+from typing import Optional
+
+class Content(BaseModel):
+    id: str
+    title: str
+    body: str
+    category_id: Optional[str] = None

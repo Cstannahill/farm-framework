@@ -1,0 +1,251 @@
+# templates/ai-chat/apps/api/src/core/security.py.hbs
+{{#if features.auth}}
+import jwt
+import bcrypt
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+from fastapi import HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import logging
+
+from .config import get_settings
+from ..models.user import User
+
+logger = logging.getLogger(__name__)
+security = HTTPBearer()
+
+class TokenManager:
+    """Manages JWT token creation and validation"""
+    
+    def __init__(self):
+        self.settings = get_settings()
+    
+    def create_access_token(self, user_id: str, additional_claims: Dict[str, Any] = None) -> str:
+        """Create a new access token"""
+        
+        now = datetime.utcnow()
+        expire = now + timedelta(minutes=self.settings.JWT_EXPIRE_MINUTES)
+        
+        payload = {
+            "sub": user_id,
+            "iat": now,
+            "exp": expire,
+            "type": "access"
+        }
+        
+        if additional_claims:
+            payload.update(additional_claims)
+        
+        token = jwt.encode(
+            payload,
+            self.settings.SECRET_KEY,
+            algorithm=self.settings.JWT_ALGORITHM
+        )
+        
+        return token
+    
+    def create_refresh_token(self, user_id: str) -> str:
+        """Create a new refresh token"""
+        
+        now = datetime.utcnow()
+        expire = now + timedelta(days=self.settings.JWT_REFRESH_EXPIRE_DAYS)
+        
+        payload = {
+            "sub": user_id,
+            "iat": now,
+            "exp": expire,
+            "type": "refresh"
+        }
+        
+        token = jwt.encode(
+            payload,
+            self.settings.SECRET_KEY,
+            algorithm=self.settings.JWT_ALGORITHM
+        )
+        
+        return token
+    
+    def verify_token(self, token: str) -> Dict[str, Any]:
+        """Verify and decode a JWT token"""
+        
+        try:
+            payload = jwt.decode(
+                token,
+                self.settings.SECRET_KEY,
+                algorithms=[self.settings.JWT_ALGORITHM]
+            )
+            
+            # Check if token is expired
+            exp = payload.get("exp")
+            if exp and datetime.utcfromtimestamp(exp) < datetime.utcnow():
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has expired"
+                )
+            
+            return payload
+            
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired"
+            )
+        except jwt.InvalidTokenError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+    
+    def refresh_access_token(self, refresh_token: str) -> str:
+        """Create new access token from refresh token"""
+        
+        payload = self.verify_token(refresh_token)
+        
+        # Verify it's a refresh token
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type"
+            )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload"
+            )
+        
+        return self.create_access_token(user_id)
+
+class PasswordManager:
+    """Manages password hashing and verification"""
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash a password using bcrypt"""
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+    
+    @staticmethod
+    def verify_password(password: str, hashed: str) -> bool:
+        """Verify a password against its hash"""
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+# Global instances
+token_manager = TokenManager()
+password_manager = PasswordManager()
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
+    """Get the current authenticated user"""
+    
+    try:
+        # Extract token from authorization header
+        token = credentials.credentials
+        
+        # Verify token
+        payload = token_manager.verify_token(token)
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload"
+            )
+        
+        # Get user from database
+        user = await User.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+        
+        # Check if user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is disabled"
+            )
+        
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed"
+        )
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """Get the current authenticated and active user"""
+    
+    if not current_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
+        )
+    
+    return current_user
+
+async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+    """Get the current authenticated superuser"""
+    
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    return current_user
+
+def verify_token(token: str) -> Dict[str, Any]:
+    """Verify token (for use outside of FastAPI dependencies)"""
+    return token_manager.verify_token(token)
+
+def create_access_token(user_id: str, additional_claims: Dict[str, Any] = None) -> str:
+    """Create access token (for use outside of FastAPI dependencies)"""
+    return token_manager.create_access_token(user_id, additional_claims)
+
+def create_refresh_token(user_id: str) -> str:
+    """Create refresh token (for use outside of FastAPI dependencies)"""
+    return token_manager.create_refresh_token(user_id)
+
+def hash_password(password: str) -> str:
+    """Hash password (for use outside of FastAPI dependencies)"""
+    return password_manager.hash_password(password)
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify password (for use outside of FastAPI dependencies)"""
+    return password_manager.verify_password(password, hashed)
+
+{{else}}
+# Auth feature not enabled - provide stub functions
+
+async def get_current_user():
+    """Stub function when auth is disabled"""
+    return None
+
+async def get_current_active_user():
+    """Stub function when auth is disabled"""
+    return None
+
+def verify_token(token: str):
+    """Stub function when auth is disabled"""
+    return {}
+
+def create_access_token(user_id: str):
+    """Stub function when auth is disabled"""
+    return ""
+
+def hash_password(password: str):
+    """Stub function when auth is disabled"""
+    return ""
+
+def verify_password(password: str, hashed: str):
+    """Stub function when auth is disabled"""
+    return True
+
+{{/if}}

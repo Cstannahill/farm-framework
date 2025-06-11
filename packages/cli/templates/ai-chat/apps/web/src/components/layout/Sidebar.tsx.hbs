@@ -1,0 +1,134 @@
+import { Plus, MessageSquare, Trash2, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { ConversationSummary } from '../../types';
+import { Button } from '../ui/button';
+import { ScrollArea } from '../ui/scroll-area';
+import {
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { cn } from '../../utils/cn';
+
+interface SidebarProps {
+conversations: ConversationSummary[]
+currentConversationId: string | null
+onSelectConversation: (id: string) => void
+onNewConversation: () => void
+onDeleteConversation?: (id: string) => void
+isLoading: boolean
+}
+
+export function Sidebar({
+conversations,
+currentConversationId,
+onSelectConversation,
+onNewConversation,
+onDeleteConversation,
+isLoading,
+}: SidebarProps) &#123;
+const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Group conversations by date
+  const groupedConversations = conversations.reduce((groups, conv) => {
+  const date = new Date(conv.last_activity);
+  const key = isToday(date) ? 'Today' :
+  isYesterday(date) ? 'Yesterday' :
+  isThisWeek(date) ? 'This Week' :
+  'Older'
+  // Date helper functions
+  function isToday(date: Date): boolean {
+  const today = new Date()
+  return date.toDateString() === today.toDateString()
+  }
+  
+  function isYesterday(date: Date): boolean {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  return date.toDateString() === yesterday.toDateString()
+  &#125;
+  
+  function isThisWeek(date: Date): boolean {
+  const weekAgo = new Date()
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  return date > weekAgo
+  }
+  if (!groups[key]) groups[key] = []
+  groups[key].push(conv)
+  return groups
+  }, {} as Record<string, ConversationSummary[]>)
+
+    return (
+    <div className="h-full flex flex-col bg-card">
+      <div className="p-4 border-b border-border">
+        <Button onClick={onNewConversation} className="w-full justify-start gap-2" variant="default">
+          <Plus className="h-4 w-4" />
+          New Chat
+        </Button>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-2">
+          &#123;isLoading ? (
+          <div className="p-4 text-center text-muted-foreground">
+            Loading conversations...
+          </div>
+          ) : Object.entries(groupedConversations).length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground">
+            No conversations yet
+          </div>
+          ) : (
+          Object.entries(groupedConversations).map(([group, convs]) => (
+          <div key={group} className="mb-4">
+            <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+              {group&#125;
+            </h3>
+            <AnimatePresence>
+              &#123;convs.map((conversation) => (
+              <motion.div key={conversation.id} initial=&#123;&#123; opacity: 0, x: -20 \&#125;&#125; animate=\&#123;&#123; opacity: 1, x: 0 &#125;\&#125; exit=\&#123;&#123;
+                opacity: 0, x: -20 &#125;\&#125; onHoverStart={()=> setHoveredId(conversation.id)}
+                onHoverEnd={() => setHoveredId(null)}
+                >
+                <Button variant="ghost" className={cn( "w-full justify-start mb-1 px-3 py-2 h-auto" ,
+                  currentConversationId===conversation.id && "bg-accent" )} onClick={()=>
+                  onSelectConversation(conversation.id)}
+                  >
+                  <MessageSquare className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="truncate flex-1 text-left">
+                    {conversation.title}
+                  </span>
+                  &#123;hoveredId === conversation.id && onDeleteConversation && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e)=> e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e)=> {
+                        e.stopPropagation()
+                        onDeleteConversation(conversation.id)
+                        &#125;}
+                        className="text-destructive"
+                        >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  )}
+                </Button>
+              </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+    )
+    }

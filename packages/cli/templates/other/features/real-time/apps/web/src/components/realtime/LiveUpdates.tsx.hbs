@@ -1,0 +1,10 @@
+import { useRealtime } from '../../hooks/useRealtime';
+
+export default function LiveUpdates() {
+  const messages = useRealtime();
+  return (
+    <ul className="space-y-1">
+      {messages.map((m, i) => <li key={i}>{m}</li>)}
+    </ul>
+  );
+}

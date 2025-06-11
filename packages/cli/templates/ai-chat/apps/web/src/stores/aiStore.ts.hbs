@@ -1,0 +1,32 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface AIStore {
+  selectedProvider: string;
+  selectedModel: string;
+  temperature: number;
+  maxTokens: number;
+  setSelectedProvider: (provider: string) => void;
+  setSelectedModel: (model: string) => void;
+  setTemperature: (temp: number) => void;
+  setMaxTokens: (tokens: number) => void;
+}
+
+export const useAIStore = create<AIStore>()(
+  persist(
+    (set) => ({
+      selectedProvider: 'ollama', // Default to local Ollama
+      selectedModel: 'llama3.1',
+      temperature: 0.7,
+      maxTokens: 2000,
+      
+      setSelectedProvider: (provider) => set({ selectedProvider: provider }),
+      setSelectedModel: (model) => set({ selectedModel: model }),
+      setTemperature: (temp) => set({ temperature: temp }),
+      setMaxTokens: (tokens) => set({ maxTokens: tokens }),
+    }),
+    {
+      name: 'ai-settings',
+    }
+  )
+)

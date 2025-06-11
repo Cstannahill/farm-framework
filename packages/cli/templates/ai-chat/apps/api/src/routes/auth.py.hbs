@@ -1,0 +1,377 @@
+# templates/ai-chat/apps/api/src/routes/auth.py.hbs
+{{#if features.auth}}
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, status
+from pydantic import BaseModel, EmailStr, validator
+import logging
+
+from ..models.user import User
+from ..core.security import (
+    create_access_token, create_refresh_token, verify_password, 
+    token_manager, get_current_user, get_current_active_user
+)
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
+
+# Request/Response Models
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    
+    @validator('password')
+    def validate_password(cls, v):
+        """Validate password strength"""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    username: Optional[str]
+    full_name: Optional[str]
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    last_login: Optional[datetime]
+    preferences: dict
+    ai_preferences: dict
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: str
+    
+    @validator('new_password')
+    def validate_password(cls, v):
+        """Validate password strength"""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+class UpdateProfile(BaseModel):
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    bio: Optional[str] = None
+    timezone: Optional[str] = None
+    preferences: Optional[dict] = None
+    ai_preferences: Optional[dict] = None
+
+@router.post("/register", response_model=TokenResponse)
+async def register(user_data: UserRegister):
+    """Register a new user"""
+    
+    try:
+        # Check if user already exists
+        existing_user = await User.find_one({"email": user_data.email})
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        
+        # Check username if provided
+        if user_data.username:
+            existing_username = await User.find_one({"username": user_data.username})
+            if existing_username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already taken"
+                )
+        
+        # Create new user
+        user = await User.create_user(
+            email=user_data.email,
+            password=user_data.password,
+            full_name=user_data.full_name,
+            username=user_data.username
+        )
+        
+        # Create tokens
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+        
+        # Update last login
+        await user.update_last_login()
+        
+        logger.info(f"New user registered: {user.email}")
+        
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=30 * 60,  # 30 minutes
+            user=UserResponse(**user.to_dict())
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+@router.post("/login", response_model=TokenResponse)
+async def login(credentials: UserLogin):
+    """Authenticate user and return tokens"""
+    
+    try:
+        # Find user by email
+        user = await User.find_one({"email": credentials.email})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        # Verify password
+        if not verify_password(credentials.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        # Check if user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled"
+            )
+        
+        # Create tokens
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+        
+        # Update last login
+        await user.update_last_login()
+        
+        logger.info(f"User logged in: {user.email}")
+        
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=30 * 60,  # 30 minutes
+            user=UserResponse(**user.to_dict())
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(request: RefreshTokenRequest):
+    """Refresh access token using refresh token"""
+    
+    try:
+        # Get new access token
+        new_access_token = token_manager.refresh_access_token(request.refresh_token)
+        
+        # Verify refresh token to get user ID
+        payload = token_manager.verify_token(request.refresh_token)
+        user_id = payload.get("sub")
+        
+        # Get user info
+        user = await User.find_one({"_id": user_id})
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+        
+        # Create new refresh token (optional, for security)
+        new_refresh_token = create_refresh_token(str(user.id))
+        
+        return TokenResponse(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            expires_in=30 * 60,  # 30 minutes
+            user=UserResponse(**user.to_dict())
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token refresh failed"
+        )
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Get current user information"""
+    
+    return UserResponse(**current_user.to_dict())
+
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    update_data: UpdateProfile,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update current user profile"""
+    
+    try:
+        # Check username availability if being updated
+        if update_data.username and update_data.username != current_user.username:
+            existing_user = await User.find_one({"username": update_data.username})
+            if existing_user and existing_user.id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already taken"
+                )
+        
+        # Update user fields
+        update_fields = {}
+        for field, value in update_data.dict(exclude_none=True).items():
+            if field in ["preferences", "ai_preferences"]:
+                # Merge with existing preferences
+                if field == "preferences" and value:
+                    await current_user.update_preferences(value)
+                elif field == "ai_preferences" and value:
+                    await current_user.update_ai_preferences(value)
+            else:
+                update_fields[field] = value
+        
+        # Update other fields
+        if update_fields:
+            for field, value in update_fields.items():
+                setattr(current_user, field, value)
+            
+            current_user.updated_at = datetime.utcnow()
+            await current_user.save()
+        
+        logger.info(f"User profile updated: {current_user.email}")
+        
+        return UserResponse(**current_user.to_dict())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile update failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Profile update failed"
+        )
+
+@router.post("/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    """Logout user (client should discard tokens)"""
+    
+    # In a more sophisticated implementation, you might maintain
+    # a blacklist of tokens or use Redis for token management
+    
+    logger.info(f"User logged out: {current_user.email}")
+    
+    return {"message": "Successfully logged out"}
+
+@router.post("/change-password")
+async def change_password(
+    current_password: str,
+    new_password: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Change user password"""
+    
+    try:
+        # Verify current password
+        if not verify_password(current_password, current_user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # Validate new password
+        if len(new_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 8 characters long"
+            )
+        
+        # Update password
+        await current_user.update_password(new_password)
+        
+        logger.info(f"Password changed for user: {current_user.email}")
+        
+        return {"message": "Password changed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password change failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Password change failed"
+        )
+
+@router.delete("/account")
+async def delete_account(
+    password: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete user account (requires password confirmation)"""
+    
+    try:
+        # Verify password
+        if not verify_password(password, current_user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is incorrect"
+            )
+        
+        # Delete user account
+        # Note: In production, you might want to soft delete or anonymize data
+        user_email = current_user.email
+        await current_user.delete()
+        
+        logger.info(f"User account deleted: {user_email}")
+        
+        return {"message": "Account deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Account deletion failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Account deletion failed"
+        )
+
+{{else}}
+# Auth feature not enabled - provide stub router
+
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+@router.get("/disabled")
+async def auth_disabled():
+    """Auth feature is disabled"""
+    return {"message": "Authentication is disabled in this configuration"}
+
+{{/if}}

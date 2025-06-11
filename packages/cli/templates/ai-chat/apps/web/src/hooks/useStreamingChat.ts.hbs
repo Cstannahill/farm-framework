@@ -1,0 +1,150 @@
+import { useState, useCallback, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../services/api';
+import { Message, ChatCompletionRequest } from '../types';
+import { useChatStore } from '../stores/chatStore';
+import { useAIStore } from '../stores/aiStore';
+import { useSettingsStore } from '../stores/settingsStore';
+
+export function useStreamingChat(conversationId: string | null) {
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
+    setStreamingMessage, 
+    clearStreamingMessage,
+    setCurrentConversationId 
+  } = useChatStore();
+
+  const { selectedProvider, selectedModel, temperature, maxTokens } = useAIStore();
+  const { streamResponses } = useSettingsStore();
+
+  // Fetch messages for current conversation
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: () => conversationId ? apiClient.chat.getMessages(conversationId) : Promise.resolve([]),
+    enabled: !!conversationId,
+  })
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const request: ChatCompletionRequest = {
+        message: content,
+        conversation_id: conversationId || undefined,
+        provider: selectedProvider,
+        model: selectedModel,
+        stream: streamResponses,
+        temperature,
+        max_tokens: maxTokens,
+      }
+
+      if (streamResponses) {
+        // Handle streaming response
+        setIsStreaming(true)
+        clearStreamingMessage()
+        
+        const messageId = `temp-${Date.now()}`
+        let accumulatedContent = ''
+        
+        abortControllerRef.current = new AbortController()
+        
+        try {
+          await apiClient.chat.sendMessageStream(
+            request,
+            (chunk) => {
+              if (chunk.error) {
+                throw new Error(chunk.error)
+              }
+              
+              accumulatedContent += chunk.content
+              setStreamingMessage({
+                id: messageId,
+                content: accumulatedContent,
+                isStreaming: !chunk.done,
+                role: 'assistant',
+              })
+              
+              if (chunk.done && chunk.message_id) {
+                // Update conversation if new
+                if (!conversationId && chunk.message_id) {
+                  const newConversationId = chunk.message_id.split('-')[0] // Extract conversation ID
+                  setCurrentConversationId(newConversationId)
+                }
+              }
+            },
+            { signal: abortControllerRef.current.signal }
+          )
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            throw err
+          }
+        }
+      } else {
+        // Handle non-streaming response
+        const response = await apiClient.chat.sendMessage(request)
+        
+        if (!conversationId && response.conversation_id) {
+          setCurrentConversationId(response.conversation_id)
+        }
+        
+        return response
+      }
+    },
+    onSuccess: () => {
+      setError(null)
+      clearStreamingMessage()
+      // Refresh messages and conversations
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+    onError: (err: Error) => {
+      setError(err.message)
+      clearStreamingMessage()
+    },
+    onSettled: () => {
+      setIsStreaming(false)
+      abortControllerRef.current = null
+    },
+  })
+
+  const sendMessage = useCallback(async (content: string) => {
+    if (!content.trim()) return
+    
+    // Add user message immediately for better UX
+    const userMessage: Message = {
+      id: `temp-user-${Date.now()}`,
+      conversation_id: conversationId || '',
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString(),
+      metadata: {},
+      edited: false,
+    }
+    
+    queryClient.setQueryData(['messages', conversationId], (old: Message[] = []) => [
+      ...old,
+      userMessage,
+    ])
+    
+    await sendMessageMutation.mutateAsync(content)
+  }, [conversationId, sendMessageMutation, queryClient])
+
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      setIsStreaming(false)
+      clearStreamingMessage()
+    }
+  }, [clearStreamingMessage])
+
+  return {
+    messages,
+    isStreaming,
+    error,
+    sendMessage,
+    stopStreaming,
+  }
+}

@@ -1,0 +1,7 @@
+interface Props {
+  status: string;
+}
+
+export default function InferenceStatus({ status }: Props) {
+  return <div className="text-sm text-gray-500">{status}</div>;
+}

@@ -1,0 +1,17 @@
+import { create } from 'zustand';
+
+export interface Content {
+  id: string;
+  title: string;
+  body: string;
+}
+
+interface ContentState {
+  items: Content[];
+  add: (content: Content) => void;
+}
+
+export const useContentStore = create<ContentState>((set) => ({
+  items: [],
+  add: (content) => set((state) => ({ items: [...state.items, content] })),
+}));

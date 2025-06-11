@@ -1,0 +1,263 @@
+# {{projectName}}
+
+{{#if description}}{{description}}{{else}}A full-stack application built with the FARM Stack Framework.{{/if}}
+
+Generated with [FARM Stack Framework](https://github.com/farm-stack/framework) - AI-First Full-Stack Development Platform.
+
+## 🏗️ Architecture
+
+- **F**astAPI - Modern Python web framework with automatic API documentation
+- **A**I/ML - {{#if hasAI}}Built-in AI integration with Ollama (local) and OpenAI (cloud){{else}}Ready for AI/ML integration{{/if}}
+- **R**eact - Component-based frontend with TypeScript and Vite
+- **M**ongoDB - Document database with ODM integration
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ and pnpm
+- Python 3.11+
+- {{#if isMongoDb}}MongoDB{{/if}}{{#if isPostgreSQL}}PostgreSQL{{/if}}{{#if isMySQL}}MySQL{{/if}}{{#if isSQLite}}SQLite{{/if}}
+- {{#if useDocker}}Docker and Docker Compose{{/if}}
+{{#if hasAI}}- (Optional) NVIDIA GPU for local AI acceleration{{/if}}
+
+### Development Setup
+
+1. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+2. **Set up environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Start development server:**
+   ```bash
+   pnpm dev
+   ```
+
+   This will start:
+   - 🌐 Frontend: http://localhost:3000
+   - ⚡ Backend: http://localhost:8000
+   - 📚 API Docs: http://localhost:8000/docs
+   {{#if hasAI}}- 🤖 Ollama AI: http://localhost:11434{{/if}}
+
+## 📁 Project Structure
+
+```
+{{projectName}}/
+├── apps/
+{{#unless isAPIOnlyTemplate}}│   ├── web/                    # React frontend
+│   │   ├── src/
+│   │   │   ├── components/     # Reusable components
+│   │   │   ├── pages/          # Page components
+{{#if hasAI}}│   │   │   ├── hooks/          # Custom hooks (including AI){{else}}│   │   │   ├── hooks/          # Custom hooks{{/if}}
+│   │   │   ├── stores/         # State management
+│   │   │   ├── services/       # API client (auto-generated)
+│   │   │   └── types/          # TypeScript types (auto-generated)
+│   │   └── package.json
+{{/unless}}│   └── api/                    # FastAPI backend
+│       ├── src/
+│       │   ├── routes/         # API endpoints
+│       │   ├── models/         # Pydantic models
+{{#if hasAI}}│       │   ├── ai/             # AI/ML services{{/if}}
+│       │   ├── database/       # Database connection
+│       │   └── core/           # Core utilities
+│       └── requirements.txt
+{{#if useDocker}}├── docker-compose.yml        # Development services{{/if}}
+├── farm.config.ts             # Framework configuration
+└── README.md                  # This file
+```
+
+## 🔧 Features
+
+{{#if hasAuth}}### 🔐 Authentication
+- JWT-based authentication
+- User registration and login
+- Protected routes and middleware
+{{/if}}
+
+{{#if hasAI}}### 🤖 AI Integration
+- **Local Development**: Ollama for zero-cost AI development
+- **Production**: OpenAI integration with seamless provider switching
+- **Models**: Pre-configured with llama3.1, codestral, and OpenAI models
+- **Streaming**: Real-time AI responses with WebSocket support
+
+#### AI Usage Example:
+```typescript
+import { useStreamingChat } from '@farm-framework/ai-hooks';
+
+function ChatComponent() {
+  const { messages, sendMessage, isStreaming } = useStreamingChat({
+    provider: 'ollama', // Switches to OpenAI in production
+    model: 'llama3.1'
+  });
+
+  return (
+    <div>
+      {messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
+      <button 
+        onClick={() => sendMessage('Hello AI!')}
+        disabled={isStreaming}
+      >
+        Send Message
+      </button>
+    </div>
+  );
+}
+```
+{{/if}}
+
+{{#if hasRealtime}}### ⚡ Real-time Features
+- WebSocket integration
+- Live updates and notifications
+- Real-time collaboration support
+{{/if}}
+
+## 🛠️ Development
+
+### Available Commands
+
+```bash
+# Development
+pnpm dev                 # Start development server
+pnpm dev:frontend        # Frontend only
+pnpm dev:backend         # Backend only
+
+# Building
+pnpm build               # Build for production
+pnpm preview             # Preview production build
+
+# Testing
+pnpm test                # Run tests
+pnpm test:ui             # Run tests with UI
+pnpm test:coverage       # Run tests with coverage
+
+# Code Quality
+pnpm lint                # Lint code
+pnpm lint:fix            # Fix linting issues
+pnpm type-check          # TypeScript type checking
+
+{{#if hasAI}}# AI Development
+pnpm ai:models           # List available AI models
+pnpm ai:pull <model>     # Download Ollama model
+pnpm ai:chat             # Interactive AI chat session
+{{/if}}
+```
+
+### Type-Safe Development
+
+The framework automatically generates TypeScript types from your Python models:
+
+1. **Define a model in Python:**
+   ```python
+   # apps/api/src/models/user.py
+   from farm.database import Document
+
+   class User(Document):
+       name: str
+       email: str
+       age: int
+   ```
+
+2. **Use generated types in React:**
+   ```typescript
+   // apps/web/src/components/UserProfile.tsx
+   import { User } from '../types'; // Auto-generated
+
+   interface Props {
+     user: User; // Fully typed!
+   }
+   ```
+
+3. **Call type-safe APIs:**
+   ```typescript
+   import { userApi } from '../services'; // Auto-generated
+
+   const users = await userApi.list(); // Fully typed response
+   ```
+
+{{#if hasAI}}## 🧠 AI Development Workflow
+
+### Local Development (Zero Cost)
+```bash
+# Ollama automatically starts with farm dev
+pnpm dev
+
+# Models are auto-downloaded on first use
+# No API keys required for local development
+```
+
+### Production Deployment
+```typescript
+// farm.config.ts automatically switches providers
+export default defineConfig({
+  ai: {
+    routing: {
+      development: 'ollama',  // Local models
+      production: 'openai'    // Cloud models
+    }
+  }
+});
+```
+{{/if}}
+
+## 🚢 Deployment
+
+### Production Build
+```bash
+pnpm build
+```
+
+### Docker Deployment
+{{#if useDocker}}```bash
+# Development
+docker-compose up
+
+# Production
+docker-compose -f docker-compose.prod.yml up
+```{{else}}Docker configuration not included in this template.{{/if}}
+
+### Platform Deployment
+```bash
+# Vercel (recommended for frontend)
+pnpm deploy:vercel
+
+# AWS
+pnpm deploy:aws
+
+# Railway
+pnpm deploy:railway
+```
+
+## 📖 Documentation
+
+- [FARM Framework Docs](https://farm-stack.dev/docs)
+- [API Documentation](http://localhost:8000/docs) (when running)
+{{#if hasAI}}- [AI Integration Guide](https://farm-stack.dev/docs/ai){{/if}}
+- [Deployment Guide](https://farm-stack.dev/docs/deployment)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙋 Support
+
+- [Discord Community](https://discord.gg/farm-stack)
+- [GitHub Issues](https://github.com/farm-stack/framework/issues)
+- [Documentation](https://farm-stack.dev)
+
+---
+
+**Built with ❤️ using [FARM Stack Framework](https://farm-stack.dev)**

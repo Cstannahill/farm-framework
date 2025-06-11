@@ -1,0 +1,50 @@
+# {{name}} - AI Chat Application
+
+An impressive, production-ready AI chat application built with the FARM Stack Framework. Features seamless local AI development with Ollama and cloud deployment with OpenAI.
+
+![FARM Stack](https://img.shields.io/badge/FARM-Stack-ff6b6b?style=for-the-badge)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+
+## 🚀 Features
+
+- **🤖 Multi-Provider AI Support** - Seamless switching between Ollama (local) and OpenAI (cloud)
+- **💬 Real-time Streaming** - Watch AI responses appear as they're generated
+- **🎨 Beautiful UI** - Modern, responsive design with dark/light themes
+- **📝 Rich Text Support** - Full markdown rendering with syntax highlighting
+- **💾 Conversation Management** - Save, organize, and search your chat history
+- **⚡ Lightning Fast** - Optimized performance with intelligent caching
+- **🔒 Secure** - JWT authentication and rate limiting built-in
+- **🐳 Docker Ready** - One command to run everything locally
+
+## 📦 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ and pnpm
+- Python 3.11+
+- Docker & Docker Compose
+- NVIDIA GPU (optional, for local AI acceleration)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd {{name}}
+
+# Install dependencies
+pnpm install
+cd apps/api && pip install -r requirements.txt && cd ../..
+
+# Copy environment variables
+cp .env.example .env
+
+# Start services (MongoDB & Ollama)
+docker-compose up -d mongodb ollama
+
+# Start development servers
+pnpm dev
+```

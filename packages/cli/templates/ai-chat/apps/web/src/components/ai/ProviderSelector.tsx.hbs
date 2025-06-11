@@ -1,0 +1,32 @@
+import { useAIProviders } from '../../hooks/useAIProviders';
+import { useAIStore } from '../../stores/aiStore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Badge } from '../ui/badge';
+
+export function ProviderSelector() {
+  const { providers } = useAIProviders();
+  const { selectedProvider, setSelectedProvider } = useAIStore();
+
+  return (
+    <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select AI provider" />
+      </SelectTrigger>
+      <SelectContent>
+        {Object.entries(providers).map(([name, info]) => (
+          <SelectItem key={name} value={name}>
+      <div className="flex items-center gap-2">
+        <span>{name}</span>
+        {info.is_default && (
+        <Badge variant="secondary" className="text-xs">Default</Badge>
+        )} {info.status === 'healthy' ? (
+        <Badge variant="default" className="text-xs">Active</Badge>
+        ) : (
+        <Badge variant="destructive" className="text-xs">Offline</Badge>
+        )}
+      </div>
+    </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+) }

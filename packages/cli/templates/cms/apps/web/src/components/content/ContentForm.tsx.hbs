@@ -1,0 +1,36 @@
+import React, { useState } from 'react';
+import RichTextEditor from '../editor/RichTextEditor';
+import MediaUploader from '../editor/MediaUploader';
+import type { Content } from '../../stores/contentStore';
+
+interface Props {
+  initial?: Content;
+  onSave: (content: Content) => void;
+}
+
+export default function ContentForm({ initial, onSave }: Props) {
+  const [title, setTitle] = useState(initial?.title || '');
+  const [body, setBody] = useState(initial?.body || '');
+
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        onSave({ id: initial?.id || Date.now().toString(), title, body });
+      }}
+      className="space-y-4"
+    >
+      <input
+        className="border rounded px-3 py-2 w-full"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        placeholder="Title"
+      />
+      <RichTextEditor content={body} onChange={setBody} />
+      <MediaUploader onUpload={file => console.log('upload', file)} />
+      <button className="px-4 py-2 bg-green-600 text-white rounded" type="submit">
+        Save
+      </button>
+    </form>
+  );
+}

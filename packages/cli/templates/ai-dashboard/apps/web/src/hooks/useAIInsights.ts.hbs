@@ -1,0 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
+
+export function useAIInsights() {
+  return useQuery({
+    queryKey: ['ai-insights'],
+    queryFn: async () => {
+      const res = await fetch('/api/ai-insights');
+      if (!res.ok) throw new Error('Failed to load AI insights');
+      return res.json();
+    },
+  });
+}

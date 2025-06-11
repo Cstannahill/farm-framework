@@ -1,0 +1,61 @@
+# templates/ai-chat/apps/api/requirements.txt.hbs
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+motor==3.3.2
+beanie==1.23.6
+pymongo==4.6.0
+
+# HTTP client for AI providers
+httpx==0.25.2
+
+{{#if features.auth}}
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+{{/if}}
+
+{{#if ai.providers.openai.enabled}}
+# OpenAI
+openai==1.3.7
+{{/if}}
+
+# Configuration management
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+
+# Logging
+python-json-logger==2.0.7
+coloredlogs==15.0.1
+
+# Development dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+httpx==0.25.2  # For testing
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Optional performance enhancements
+orjson==3.9.10  # Faster JSON parsing
+python-dotenv==1.0.0  # Environment variable loading
+
+{{#if features.realtime}}
+# WebSocket support
+websockets==12.0
+{{/if}}
+
+# Security headers and middleware
+python-multipart==0.0.6
+
+# Production dependencies
+gunicorn==21.2.0  # Production WSGI server
+
+# Monitoring and observability (optional)
+prometheus-client==0.19.0  # Metrics
+sentry-sdk[fastapi]==1.38.0  # Error tracking

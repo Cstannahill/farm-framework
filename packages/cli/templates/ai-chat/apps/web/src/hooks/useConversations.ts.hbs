@@ -1,0 +1,16 @@
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../services/api';
+
+export function useConversations() {
+  const { data: conversations = [], isLoading, error } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.chat.getConversations(),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  })
+
+  return {
+    conversations,
+    isLoading,
+    error: error?.message,
+  }
+}

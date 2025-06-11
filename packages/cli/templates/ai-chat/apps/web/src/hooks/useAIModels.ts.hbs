@@ -1,0 +1,17 @@
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../services/api';
+
+export function useAIModels(provider?: string) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['ai-models', provider],
+    queryFn: () => apiClient.ai.listModels(provider),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  return {
+    models: data?.models || [],
+    providers: data?.providers || [],
+    isLoading,
+    error: error?.message,
+  }
+}

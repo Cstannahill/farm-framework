@@ -1,0 +1,12 @@
+import { defineConfig } from '@farm-framework/core';
+
+export default defineConfig({
+  name: '{{projectName}}',
+  version: '1.0.0',
+  description: 'E-commerce platform with products, cart and payment processing',
+  template: 'ecommerce',
+  database: {
+    type: 'postgresql',
+    url: process.env.DATABASE_URL || 'postgresql://localhost/{{projectName}}'
+  }
+});

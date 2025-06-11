@@ -1,0 +1,21 @@
+import { create } from 'zustand';
+import { StreamingMessage } from '../types';
+
+interface ChatStore {
+  currentConversationId: string | null;
+  streamingMessage: StreamingMessage | null;
+  setCurrentConversationId: (id: string | null) => void;
+  setStreamingMessage: (message: StreamingMessage) => void;
+  clearStreamingMessage: () => void;
+}
+
+export const useChatStore = create<ChatStore>((set) => ({
+  currentConversationId: null,
+  streamingMessage: null,
+  
+  setCurrentConversationId: (id) => set({ currentConversationId: id }),
+  
+  setStreamingMessage: (message) => set({ streamingMessage: message }),
+  
+  clearStreamingMessage: () => set({ streamingMessage: null }),
+}))

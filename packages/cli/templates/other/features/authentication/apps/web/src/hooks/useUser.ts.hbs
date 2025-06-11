@@ -1,0 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
+
+export function useUser() {
+  const { token } = useAuth();
+  return useQuery(['me'], async () => {
+    const res = await fetch('/api/users/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed');
+    return res.json();
+  }, { enabled: !!token });
+}

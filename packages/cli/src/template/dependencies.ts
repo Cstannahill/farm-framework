@@ -14,6 +14,11 @@ export class DependencyResolver {
       private: true,
       type: "module",
       workspaces: isApiOnly ? [] : ["apps/*"],
+      dependencies: {
+        "@farm-framework/core": "^0.1.0",
+        "@farm-framework/types": "^0.1.0",
+        "@farm-framework/type-sync": "^0.0.1",
+      },
       scripts: {
         ...(isApiOnly
           ? {}
@@ -88,6 +93,9 @@ export class DependencyResolver {
         "type-check": "tsc --noEmit",
       },
       dependencies: {
+        "@farm-framework/api-client": "^0.1.0",
+        "@farm-framework/types": "^0.1.0",
+        "@farm-framework/ui-components": "^0.1.0",
         ...baseDeps.dependencies,
         ...featureDependencies.dependencies,
       },

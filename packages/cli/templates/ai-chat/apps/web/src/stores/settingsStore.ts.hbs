@@ -1,0 +1,32 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface SettingsStore {
+  theme: 'light' | 'dark' | 'system';
+  streamResponses: boolean;
+  enterToSend: boolean;
+  showTimestamps: boolean;
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setStreamResponses: (stream: boolean) => void;
+  setEnterToSend: (enter: boolean) => void;
+  setShowTimestamps: (show: boolean) => void;
+}
+
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      theme: 'system',
+      streamResponses: true,
+      enterToSend: true,
+      showTimestamps: true,
+      
+      setTheme: (theme) => set({ theme }),
+      setStreamResponses: (stream) => set({ streamResponses: stream }),
+      setEnterToSend: (enter) => set({ enterToSend: enter }),
+      setShowTimestamps: (show) => set({ showTimestamps: show }),
+    }),
+    {
+      name: 'user-settings',
+    }
+  )
+)

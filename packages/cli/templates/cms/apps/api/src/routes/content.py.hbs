@@ -1,0 +1,25 @@
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+
+from ..models.content import Content
+from ..models.page import Page
+
+router = APIRouter(prefix="/content", tags=["content"])
+
+fake_db: List[Content] = []
+
+@router.get("/", response_model=List[Content])
+async def list_content():
+    return fake_db
+
+@router.post("/", response_model=Content)
+async def create_content(content: Content):
+    fake_db.append(content)
+    return content
+
+@router.get("/{content_id}", response_model=Content)
+async def get_content(content_id: str):
+    for item in fake_db:
+        if item.id == content_id:
+            return item
+    raise HTTPException(status_code=404, detail="Content not found")

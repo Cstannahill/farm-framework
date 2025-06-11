@@ -10,7 +10,7 @@ These packages are published to npm and used directly by developers:
 
 #### Core Framework
 
-- **`@farm-framework/cli`** - Main CLI tool (`farm` command)
+- **`farm-framework`** - Main CLI tool (`farm` command)
 
   - _Users install this globally_
   - _Breaking changes affect all users_
@@ -51,7 +51,7 @@ These are development tools and infrastructure:
   - _Internal development server_
   - _Changes don't affect end users directly_
 
-- **`@farm-framework/cli-tools`** (`tools/cli`)
+- **`farm-framework-tools`** (`tools/cli`)
 
   - _Internal CLI utilities_
   - _Used only during development_
@@ -98,7 +98,7 @@ The package exclusion is configured in `.changeset/config.json`:
   "ignore": [
     "farm-stack-web",
     "@farm-framework/dev-server",
-    "@farm-framework/cli-tools",
+    "farm-framework-tools",
     "@farm-framework/template-validator",
     "@farm-framework/testing"
   ]
@@ -112,7 +112,7 @@ The package exclusion is configured in `.changeset/config.json`:
 ```bash
 # Edit packages/cli/src/commands/new-feature.ts
 pnpm changeset
-# Select: @farm-framework/cli (minor)
+# Select: farm-framework (minor)
 # Describe: "Add new-feature command"
 ```
 
@@ -130,7 +130,7 @@ pnpm changeset
 # Edit packages/core/src/config.ts (breaking change)
 pnpm changeset
 # Select: @farm-framework/core (major)
-# Select: @farm-framework/cli (patch) - if CLI needs updates
+# Select: farm-framework (patch) - if CLI needs updates
 # Describe: "BREAKING: Restructure config API"
 ```
 

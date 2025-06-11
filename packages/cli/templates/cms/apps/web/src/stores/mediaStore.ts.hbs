@@ -1,0 +1,17 @@
+import { create } from 'zustand';
+
+export interface Media {
+  id: string;
+  url: string;
+  filename: string;
+}
+
+interface MediaState {
+  files: Media[];
+  add: (file: Media) => void;
+}
+
+export const useMediaStore = create<MediaState>((set) => ({
+  files: [],
+  add: (file) => set((state) => ({ files: [...state.files, file] })),
+}));

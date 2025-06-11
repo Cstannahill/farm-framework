@@ -1,0 +1,59 @@
+# templates/ai-chat/apps/api/src/models/message.py.hbs
+from datetime import datetime
+from typing import Optional, Dict, Any
+from beanie import Document, Indexed
+from pydantic import Field
+
+class Message(Document):
+    """Message document for storing individual chat messages"""
+    
+    conversation_id: Indexed(str) = Field(..., description="ID of the conversation this message belongs to")
+    role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
+    content: str = Field(..., description="Message content")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the message was created")
+    
+    # AI provider information
+    provider: Optional[str] = Field(None, description="AI provider used to generate this message")
+    model: Optional[str] = Field(None, description="AI model used to generate this message")
+    
+    # Token usage tracking
+    tokens_used: Optional[int] = Field(None, description="Number of tokens used for this message")
+    
+    # Message metadata
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional message metadata")
+    
+    # Optional fields for advanced features
+    edited: bool = Field(False, description="Whether this message has been edited")
+    edited_at: Optional[datetime] = Field(None, description="When the message was last edited")
+    parent_message_id: Optional[str] = Field(None, description="ID of the parent message (for branching conversations)")
+    
+    class Settings:
+        name = "messages"
+        indexes = [
+            "conversation_id",
+            [("conversation_id", 1), ("timestamp", 1)],  # Compound index for conversation message ordering
+            "timestamp",
+            "role",
+            "provider"
+        ]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "conversation_id": "conv_123",
+                "role": "user",
+                "content": "How do I implement authentication in FastAPI?",
+                "timestamp": "2025-06-10T12:00:00Z",
+                "provider": "ollama",
+                "model": "llama3.1",
+                "tokens_used": 25,
+                "metadata": {
+                    "client_ip": "192.168.1.1",
+                    "user_agent": "Mozilla/5.0...",
+                    "response_time": 1.2
+                }
+            }
+        }
+
+    def __str__(self) -> str:
+        return f"Message({self.role}: {self.content[:50]}{'...' if len(self.content) > 50 else ''})"

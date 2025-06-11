@@ -1,0 +1,87 @@
+import { motion } from 'framer-motion';
+import { format } from 'date-fns';
+import { User, Bot, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import remarkGfm from 'remark-gfm';
+import { Message, StreamingMessage } from '../../types';
+import { Button } from '../ui/button';
+import { cn } from '../../utils/cn';
+
+interface MessageBubbleProps {
+message: Message | StreamingMessage;
+isLast: boolean;
+}
+
+export function MessageBubble({ message, isLast }: MessageBubbleProps) &#123;
+const [copied, setCopied] = useState(false);
+const isUser = message.role === 'user';
+const isStreaming = 'isStreaming' in message && message.isStreaming;
+
+const handleCopy = () => {
+navigator.clipboard.writeText(message.content);
+setCopied(true);
+setTimeout(() => setCopied(false), 2000);
+};
+
+return (
+<motion.div initial=&#123;&#123; opacity: 0, y: 20 \&#125;&#125; animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125; exit=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125; transition=\&#123;&#123;
+  duration: 0.3 &#125;\&#125; className={cn( 'flex gap-3 mb-4' , isUser ? 'flex-row-reverse' : 'flex-row' )}>
+  <div className={cn( 'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center' , isUser
+    ? 'bg-primary text-primary-foreground' : 'bg-muted' )}>
+    {isUser ?
+    <User className="h-4 w-4" /> :
+    <Bot className="h-4 w-4" />}
+  </div>
+
+  <div className={cn('flex-1 max-w-[80%]', isUser ? 'items-end' : 'items-start' )}>
+    <div className={cn( 'rounded-lg px-4 py-2 relative group' , isUser ? 'bg-primary text-primary-foreground'
+      : 'bg-muted' )}>
+      &#123;!isUser && (
+      <Button variant="ghost" size="icon"
+        className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={handleCopy}>
+        {copied ? (
+        <Check className="h-3 w-3" />
+        ) : (
+        <Copy className="h-3 w-3" />
+        )&#125;
+      </Button>
+      )}
+
+      <div className={cn( 'prose prose-sm max-w-none' , isUser && 'prose-invert' )}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components=&#123;{ code({ node, inline, className, children, ...props }) {
+          const match=/language-(\w+)/.exec(className || '' ); return !inline && match ? ( <SyntaxHighlighter
+          style={vscDarkPlus&#125; language={match[1]} PreTag="div" {...props}>
+          {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+          ) : (
+          <code className={className} {...props}>
+                      {children}
+                    </code>
+          );
+          },
+          }}
+          >
+          {message.content}
+        </ReactMarkdown>
+      </div>
+
+      &#123;isLast && isStreaming && (
+      <motion.span animate=&#123;&#123; opacity: [1, 0.5, 1] &#125;\&#125; transition=\&#123;&#123; duration: 1.5, repeat: Infinity &#125;\&#125;
+        className="inline-block w-1 h-4 bg-current ml-1" />
+      )}
+    </div>
+
+    &#123;!isUser && 'timestamp' in message && (
+    <div className="text-xs text-muted-foreground mt-1 px-4">
+      {format(new Date(message.timestamp), 'h:mm a')}
+      {message.model && ` • ${message.model&#125;`}
+    </div>
+    )}
+  </div>
+</motion.div>
+);
+}

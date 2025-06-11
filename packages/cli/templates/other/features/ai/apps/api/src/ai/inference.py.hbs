@@ -1,0 +1,6 @@
+from .ollama_client import OllamaClient
+
+client = OllamaClient()
+
+async def generate_text(prompt: str, model: str) -> str:
+    return await client.generate(prompt, model)

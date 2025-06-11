@@ -1,0 +1,26 @@
+import { AnimatePresence } from 'framer-motion';
+import { MessageBubble } from './MessageBubble';
+import { Message, StreamingMessage } from '../../types';
+import { ScrollArea } from '../ui/scroll-area';
+
+interface MessageListProps {
+  messages: (Message | StreamingMessage)[]
+}
+
+export function MessageList({ messages }: MessageListProps) {
+  return (
+    <ScrollArea className="h-full">
+      <div className="max-w-4xl mx-auto p-4">
+        <AnimatePresence initial={false}>
+          {messages.map((message, index) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isLast={index === messages.length - 1}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+    </ScrollArea>
+  )
+}

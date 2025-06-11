@@ -1,0 +1,21 @@
+import React from 'react';
+
+interface Prediction {
+  input: string;
+  output: string;
+}
+
+export default function PredictionViewer({ predictions }: { predictions: Prediction[] }) {
+  return (
+    <div className="bg-white shadow rounded p-4">
+      <h3 className="text-lg font-semibold mb-2">Predictions</h3>
+      <ul className="space-y-1">
+        {predictions.map((p, i) => (
+          <li key={i} className="text-sm text-gray-700">
+            <strong>{p.input}:</strong> {p.output}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

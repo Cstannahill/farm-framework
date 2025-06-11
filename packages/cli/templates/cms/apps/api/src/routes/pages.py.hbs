@@ -1,0 +1,8 @@
+from fastapi import APIRouter
+from ..models.page import Page
+
+router = APIRouter(prefix="/pages", tags=["pages"])
+
+@router.get("/", response_model=list[Page])
+async def list_pages():
+    return []

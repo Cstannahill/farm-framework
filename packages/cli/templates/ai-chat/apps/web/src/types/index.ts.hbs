@@ -1,0 +1,30 @@
+// Import all types from the API datamap
+export * from '../services/api'
+
+// Additional frontend-specific types
+export interface ConversationWithMessages extends Conversation {
+  messages: Message[]
+}
+
+export interface StreamingMessage {
+  id: string
+  content: string
+  isStreaming: boolean
+  role: 'assistant'
+}
+
+export interface UISettings {
+  theme: 'light' | 'dark' | 'system'
+  fontSize: 'small' | 'medium' | 'large'
+  compactMode: boolean
+  showTimestamps: boolean
+  enterToSend: boolean
+}
+
+export interface AIPreferences {
+  preferredProvider?: string
+  preferredModel?: string
+  temperature: number
+  maxTokens: number
+  streamResponses: boolean
+}
