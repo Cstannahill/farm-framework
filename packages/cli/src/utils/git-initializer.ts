@@ -45,7 +45,7 @@ export class GitInitializer {
         await this.addRemoteOrigin(projectPath, options.addOrigin, options);
       }
 
-      console.log(chalk.green("✅ Git repository initialized successfully"));
+      // Success message is now handled in makeInitialCommit method for better information
     } catch (error) {
       if (error instanceof Error) {
         console.error(
@@ -73,7 +73,6 @@ export class GitInitializer {
     const gitDir = path.join(projectPath, ".git");
     return await fs.pathExists(gitDir);
   }
-
   private async initRepository(
     projectPath: string,
     options: GitInitOptions
@@ -92,13 +91,16 @@ export class GitInitializer {
       console.log(chalk.blue(`🔧 Running: git ${args.join(" ")}`));
     }
 
-    await this.runGitCommand(args, { cwd: projectPath });
+    // Run git init silently for cleaner output
+    await this.runGitCommand(args, {
+      cwd: projectPath,
+      silent: true, // Always run silently for cleaner UX
+    });
 
     if (options.verbose) {
       console.log(chalk.green("✅ Git repository initialized"));
     }
   }
-
   private async makeInitialCommit(
     projectPath: string,
     options: GitInitOptions
@@ -107,21 +109,35 @@ export class GitInitializer {
       // Configure git user if not already configured (locally for this repo)
       await this.configureGitUser(projectPath, options);
 
-      // Add all files
-      await this.runGitCommand(["add", "."], { cwd: projectPath });
+      // Add all files (silently)
+      await this.runGitCommand(["add", "."], {
+        cwd: projectPath,
+        silent: true,
+      });
 
       if (options.verbose) {
         console.log(chalk.blue("📁 Added all files to git staging"));
       }
 
-      // Make initial commit
-      await this.runGitCommand(
+      // Make initial commit (silently)
+      const commitOutput = await this.runGitCommand(
         ["commit", "-m", "Initial commit - FARM project created"],
-        { cwd: projectPath }
+        { cwd: projectPath, silent: true }
       );
 
-      if (options.verbose) {
-        console.log(chalk.green("✅ Initial commit created"));
+      // Parse the commit output to get file count
+      const fileCountMatch = commitOutput.match(/(\d+) files? changed/);
+      const fileCount = fileCountMatch ? parseInt(fileCountMatch[1]) : 0;
+
+      // Display clean success message
+      if (fileCount > 0) {
+        console.log(
+          chalk.green(
+            `✅ Git initialization successful - ${fileCount} files added and committed`
+          )
+        );
+      } else {
+        console.log(chalk.green("✅ Git repository initialized successfully"));
       }
     } catch (error) {
       if (options.verbose) {
@@ -191,16 +207,17 @@ export class GitInitializer {
       }
     }
   }
-
   private async runGitCommand(
     args: string[],
     options: { cwd?: string; silent?: boolean } = {}
   ): Promise<string> {
     return new Promise((resolve, reject) => {
+      // Use shell: false to avoid shell argument parsing issues
+      // This prevents commit messages with spaces from being split
       const child = spawn("git", args, {
         cwd: options.cwd || process.cwd(),
         stdio: options.silent ? "pipe" : "inherit",
-        shell: true, // Important for Windows compatibility
+        shell: false, // Use direct execution instead of shell
       });
 
       let stdout = "";

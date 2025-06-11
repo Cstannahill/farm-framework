@@ -87,6 +87,39 @@ export class ProjectFileGenerator {
     },
   };
   private currentProjectPath?: string;
+
+  /**
+   * Resolve the templates directory for different installation scenarios
+   */
+  private resolveTemplateRoot(): string {
+    try {
+      // Method 1: Use require.resolve to find the package location
+      const packagePath = require.resolve("farm-framework/package.json");
+      const packageDir = path.dirname(packagePath);
+      const templateRoot = path.resolve(packageDir, "templates");
+
+      if (fsExtra.existsSync(templateRoot)) {
+        return templateRoot;
+      }
+    } catch {
+      // Ignore and try next method
+    }
+
+    try {
+      // Method 2: Try relative to __dirname (published package)
+      const templateRoot = path.resolve(__dirname, "../../templates");
+
+      if (fsExtra.existsSync(templateRoot)) {
+        return templateRoot;
+      }
+    } catch {
+      // Ignore and try next method
+    }
+
+    // Method 3: Development structure fallback
+    return path.resolve(__dirname, "../../../templates");
+  }
+
   async generateFromTemplate(
     projectPath: string,
     context: TemplateContext,
@@ -120,21 +153,33 @@ export class ProjectFileGenerator {
     );
     for (const fileConfig of filesToGenerate) {
       if (this.shouldIncludeFile(fileConfig, context)) {
-        const dest = join(projectPath, fileConfig.dest); // Ensure directory exists
+        const dest = join(projectPath, fileConfig.dest);
+        // Ensure directory exists
         await fsExtra.ensureDir(dirname(dest));
 
-        // Generate file content
-        const content = await this.generateFileContent(
-          fileConfig,
-          context,
-          template
-        );
+        // Handle static files vs template files differently
+        if (fileConfig.transform === false) {
+          // Static file - copy as-is
+          const sourcePath = path.resolve(
+            this.resolveTemplateRoot(),
+            fileConfig.src
+          );
+          await fsExtra.copyFile(sourcePath, dest);
+          generatedFiles.push(fileConfig.dest);
+          console.log(`📄 Copied: ${fileConfig.dest}`);
+        } else {
+          // Template file - process with Handlebars
+          const content = await this.generateFileContent(
+            fileConfig,
+            context,
+            template
+          );
 
-        // Write file
-        await fsExtra.writeFile(dest, content);
-        generatedFiles.push(fileConfig.dest);
-
-        console.log(`✅ Generated: ${fileConfig.dest}`);
+          // Write file
+          await fsExtra.writeFile(dest, content);
+          generatedFiles.push(fileConfig.dest);
+          console.log(`✅ Generated: ${fileConfig.dest}`);
+        }
       }
     }
 
@@ -144,42 +189,66 @@ export class ProjectFileGenerator {
     }
 
     return generatedFiles;
-  }
-  // Generate the list of files to create based on context
+  } // Generate the list of files to create based on context
   private generateFileList(context: TemplateContext): TemplateFile[] {
+    // Resolve template path for different installation scenarios
     const templateRoot = path.resolve(
-      __dirname,
-      "../../../templates",
+      this.resolveTemplateRoot(),
       context.template
-    ); // 1. Recursively grab every *.hbs under the template directory
-    function walk(dir: string): string[] {
-      let results: string[] = [];
+    );
+
+    if (!fsExtra.existsSync(templateRoot)) {
+      throw new Error(`Template directory not found: ${templateRoot}`);
+    } // 1. Recursively grab every file under the template directory
+    function walk(dir: string): { templates: string[]; statics: string[] } {
+      let templates: string[] = [];
+      let statics: string[] = [];
       const list = fsExtra.readdirSync(dir);
       list.forEach((file: string) => {
         const filePath = path.join(dir, file);
         const stat = fsExtra.statSync(filePath);
         if (stat && stat.isDirectory()) {
-          results = results.concat(walk(filePath));
+          const subResults = walk(filePath);
+          templates = templates.concat(subResults.templates);
+          statics = statics.concat(subResults.statics);
         } else if (file.endsWith(".hbs")) {
-          results.push(filePath);
+          templates.push(filePath);
+        } else {
+          // Include static files that don't require Handlebars processing
+          // This includes TypeScript/JavaScript files, images, CSS, JSON, markdown, etc.
+          statics.push(filePath);
         }
       });
-      return results;
+      return { templates, statics };
     }
-    const hbsFiles = walk(templateRoot);
+    const { templates: hbsFiles, statics: staticFiles } = walk(templateRoot);
 
-    // 2. Convert to TemplateFile objects
-    const files: TemplateFile[] = hbsFiles.map((srcPath: string) => {
-      const relative = path.relative(templateRoot, srcPath);
-      return {
-        src: `${context.template}/${relative.replace(/\\/g, "/")}`,
-        dest: relative.replace(/\\/g, "/").replace(/\.hbs$/, ""),
-        // Advanced: You can add a condition property here if you want to support per-file conditions
-      };
-    });
+    // 2. Convert template files to TemplateFile objects
+    const templateFileObjects: TemplateFile[] = hbsFiles.map(
+      (srcPath: string) => {
+        const relative = path.relative(templateRoot, srcPath);
+        return {
+          src: `${context.template}/${relative.replace(/\\/g, "/")}`,
+          dest: relative.replace(/\\/g, "/").replace(/\.hbs$/, ""),
+          transform: true, // Mark as needing template processing
+        };
+      }
+    );
 
-    // 3. Optionally, add virtual files here if needed
-    // files.push({ src: ..., dest: ... });
+    // 3. Convert static files to TemplateFile objects (copy as-is)
+    const staticFileObjects: TemplateFile[] = staticFiles.map(
+      (srcPath: string) => {
+        const relative = path.relative(templateRoot, srcPath);
+        return {
+          src: `${context.template}/${relative.replace(/\\/g, "/")}`,
+          dest: relative.replace(/\\/g, "/"),
+          transform: false, // Mark as not needing template processing
+        };
+      }
+    );
+
+    // 4. Combine both types of files
+    const files = [...templateFileObjects, ...staticFileObjects];
 
     return files;
   }
@@ -200,13 +269,12 @@ export class ProjectFileGenerator {
       }
     }
     return !fileConfig.condition || !!fileConfig.condition;
-  }
-  // Error reporting & validation for missing/malformed template files
+  } // Error reporting & validation for missing/malformed template files
   private validateTemplateFiles(
     files: TemplateFile[],
     context: TemplateContext
   ) {
-    const templateRoot = path.resolve(__dirname, "../../../templates");
+    const templateRoot = this.resolveTemplateRoot();
     let hasError = false;
     files.forEach((file) => {
       if (file.src) {
@@ -232,8 +300,7 @@ export class ProjectFileGenerator {
     // First try to use actual template files from the templates directory
     if (fileConfig.src) {
       const templatePath = path.resolve(
-        __dirname,
-        "../../../templates",
+        this.resolveTemplateRoot(),
         fileConfig.src
       );
       if (await fsExtra.pathExists(templatePath)) {

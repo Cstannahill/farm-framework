@@ -1,6 +1,6 @@
 {
   "name": "farm-framework",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "FARM Stack Framework CLI",
   "type": "module",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
   "files": [
     "dist",
     "bin",
-    "templates"
+    "templates/"
   ],
   "scripts": {
     "build:bundle": "tsup",

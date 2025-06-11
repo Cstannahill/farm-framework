@@ -1,4 +1,6 @@
 import { defineConfig } from "tsup";
+import fs from "fs-extra";
+import path from "path";
 
 export default defineConfig({
   entry: ["src/index.ts"],
@@ -38,5 +40,17 @@ export default defineConfig({
   platform: "node",
   banner: {
     js: "#!/usr/bin/env node",
+  },
+  async onSuccess() {
+    // Copy templates from CLI package to dist directory
+    const templatesSource = path.join(__dirname, "templates");
+    const templatesTarget = path.join(__dirname, "dist", "templates");
+
+    if (await fs.pathExists(templatesSource)) {
+      await fs.copy(templatesSource, templatesTarget, { overwrite: true });
+      console.log("✅ Templates copied to CLI build");
+    } else {
+      console.warn("⚠️ Templates directory not found at:", templatesSource);
+    }
   },
 });

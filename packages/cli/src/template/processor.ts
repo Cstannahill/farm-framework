@@ -81,16 +81,115 @@ export class TemplateProcessor {
   };
 
   constructor() {
-    // Point to the actual templates directory
-    this.templatesDir = path.resolve(__dirname, "../../../templates");
+    // Fix: Proper template directory resolution
+    this.templatesDir = this.resolveTemplatesDirectory();
     this.handlebars = Handlebars.create();
 
     registerHandlebarsHelpers(this.handlebars);
     this.registerProcessorHelpers();
 
     logger.debug(
-      "✅ TemplateProcessor initialized with enhanced performance features"
+      `✅ TemplateProcessor initialized with templates at: ${this.templatesDir}`
     );
+  } /**
+   * Resolve the templates directory based on the current execution context
+   */
+  private resolveTemplatesDirectory(): string {
+    // Get the current file's directory (__dirname points to dist/template when built)
+    const currentDir = __dirname;
+
+    // Priority 1: Built mode - templates bundled in CLI dist directory
+    // When built: __dirname = packages/cli/dist/template, templates at packages/cli/dist/templates
+    let templatesPath = path.resolve(currentDir, "../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (bundled): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Priority 2: Development mode - templates in CLI package directory
+    // When in dev: __dirname = packages/cli/src/template, templates at packages/cli/templates
+    templatesPath = path.resolve(currentDir, "../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (dev CLI package): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Priority 3: Development mode - templates in workspace root
+    // Go up from src/template/ to packages/cli/, then to workspace root, then to templates/
+    templatesPath = path.resolve(currentDir, "../../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (dev workspace): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Priority 4: Try to find package root and look for templates there
+    const packageRoot = this.findPackageRoot(currentDir);
+    if (packageRoot) {
+      // Try templates in package root
+      templatesPath = path.join(packageRoot, "templates");
+      if (fs.existsSync(templatesPath)) {
+        logger.debug(`Found templates (package root): ${templatesPath}`);
+        return templatesPath;
+      }
+
+      // Try templates in workspace root relative to package
+      templatesPath = path.resolve(packageRoot, "../../templates");
+      if (fs.existsSync(templatesPath)) {
+        logger.debug(
+          `Found templates (workspace from package): ${templatesPath}`
+        );
+        return templatesPath;
+      }
+    }
+
+    // Fallback: Create a more informative error
+    const searchedPaths = [
+      path.resolve(currentDir, "../templates"),
+      path.resolve(currentDir, "../../templates"),
+      path.resolve(currentDir, "../../../templates"),
+      packageRoot ? path.join(packageRoot, "templates") : "N/A",
+      packageRoot ? path.resolve(packageRoot, "../../templates") : "N/A",
+    ];
+
+    throw new Error(
+      `Templates directory not found. Searched in:\n${searchedPaths
+        .filter((p) => p !== "N/A")
+        .map((p) => `  - ${p}`)
+        .join(
+          "\n"
+        )}\n\nCurrent directory: ${currentDir}\nExpected: Templates should be in workspace root at ../../templates relative to CLI package`
+    );
+  }
+
+  /**
+   * Find the package root by looking for package.json
+   */
+  private findPackageRoot(startDir: string): string | null {
+    let dir = startDir;
+
+    while (dir !== path.dirname(dir)) {
+      const packageJsonPath = path.join(dir, "package.json");
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(
+            fs.readFileSync(packageJsonPath, "utf-8")
+          );
+          // Check if this is our package by looking for a specific field
+          if (
+            packageJson.name === "@farm-framework/cli" ||
+            packageJson.name === "farm-framework" ||
+            packageJson.keywords?.includes("farm-stack")
+          ) {
+            return dir;
+          }
+        } catch {
+          // Ignore invalid package.json files
+        }
+      }
+      dir = path.dirname(dir);
+    }
+
+    return null;
   }
 
   /**
@@ -108,7 +207,10 @@ export class TemplateProcessor {
     const templatePath = path.join(this.templatesDir, templateName);
 
     if (!(await fs.pathExists(templatePath))) {
-      throw new Error(`Template directory not found: ${templatePath}`);
+      throw new Error(
+        `Template directory not found: ${templatePath}\n` +
+          `Available templates: ${await this.listAvailableTemplates()}`
+      );
     }
 
     logger.info(
@@ -169,6 +271,24 @@ export class TemplateProcessor {
       metrics: { ...this.metrics },
       templateData: options.includeTemplateData ? templateData : undefined,
     };
+  }
+
+  /**
+   * List available templates for better error messages
+   */
+  private async listAvailableTemplates(): Promise<string> {
+    try {
+      const entries = await fs.readdir(this.templatesDir, {
+        withFileTypes: true,
+      });
+      const templates = entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .join(", ");
+      return templates || "None found";
+    } catch {
+      return "Unable to list templates";
+    }
   }
 
   /**

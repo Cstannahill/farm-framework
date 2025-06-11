@@ -13,8 +13,21 @@ export function getConfigDir(): string {
 }
 
 export function getTemplateDir(): string {
-  // This will point to the templates directory in the framework
-  return resolve(__dirname, "../../../templates");
+  // Resolve template path - works for both development and published package
+  // In development: this file is in src/utils, templates are at ../../templates
+  // In published package: this file is in dist/utils, templates are at ../../templates (package root)
+  const developmentPath = resolve(__dirname, "../../templates");
+  const publishedPath = resolve(__dirname, "../../../templates");
+
+  // Try published package structure first, then fall back to development
+  if (require("fs").existsSync(developmentPath)) {
+    return developmentPath;
+  } else if (require("fs").existsSync(publishedPath)) {
+    return publishedPath;
+  } else {
+    // Default to development path if neither exists (will fail gracefully later)
+    return developmentPath;
+  }
 }
 
 export function getTempDir(): string {
