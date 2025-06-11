@@ -10,7 +10,6 @@ export class ServiceConfigManager {
   constructor(logger: Logger) {
     this.logger = logger;
   }
-
   getServiceConfigs(
     farmConfig: FarmConfig,
     projectPath: string
@@ -28,6 +27,11 @@ export class ServiceConfigManager {
     // Add backend (FastAPI)
     configs.push(this.getBackendConfig(farmConfig, projectPath));
 
+    // Add type-sync if type generation is enabled
+    if (this.shouldStartTypeSync(farmConfig)) {
+      configs.push(this.getTypeSyncConfig(farmConfig, projectPath));
+    }
+
     // Add frontend (React/Vite) if not API-only
     if (farmConfig.template !== "api-only") {
       configs.push(this.getFrontendConfig(farmConfig, projectPath));
@@ -35,12 +39,18 @@ export class ServiceConfigManager {
 
     return configs.sort((a, b) => a.order - b.order);
   }
-
   private shouldStartOllama(farmConfig: FarmConfig): boolean {
     return !!(
       farmConfig.features?.includes("ai") &&
       farmConfig.ai?.providers?.ollama?.enabled &&
       farmConfig.ai?.providers?.ollama?.autoStart
+    );
+  }
+
+  private shouldStartTypeSync(farmConfig: FarmConfig): boolean {
+    return !!(
+      farmConfig.development?.hotReload?.typeGeneration &&
+      farmConfig.template !== "api-only"
     );
   }
 
@@ -245,6 +255,69 @@ export class ServiceConfigManager {
         PYTHONPATH: ".",
         PORT: String(backendPort),
         ...this.getBackendEnvironmentVariables(farmConfig),
+      },
+    };
+  }
+
+  private getTypeSyncConfig(
+    farmConfig: FarmConfig,
+    projectPath: string
+  ): ServiceConfig {
+    const ports = farmConfig.development?.ports || {};
+    const backendPort = ports.backend || 8000;
+
+    return {
+      name: "Type Sync",
+      key: "type-sync",
+      command: {
+        cmd: "node",
+        args: [
+          "-e",
+          `
+          const { TypeSyncOrchestrator, TypeSyncWatcher } = require('@farm-framework/type-sync');
+            async function startTypeSync() {
+            const orchestrator = new TypeSyncOrchestrator();
+            await orchestrator.initialize({
+              apiUrl: 'http://localhost:${backendPort}',
+              outputDir: 'generated',
+              features: {
+                client: true,
+                hooks: true,
+                streaming: true, // Enable streaming by default
+                aiHooks: ${farmConfig.features?.includes("ai") || false},
+              },
+              performance: {
+                enableMonitoring: true,
+                enableIncrementalGeneration: true,
+                maxConcurrency: 4,
+                cacheTimeout: 300000,
+              },
+            });
+
+            // Initial sync
+            console.log('🔄 Starting initial type sync...');
+            const result = await orchestrator.syncOnce();
+            console.log(\`✅ Generated \${result.filesGenerated} type files\`);
+
+            // Start watching
+            const watcher = new TypeSyncWatcher(orchestrator);
+            await watcher.start();
+            console.log('👁️  Watching for API changes...');
+          }
+
+          startTypeSync().catch(console.error);
+          `,
+        ],
+      },
+      cwd: projectPath,
+      healthCheck: undefined, // Type sync doesn't need health checks
+      healthTimeout: 10000,
+      required: false, // Not required - graceful degradation
+      autoRestart: true,
+      order: 2.5, // After backend, before frontend
+      env: {
+        NODE_ENV: "development",
+        FARM_API_URL: `http://localhost:${backendPort}`,
       },
     };
   }

@@ -1,30 +1,10 @@
 import { Command } from "commander";
 import { existsSync } from "fs";
 import { join } from "path";
+import { FarmDevServer, Logger } from "@farm-framework/dev-server";
 
-// Mock implementation for Logger
-const logger = {
-  info: (message: string, ...args: any[]) => console.log(message, ...args),
-  success: (message: string, ...args: any[]) => console.log(message, ...args),
-  warn: (message: string, ...args: any[]) => console.warn(message, ...args),
-  error: (message: string, ...args: any[]) => console.error(message, ...args),
-  newLine: () => console.log("\n"),
-};
-
-// Replace FarmDevServer with a mock implementation
-class FarmDevServer {
-  constructor(options: any) {
-    console.log("Mock FarmDevServer initialized with options:", options);
-  }
-
-  on(event: string, handler: (...args: any[]) => void): void {
-    console.log(`Mock event handler registered for event: ${event}`);
-  }
-
-  async start(projectPath: string): Promise<void> {
-    console.log(`Mock server started at path: ${projectPath}`);
-  }
-}
+// Create logger instance that will be updated with verbose setting
+let logger: Logger;
 
 export interface DevCommandOptions {
   port?: number;
@@ -63,6 +43,9 @@ export function createDevCommand(): Command {
 
 export async function devCommand(options: DevCommandOptions): Promise<void> {
   try {
+    // Initialize logger with verbose setting
+    logger = new Logger("info", options.verbose || false);
+
     // Validate we're in a FARM project
     const projectPath = process.cwd();
     const isValid = await checkProjectValid(projectPath);
@@ -160,13 +143,7 @@ export async function devCommand(options: DevCommandOptions): Promise<void> {
 
 function setupDevServerEventHandlers(
   devServer: FarmDevServer,
-  logger: {
-    info: Function;
-    success: Function;
-    warn: Function;
-    error: Function;
-    newLine: Function;
-  }
+  logger: Logger
 ): void {
   // Service lifecycle events
   devServer.on("service-starting", (name: string) => {
@@ -217,16 +194,16 @@ function setupDevServerEventHandlers(
 
   devServer.on("all-services-ready", () => {
     // All services are now ready
-    logger.newLine();
+    console.log(); // newLine equivalent
     logger.success("🎉 All services are ready! Happy coding!");
-    logger.newLine();
+    console.log(); // newLine equivalent
 
     // Show helpful commands
     logger.info("💡 Helpful commands:");
     logger.info("  • Press Ctrl+C to stop all services");
     logger.info("  • Check logs in your terminal");
     logger.info("  • Edit files to see hot-reload in action");
-    logger.newLine();
+    console.log(); // newLine equivalent
   });
 
   devServer.on("shutdown-started", () => {

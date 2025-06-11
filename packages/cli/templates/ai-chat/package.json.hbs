@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n \"api,web\" -c \"yellow,cyan\" \"pnpm run dev:api\" \"pnpm run dev:web\"",
-    "dev:api": "cd apps/api && python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000",
-    "dev:web": "cd apps/web && pnpm run dev",
+    "dev": "farm dev",
+    "dev:frontend": "farm dev --frontend-only",
+    "dev:backend": "farm dev --backend-only", 
     "build": "pnpm run build:web",
     "build:web": "cd apps/web && pnpm run build",
     "preview": "cd apps/web && pnpm run preview",
@@ -22,7 +22,6 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
-    "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.34.3",
