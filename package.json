@@ -37,6 +37,7 @@
     "release:snapshot": "pnpm build && changeset version --snapshot alpha && changeset publish --tag alpha",
     "pre-release": "pnpm test:run && pnpm build",
     "pre-release:check": "bash ./scripts/pre-release-check.sh",
+    "npm:setup": "bash ./scripts/npm-setup.sh",
     "deps:check": "pnpm outdated -r",
     "deps:update": "pnpm update -r --latest",
     "workspace:graph": "pnpm list -r --depth=0",

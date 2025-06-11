@@ -1,6 +1,7 @@
 {
   "name": "@farm-framework/testing",
   "version": "0.1.0",
+  "private": true,
   "description": "Testing and validation tools for FARM Framework templates",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -12,7 +12,13 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["farm-stack-web"],
+  "ignore": [
+    "farm-stack-web",
+    "@farm-framework/dev-server",
+    "@farm-framework/cli-tools",
+    "@farm-framework/template-validator",
+    "@farm-framework/testing"
+  ],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   }

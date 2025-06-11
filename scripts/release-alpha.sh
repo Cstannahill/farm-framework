@@ -65,6 +65,37 @@ show_current_version() {
     echo "Current version: $current_version"
 }
 
+# Function to check npm authentication
+check_npm_auth() {
+    print_step "Checking npm authentication..."
+    if npm whoami > /dev/null 2>&1; then
+        local npm_user=$(npm whoami 2>/dev/null)
+        print_success "Logged in to npm as: $npm_user"
+        return 0
+    else
+        print_error "Not logged in to npm"
+        echo
+        echo "Please login first:"
+        echo "  npm login"
+        echo
+        read -p "Would you like to login now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            npm login
+            if npm whoami > /dev/null 2>&1; then
+                local npm_user=$(npm whoami 2>/dev/null)
+                print_success "Successfully logged in as: $npm_user"
+                return 0
+            else
+                print_error "Login failed"
+                return 1
+            fi
+        else
+            return 1
+        fi
+    fi
+}
+
 # Show current version
 show_current_version
 
@@ -194,14 +225,19 @@ case $REPLY in
         
         # Publish packages
         print_step "Publishing packages..."
-        print_warning "Note: Publishing to npm requires authentication and npm access"
-        read -p "Continue with npm publish? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            pnpm release
-            print_success "Packages published!"
+        if check_npm_auth; then
+            print_warning "This will publish packages to npm registry"
+            read -p "Continue with npm publish? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                pnpm release
+                print_success "Packages published!"
+            else
+                print_warning "Skipped publishing. To publish later, run: pnpm release"
+            fi
         else
-            print_warning "Skipped publishing. To publish later, run: pnpm release"
+            print_warning "Skipped publishing due to authentication issue"
+            print_warning "To publish later: npm login && pnpm release"
         fi
         ;;
     4)

@@ -1,6 +1,7 @@
 {
   "name": "@farm-framework/dev-server",
   "version": "0.1.0",
+  "private": true,
   "description": "FARM Framework Development Server",
   "type": "module",
   "main": "dist/index.js",

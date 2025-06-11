@@ -173,7 +173,7 @@ fi
 
 # Check 13: Templates
 print_check "Template availability"
-template_count=$(find templates -name "package.json" 2>/dev/null | wc -l)
+template_count=$(find templates -name "package.json.hbs" -o -name "package.json" 2>/dev/null | wc -l)
 if [[ $template_count -gt 0 ]]; then
     print_pass "$template_count template(s) available"
 else
