@@ -56,4 +56,4 @@ docker-compose.override.yml
 
 # Temporary folders
 tmp/
-temp/
+temp/.farm/cache/
