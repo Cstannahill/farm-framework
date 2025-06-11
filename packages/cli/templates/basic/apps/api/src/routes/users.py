@@ -1,0 +1,101 @@
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Optional
+from bson import ObjectId
+
+from models.user import User, CreateUserRequest, UpdateUserRequest, UserResponse
+from database.connection import get_database
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.post("/", response_model=UserResponse, status_code=201)
+async def create_user(user_data: CreateUserRequest):
+    """Create a new user."""
+    db = await get_database()
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    # Create user document
+    user_dict = user_data.model_dump()
+    result = await db.users.insert_one(user_dict)
+    # Retrieve created user
+    created_user = await db.users.find_one({"_id": result.inserted_id})
+    return UserResponse(**created_user)
+
+
+@router.get("/", response_model=List[UserResponse])
+async def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None),
+):
+    """List users with optional search and pagination."""
+    db = await get_database()
+    # Build query
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+        ]
+    # Execute query with pagination
+    cursor = db.users.find(query).skip(skip).limit(limit)
+    users = await cursor.to_list(length=limit)
+    return [UserResponse(**user) for user in users]
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(user_id: str):
+    """Get a user by ID."""
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    db = await get_database()
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserResponse(**user)
+
+
+@router.patch("/{user_id}", response_model=UserResponse)
+async def update_user(user_id: str, user_data: UpdateUserRequest):
+    """Update a user by ID."""
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    db = await get_database()
+    # Check if user exists
+    existing_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Update user
+    update_data = {k: v for k, v in user_data.model_dump().items() if v is not None}
+    if update_data:
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+    # Return updated user
+    updated_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    return UserResponse(**updated_user)
+
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(user_id: str):
+    """Delete a user by ID."""
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    db = await get_database()
+    # Check if user exists
+    existing_user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Delete user
+    await db.users.delete_one({"_id": ObjectId(user_id)})
+
+
+@router.get("/count/total")
+async def get_user_count():
+    """Get total number of users."""
+    db = await get_database()
+    count = await db.users.count_documents({})
+    return {"total": count}

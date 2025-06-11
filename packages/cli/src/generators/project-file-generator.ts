@@ -25,110 +25,256 @@ export interface ProjectFileGeneratorHooks {
   ) => Promise<void> | void;
 }
 
+export interface GenerationMetrics {
+  totalFiles: number;
+  templatesProcessed: number;
+  staticFilesCopied: number;
+  errors: string[];
+  warnings: string[];
+  duration: number;
+  cacheHits: number;
+  cacheMisses: number;
+}
+
 export class ProjectFileGenerator {
   private structureGenerator = new ProjectStructureGenerator();
+  private currentProjectPath?: string;
+  private templateCache = new Map<string, HandlebarsTemplateDelegate>();
+  private handlebarsInstance: typeof Handlebars;
+
+  // 🔧 CRITICAL FIX: Cache template root resolution
+  private _templateRoot: string | null = null;
+  private _templateRootResolved = false;
+
+  private metrics: GenerationMetrics = {
+    totalFiles: 0,
+    templatesProcessed: 0,
+    staticFilesCopied: 0,
+    errors: [],
+    warnings: [],
+    duration: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+  };
 
   hooks?: ProjectFileGeneratorHooks = {
     postGenerate: async (context, generatedFiles) => {
-      // Use the actual project path passed to generateFromTemplate
       const projectRoot = this.currentProjectPath || process.cwd();
 
-      console.log(
-        chalk.blue(`🎨 Formatting ${generatedFiles.length} files...`)
-      );
+      try {
+        console.log(chalk.blue("🐍 Formatting Python files..."));
+        await formatPython({ projectRoot, verbose: false });
 
-      // Format Python files first
-      await formatPython({
-        projectRoot,
-        verbose: true,
-      });
+        const jsFiles = generatedFiles.filter(
+          (f) =>
+            f.endsWith(".ts") ||
+            f.endsWith(".tsx") ||
+            f.endsWith(".js") ||
+            f.endsWith(".jsx") ||
+            f.endsWith(".json") ||
+            f.endsWith(".md")
+        );
 
-      // Then format other files with Prettier
-      const prettierConfig = await prettier.resolveConfig(projectRoot);
+        if (jsFiles.length > 0) {
+          console.log(
+            chalk.blue(`📝 Formatting ${jsFiles.length} frontend files...`)
+          );
 
-      for (const file of generatedFiles) {
-        // Skip Python files (already handled above)
-        if (file.endsWith(".py")) {
-          continue;
-        }
-        const absPath = path.resolve(projectRoot, file);
-        try {
-          let content = await fsExtra.readFile(absPath, "utf-8"); // Convert HTML entities back to proper JavaScript syntax for TypeScript/JavaScript files
-          if (
-            file.endsWith(".tsx") ||
-            file.endsWith(".ts") ||
-            file.endsWith(".jsx") ||
-            file.endsWith(".js")
-          ) {
-            content = content.replace(/&#123;/g, "{");
-            content = content.replace(/&#125;/g, "}");
-            // Also fix backslash escapes that might be present
-            content = content.replace(/\\{/g, "{");
-            content = content.replace(/\\}/g, "}");
-            // Write the converted content back to the file
-            await fsExtra.writeFile(absPath, content);
+          const prettierConfig = await prettier.resolveConfig(projectRoot);
+          let formatted = 0;
+          let errors = 0;
+
+          for (let i = 0; i < jsFiles.length; i++) {
+            const file = jsFiles[i];
+            const absPath = path.resolve(projectRoot, file);
+
+            try {
+              let content = await fsExtra.readFile(absPath, "utf-8");
+
+              // Fix HTML entities for JS/TS files
+              if (
+                file.endsWith(".tsx") ||
+                file.endsWith(".ts") ||
+                file.endsWith(".jsx") ||
+                file.endsWith(".js")
+              ) {
+                content = content
+                  .replace(/&#123;/g, "{")
+                  .replace(/&#125;/g, "}");
+                content = content.replace(/\\{/g, "{").replace(/\\}/g, "}");
+                await fsExtra.writeFile(absPath, content);
+              }
+
+              const info = await prettier.getFileInfo(absPath);
+              if (!info.ignored && info.inferredParser != null) {
+                const formattedContent = await prettier.format(content, {
+                  ...prettierConfig,
+                  filepath: absPath,
+                });
+                await fsExtra.writeFile(absPath, formattedContent);
+                formatted++;
+              }
+
+              this.logProgress(i + 1, jsFiles.length, "formatting");
+            } catch (err) {
+              errors++;
+              const errorMsg = err instanceof Error ? err.message : String(err);
+              console.log(
+                chalk.yellow(`\n⚠️ Formatting failed for ${file}: ${errorMsg}`)
+              );
+            }
           }
 
-          // Handle other files with Prettier
-          const info = await prettier.getFileInfo(absPath);
-          if (info.ignored || info.inferredParser == null) continue;
-
-          // prettier.format is now async in Prettier 3.x, so we must await it
-          const formatted = await prettier.format(content, {
-            ...prettierConfig,
-            filepath: absPath,
-          });
-          await fsExtra.writeFile(absPath, formatted);
-          console.log(chalk.green(`✨ Formatted: ${file}`));
-        } catch (err) {
-          console.warn(chalk.yellow(`⚠️ Could not format ${file}: ${err}`));
+          if (errors === 0) {
+            console.log(chalk.green(`✨ All files formatted successfully`));
+          } else {
+            console.log(
+              chalk.yellow(`✨ Formatted ${formatted} files, ${errors} errors`)
+            );
+          }
         }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`❌ Post-processing failed: ${errorMsg}`));
+        throw error;
       }
     },
   };
-  private currentProjectPath?: string;
+
+  constructor() {
+    // Initialize Handlebars once and reuse
+    this.handlebarsInstance = Handlebars.create();
+    registerHandlebarsHelpers(this.handlebarsInstance);
+  }
+
   /**
-   * Resolve the templates directory for different installation scenarios
+   * 🚀 OPTIMIZED: Template resolution with caching - called ONCE per generation
    */
   private resolveTemplateRoot(): string {
+    // Return cached result if already resolved
+    if (this._templateRootResolved) {
+      if (this._templateRoot) {
+        return this._templateRoot;
+      }
+      throw new Error("Template root resolution failed - see previous errors");
+    }
+
+    console.log(chalk.gray("🔍 Resolving template directory..."));
+
+    // Strategy 1: Use import.meta.resolve for ESM compatibility (most reliable)
     try {
-      // Method 1: Use require.resolve to find the package location
-      const packagePath = require.resolve("farm-framework/package.json");
+      const packageUrl = import.meta.resolve("farm-framework/package.json");
+      const packagePath = new URL(packageUrl).pathname;
       const packageDir = path.dirname(packagePath);
 
-      // First try dist/templates (bundled templates)
-      let templateRoot = path.resolve(packageDir, "dist/templates");
-      if (fsExtra.existsSync(templateRoot)) {
-        return templateRoot;
+      // Primary: Check bundled templates
+      const bundledTemplates = path.resolve(packageDir, "dist/templates");
+      if (fsExtra.existsSync(bundledTemplates)) {
+        console.log(
+          chalk.green(`📁 Found bundled templates: ${bundledTemplates}`)
+        );
+        this._templateRoot = bundledTemplates;
+        this._templateRootResolved = true;
+        return bundledTemplates;
       }
-
-      // Fallback to templates directory at package root
-      templateRoot = path.resolve(packageDir, "templates");
-      if (fsExtra.existsSync(templateRoot)) {
-        return templateRoot;
-      }
-    } catch {
-      // Ignore and try next method
+    } catch (error) {
+      // Silent fail - try next strategy
     }
 
+    // Strategy 2: Use require.resolve for CommonJS compatibility
     try {
-      // Method 2: Try relative to __dirname (bundled templates)
-      let templateRoot = path.resolve(__dirname, "../templates");
-      if (fsExtra.existsSync(templateRoot)) {
-        return templateRoot;
+      const packageJson = require.resolve("farm-framework/package.json");
+      const packageDir = path.dirname(packageJson);
+
+      const bundledTemplates = path.resolve(packageDir, "dist/templates");
+      if (fsExtra.existsSync(bundledTemplates)) {
+        console.log(
+          chalk.green(`📁 Found bundled templates: ${bundledTemplates}`)
+        );
+        this._templateRoot = bundledTemplates;
+        this._templateRootResolved = true;
+        return bundledTemplates;
       }
 
-      // Fallback to original relative path
-      templateRoot = path.resolve(__dirname, "../../templates");
-      if (fsExtra.existsSync(templateRoot)) {
-        return templateRoot;
+      // Fallback to source templates for development
+      const sourceTemplates = path.resolve(packageDir, "templates");
+      if (fsExtra.existsSync(sourceTemplates)) {
+        console.log(
+          chalk.green(`📁 Found source templates: ${sourceTemplates}`)
+        );
+        this._templateRoot = sourceTemplates;
+        this._templateRootResolved = true;
+        return sourceTemplates;
       }
-    } catch {
-      // Ignore and try next method
+    } catch (error) {
+      // Silent fail - try next strategy
     }
 
-    // Method 3: Development structure fallback
-    return path.resolve(__dirname, "../../../templates");
+    // Strategy 3: Relative path resolution (development/local builds)
+    const devPaths = [
+      path.resolve(__dirname, "../dist/templates"),
+      path.resolve(__dirname, "../templates"),
+      path.resolve(__dirname, "../../templates"),
+      path.resolve(__dirname, "../../../templates"),
+    ];
+
+    for (const templatePath of devPaths) {
+      if (fsExtra.existsSync(templatePath)) {
+        console.log(chalk.green(`📁 Found dev templates: ${templatePath}`));
+        this._templateRoot = templatePath;
+        this._templateRootResolved = true;
+        return templatePath;
+      }
+    }
+
+    // Strategy 4: Environment variable override
+    if (
+      process.env.FARM_TEMPLATES_PATH &&
+      fsExtra.existsSync(process.env.FARM_TEMPLATES_PATH)
+    ) {
+      console.log(
+        chalk.green(
+          `📁 Found env templates: ${process.env.FARM_TEMPLATES_PATH}`
+        )
+      );
+      this._templateRoot = process.env.FARM_TEMPLATES_PATH;
+      this._templateRootResolved = true;
+      return process.env.FARM_TEMPLATES_PATH;
+    }
+
+    // Mark as resolved (failed) to prevent repeated attempts
+    this._templateRootResolved = true;
+    this._templateRoot = null;
+
+    throw new Error(
+      `❌ Could not locate FARM templates directory.\n` +
+        `Searched locations:\n` +
+        `  - Bundled: dist/templates\n` +
+        `  - Source: templates/\n` +
+        `  - Development paths: ${devPaths.join(", ")}\n` +
+        `  - Environment: ${process.env.FARM_TEMPLATES_PATH || "not set"}\n\n` +
+        `Please ensure farm-framework is properly installed or set FARM_TEMPLATES_PATH environment variable.`
+    );
+  }
+
+  // Progress tracking
+  private logProgress(
+    current: number,
+    total: number,
+    type: "templates" | "static" | "formatting"
+  ) {
+    const percentage = Math.round((current / total) * 100);
+    const progressBar =
+      "█".repeat(Math.floor(percentage / 5)) +
+      "░".repeat(20 - Math.floor(percentage / 5));
+
+    process.stdout.write(
+      `\r🎨 Processing ${type}: [${progressBar}] ${percentage}% (${current}/${total})`
+    );
+
+    if (current === total) {
+      console.log(""); // New line when complete
+    }
   }
 
   async generateFromTemplate(
@@ -136,81 +282,173 @@ export class ProjectFileGenerator {
     context: TemplateContext,
     template: TemplateDefinition
   ): Promise<string[]> {
-    const generatedFiles: string[] = [];
-
-    // Store the project path for use in hooks
+    const startTime = Date.now();
     this.currentProjectPath = projectPath;
+    this.metrics = { ...this.metrics, totalFiles: 0, duration: 0 };
 
-    // Pre-generation hook
-    if (this.hooks?.preGenerate) {
-      await this.hooks.preGenerate(context);
-    }
+    try {
+      console.log(chalk.blue(`⚙️ 🏗️ Initializing project generation...`));
 
-    // Generate project directory structure FIRST
-    const createdDirectories =
-      await this.structureGenerator.generateProjectStructure(
-        projectPath,
-        context
+      // 🔧 CRITICAL: Resolve template root ONCE at the beginning
+      const templateRoot = this.resolveTemplateRoot();
+
+      // Pre-generation hook
+      if (this.hooks?.preGenerate) {
+        await this.hooks.preGenerate(context);
+      }
+
+      // Generate project directory structure FIRST
+      const createdDirectories =
+        await this.structureGenerator.generateProjectStructure(
+          projectPath,
+          context
+        );
+      console.log(
+        chalk.green(
+          `📁 Project structure ready (${createdDirectories.length} directories)`
+        )
       );
-    console.log(
-      `📁 Project structure ready (${createdDirectories.length} directories)`
-    );
 
-    // Generate files based on template and context instead of template.files
-    const filesToGenerate = this.generateFileList(context);
-    this.validateTemplateFiles(filesToGenerate, context);
-    console.log(
-      chalk.blue(`ℹ️  Generating ${filesToGenerate.length} files...`)
-    );
-    for (const fileConfig of filesToGenerate) {
+      // Generate files based on template and context
+      const filesToGenerate = this.generateFileList(context, templateRoot);
+      this.validateTemplateFiles(filesToGenerate, templateRoot);
+
+      const templateFiles = filesToGenerate.filter(
+        (f) => f.transform !== false
+      );
+      const staticFiles = filesToGenerate.filter((f) => f.transform === false);
+
+      this.metrics.totalFiles = filesToGenerate.length;
+
+      console.log(
+        chalk.blue(
+          `ℹ️ Processing ${filesToGenerate.length} files ` +
+            `(${templateFiles.length} templates, ${staticFiles.length} static)`
+        )
+      );
+
+      const generatedFiles: string[] = [];
+
+      // Process template files with progress
+      if (templateFiles.length > 0) {
+        console.log(chalk.blue("🔧 Processing template files..."));
+        await this.processFilesWithProgress(
+          templateFiles,
+          projectPath,
+          context,
+          template,
+          generatedFiles,
+          "templates",
+          templateRoot
+        );
+        this.metrics.templatesProcessed = templateFiles.length;
+      }
+
+      // Process static files with progress
+      if (staticFiles.length > 0) {
+        console.log(chalk.blue("📄 Copying static files..."));
+        await this.processFilesWithProgress(
+          staticFiles,
+          projectPath,
+          context,
+          template,
+          generatedFiles,
+          "static",
+          templateRoot
+        );
+        this.metrics.staticFilesCopied = staticFiles.length;
+      }
+
+      this.metrics.duration = Date.now() - startTime;
+
+      // Consolidated success message
+      const duration = (this.metrics.duration / 1000).toFixed(1);
+      console.log(
+        chalk.green(
+          `✅ Generated ${generatedFiles.length} files successfully ` +
+            `(${this.metrics.templatesProcessed} templates, ${this.metrics.staticFilesCopied} static) ` +
+            `in ${duration}s`
+        )
+      );
+
+      // Post-generation hook
+      if (this.hooks?.postGenerate) {
+        console.log(chalk.blue(`🎨 Formatting and optimizing files...`));
+        await this.hooks.postGenerate(context, generatedFiles);
+      }
+
+      return generatedFiles;
+    } catch (error) {
+      this.metrics.duration = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.metrics.errors.push(`Generation failed: ${errorMsg}`);
+
+      console.error(chalk.red(`❌ Project generation failed: ${errorMsg}`));
+      throw error;
+    }
+  }
+
+  private async processFilesWithProgress(
+    files: TemplateFile[],
+    projectPath: string,
+    context: TemplateContext,
+    template: TemplateDefinition,
+    generatedFiles: string[],
+    type: "templates" | "static",
+    templateRoot: string // Pass template root to avoid repeated resolution
+  ): Promise<void> {
+    for (let i = 0; i < files.length; i++) {
+      const fileConfig = files[i];
+
       if (this.shouldIncludeFile(fileConfig, context)) {
-        const dest = join(projectPath, fileConfig.dest);
-        // Ensure directory exists
-        await fsExtra.ensureDir(dirname(dest));
+        try {
+          const dest = join(projectPath, fileConfig.dest);
+          // Ensure directory exists
+          await fsExtra.ensureDir(dirname(dest));
 
-        // Handle static files vs template files differently
-        if (fileConfig.transform === false) {
-          // Static file - copy as-is
-          const sourcePath = path.resolve(
-            this.resolveTemplateRoot(),
-            fileConfig.src
-          );
-          await fsExtra.copyFile(sourcePath, dest);
-          generatedFiles.push(fileConfig.dest);
-          console.log(`📄 Copied: ${fileConfig.dest}`);
-        } else {
-          // Template file - process with Handlebars
-          const content = await this.generateFileContent(
-            fileConfig,
-            context,
-            template
-          );
+          // Handle static files vs template files differently
+          if (fileConfig.transform === false) {
+            // Static file - copy as-is
+            const sourcePath = path.resolve(templateRoot, fileConfig.src);
+            await fsExtra.copyFile(sourcePath, dest);
+          } else {
+            // Template file - process with Handlebars
+            const content = await this.generateFileContent(
+              fileConfig,
+              context,
+              template,
+              templateRoot
+            );
+            await fsExtra.writeFile(dest, content);
+          }
 
-          // Write file
-          await fsExtra.writeFile(dest, content);
           generatedFiles.push(fileConfig.dest);
-          console.log(`✅ Generated: ${fileConfig.dest}`);
+          this.logProgress(i + 1, files.length, type);
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          console.log(
+            chalk.red(`\n❌ Failed to generate ${fileConfig.dest}: ${errorMsg}`)
+          );
         }
+      } else {
+        this.logProgress(i + 1, files.length, type);
       }
     }
+  }
 
-    // Post-generation hook
-    if (this.hooks?.postGenerate) {
-      await this.hooks.postGenerate(context, generatedFiles);
+  // Generate the list of files to create based on context
+  private generateFileList(
+    context: TemplateContext,
+    templateRoot: string
+  ): TemplateFile[] {
+    const templateDir = path.resolve(templateRoot, context.template);
+
+    if (!fsExtra.existsSync(templateDir)) {
+      throw new Error(`Template directory not found: ${templateDir}`);
     }
 
-    return generatedFiles;
-  } // Generate the list of files to create based on context
-  private generateFileList(context: TemplateContext): TemplateFile[] {
-    // Resolve template path for different installation scenarios
-    const templateRoot = path.resolve(
-      this.resolveTemplateRoot(),
-      context.template
-    );
-
-    if (!fsExtra.existsSync(templateRoot)) {
-      throw new Error(`Template directory not found: ${templateRoot}`);
-    } // 1. Recursively grab every file under the template directory
+    // Recursively grab every file under the template directory
     function walk(dir: string): { templates: string[]; statics: string[] } {
       let templates: string[] = [];
       let statics: string[] = [];
@@ -226,18 +464,18 @@ export class ProjectFileGenerator {
           templates.push(filePath);
         } else {
           // Include static files that don't require Handlebars processing
-          // This includes TypeScript/JavaScript files, images, CSS, JSON, markdown, etc.
           statics.push(filePath);
         }
       });
       return { templates, statics };
     }
-    const { templates: hbsFiles, statics: staticFiles } = walk(templateRoot);
 
-    // 2. Convert template files to TemplateFile objects
+    const { templates: hbsFiles, statics: staticFiles } = walk(templateDir);
+
+    // Convert template files to TemplateFile objects
     const templateFileObjects: TemplateFile[] = hbsFiles.map(
       (srcPath: string) => {
-        const relative = path.relative(templateRoot, srcPath);
+        const relative = path.relative(templateDir, srcPath);
         return {
           src: `${context.template}/${relative.replace(/\\/g, "/")}`,
           dest: relative.replace(/\\/g, "/").replace(/\.hbs$/, ""),
@@ -246,10 +484,10 @@ export class ProjectFileGenerator {
       }
     );
 
-    // 3. Convert static files to TemplateFile objects (copy as-is)
+    // Convert static files to TemplateFile objects (copy as-is)
     const staticFileObjects: TemplateFile[] = staticFiles.map(
       (srcPath: string) => {
-        const relative = path.relative(templateRoot, srcPath);
+        const relative = path.relative(templateDir, srcPath);
         return {
           src: `${context.template}/${relative.replace(/\\/g, "/")}`,
           dest: relative.replace(/\\/g, "/"),
@@ -258,9 +496,8 @@ export class ProjectFileGenerator {
       }
     );
 
-    // 4. Combine both types of files
+    // Combine both types of files
     const files = [...templateFileObjects, ...staticFileObjects];
-
     return files;
   }
 
@@ -273,60 +510,98 @@ export class ProjectFileGenerator {
       try {
         return fileConfig.condition(context);
       } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
         console.warn(
-          `⚠️ Condition function failed for ${fileConfig.dest}: ${e}`
+          `⚠️ Condition function failed for ${fileConfig.dest}: ${errorMsg}`
         );
         return false;
       }
     }
     return !fileConfig.condition || !!fileConfig.condition;
-  } // Error reporting & validation for missing/malformed template files
-  private validateTemplateFiles(
-    files: TemplateFile[],
-    context: TemplateContext
-  ) {
-    const templateRoot = this.resolveTemplateRoot();
-    let hasError = false;
+  }
+
+  // Error reporting & validation for missing/malformed template files
+  private validateTemplateFiles(files: TemplateFile[], templateRoot: string) {
+    const missingFiles: string[] = [];
+
     files.forEach((file) => {
-      if (file.src) {
+      if (file.src && file.transform !== false) {
         const filePath = path.join(templateRoot, file.src);
         if (!fsExtra.existsSync(filePath)) {
-          console.error(chalk.red(`❌ Template file missing: ${filePath}`));
-          hasError = true;
+          missingFiles.push(filePath);
         }
       }
     });
-    if (hasError) {
-      throw new Error(
-        "One or more template files are missing. See errors above."
+
+    if (missingFiles.length > 0) {
+      console.error(
+        chalk.red(`❌ Missing template files (${missingFiles.length}):`)
       );
+      missingFiles.forEach((file) => console.error(chalk.red(`   • ${file}`)));
+      throw new Error("Template validation failed. See missing files above.");
     }
   }
 
   private async generateFileContent(
     fileConfig: TemplateFile,
     context: TemplateContext,
-    template: TemplateDefinition
+    template: TemplateDefinition,
+    templateRoot: string // Pass template root to avoid repeated resolution
   ): Promise<string> {
     // First try to use actual template files from the templates directory
     if (fileConfig.src) {
-      const templatePath = path.resolve(
-        this.resolveTemplateRoot(),
-        fileConfig.src
-      );
+      const templatePath = path.resolve(templateRoot, fileConfig.src);
       if (await fsExtra.pathExists(templatePath)) {
         try {
-          const templateContent = await fsExtra.readFile(templatePath, "utf-8");
+          // Check cache first
+          let compiledTemplate = this.templateCache.get(templatePath);
 
-          // Create handlebars instance with registered helpers
-          const handlebars = Handlebars.create();
-          registerHandlebarsHelpers(handlebars);
+          if (!compiledTemplate) {
+            const templateContent = await fsExtra.readFile(
+              templatePath,
+              "utf-8"
+            );
 
-          const compiledTemplate = handlebars.compile(templateContent);
+            // 🔧 ENHANCED: Better Handlebars error handling
+            try {
+              compiledTemplate = this.handlebarsInstance.compile(
+                templateContent,
+                {
+                  strict: false, // More lenient parsing
+                  noEscape: false, // Allow HTML escaping
+                }
+              );
+              this.templateCache.set(templatePath, compiledTemplate);
+              this.metrics.cacheMisses++;
+            } catch (compileError) {
+              const errorMsg =
+                compileError instanceof Error
+                  ? compileError.message
+                  : String(compileError);
+              console.warn(
+                chalk.yellow(
+                  `⚠️ Template compilation failed for ${fileConfig.src}: ${errorMsg}`
+                )
+              );
+              console.warn(
+                chalk.yellow(`   Falling back to basic content generation`)
+              );
+              return this.generateContentFromScratch(
+                fileConfig,
+                context,
+                template
+              );
+            }
+          } else {
+            this.metrics.cacheHits++;
+          }
+
           return compiledTemplate(context);
         } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           console.warn(
-            `⚠️ Failed to process template ${fileConfig.src}: ${error}`
+            `⚠️ Failed to process template ${fileConfig.src}: ${errorMsg}`
           );
           // Fall back to generated content
         }
@@ -398,7 +673,7 @@ export class ProjectFileGenerator {
     }
   }
 
-  // Fixed: Generate requirements based on context features
+  // All the generator methods (keeping your existing implementations)
   private generateRequirements(context: TemplateContext): string {
     const baseDeps = [
       "fastapi==0.104.1",
@@ -493,7 +768,6 @@ multi_line_output = 3
 `;
   }
 
-  // Fixed: Use Record<string, string> for flexible dependencies
   private generateFrontendPackageJson(context: TemplateContext): string {
     const dependencies: Record<string, string> = {
       react: "^18.2.0",
