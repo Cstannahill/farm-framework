@@ -2,7 +2,7 @@
 
 ## 📦 Installation & Setup
 
-The FARM Framework is now available on npm! Here's how to get started with the alpha release:
+The FARM Framework is now available on npm! Here's how to get started with the v1.0.0 release:
 
 ### Quick Start
 
@@ -103,7 +103,7 @@ These packages were accidentally published but are now deprecated:
 
 ## 🎯 Alpha Goals
 
-This alpha release focuses on:
+This v1.0.0 release focuses on:
 - ✅ Core framework stability
 - ✅ Template variety and quality  
 - ✅ Type synchronization reliability
