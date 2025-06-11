@@ -1,72 +1,236 @@
-# templates/ai-chat/apps/api/src/ai/base.py.hbs from __future__ import
-annotations from abc import ABC, abstractmethod from typing import
-AsyncGenerator, List, Dict, Any, Optional from pydantic import BaseModel import
-logging logger = logging.getLogger(__name__) class ChatMessage(BaseModel):
-"""Standard chat message format""" role: str # "system", "user", "assistant"
-content: str metadata: Optional[Dict[str, Any]] = None class
-AIResponse(BaseModel): """Standard AI response format""" content: str model: str
-provider: str tokens_used: Optional[int] = None metadata: Dict[str, Any] = {}
-class AIProvider(ABC): """Abstract AI provider interface for consistent
-multi-provider support""" def __init__(self, default_model: str,
-available_models: List[str] = None): self.default_model = default_model
-self.available_models = available_models or [default_model] self.is_initialized
-= False @abstractmethod async def chat( self, messages: List[ChatMessage],
-model: str, **kwargs ) -> str: """ Generate a single chat completion Args:
-messages: List of chat messages model: Model name to use **kwargs: Additional
-parameters (temperature, max_tokens, etc.) Returns: Generated response content
-""" pass @abstractmethod async def chat_stream( self, messages:
-List[ChatMessage], model: str, **kwargs ) -> AsyncGenerator[str, None]: """
-Stream chat completion chunks Args: messages: List of chat messages model: Model
-name to use **kwargs: Additional parameters Yields: Content chunks as they're
-generated """ pass @abstractmethod async def list_models(self) -> List[str]: """
-Return available model names Returns: List of available model names """ pass
-async def get_default_model(self) -> str: """Get the default model for this
-provider""" return self.default_model async def load_model(self, model: str) ->
-bool: """ Load a model (optional for providers that support dynamic loading)
-Args: model: Model name to load Returns: True if successful, False otherwise """
-logger.info(f"Model loading not implemented for {self.__class__.__name__}")
-return True async def unload_model(self, model: str) -> bool: """ Unload a model
-to free resources Args: model: Model name to unload Returns: True if successful,
-False otherwise """ logger.info(f"Model unloading not implemented for
-{self.__class__.__name__}") return True async def health_check(self) -> bool:
-""" Check if the provider is healthy and responsive Returns: True if healthy,
-False otherwise """ try: # Try to list models as a health check models = await
-self.list_models() return len(models) > 0 except Exception as e:
-logger.error(f"Health check failed for {self.__class__.__name__}: {str(e)}")
-return False async def get_model_info(self, model: str) -> Dict[str, Any]: """
-Get information about a specific model Args: model: Model name Returns: Model
-information dictionary """ return { "name": model, "provider":
-self.__class__.__name__, "available": model in self.available_models } def
-validate_model(self, model: str) -> bool: """ Check if a model is available with
-this provider Args: model: Model name to validate Returns: True if model is
-available """ return model in self.available_models async def
-estimate_tokens(self, text: str) -> int: """ Estimate token count for text
-(rough approximation) Args: text: Text to estimate tokens for Returns: Estimated
-token count """ # Rough approximation: ~4 characters per token return len(text)
-// 4 def format_messages(self, messages: List[ChatMessage]) -> List[Dict[str,
-str]]: """ Convert ChatMessage objects to provider-specific format Args:
-messages: List of ChatMessage objects Returns: List of message dictionaries """
-return [ {"role": msg.role, "content": msg.content} for msg in messages ] class
-LocalAIProvider(AIProvider): """Base class for local AI providers (like
-Ollama)""" def __init__(self, url: str, default_model: str, available_models:
-List[str] = None): super().__init__(default_model, available_models) self.url =
-url.rstrip('/') async def check_service_available(self) -> bool: """Check if the
-local AI service is running""" try: import httpx async with httpx.AsyncClient()
-as client: response = await client.get(f"{self.url}/api/tags", timeout=5.0)
-return response.status_code == 200 except Exception as e: logger.error(f"Local
-AI service check failed: {str(e)}") return False class
-CloudAIProvider(AIProvider): """Base class for cloud AI providers (like
-OpenAI)""" def __init__(self, api_key: str, default_model: str,
-available_models: List[str] = None): super().__init__(default_model,
-available_models) self.api_key = api_key async def check_api_key_valid(self) ->
-bool: """Check if the API key is valid""" try: # This should be implemented by
-subclasses models = await self.list_models() return len(models) > 0 except
-Exception as e: logger.error(f"API key validation failed: {str(e)}") return
-False class AIProviderError(Exception): """Base exception for AI provider
-errors""" def __init__(self, message: str, provider: str = None, model: str =
-None): self.provider = provider self.model = model super().__init__(message)
-class ModelNotFoundError(AIProviderError): """Raised when a requested model is
-not available""" pass class ProviderUnavailableError(AIProviderError): """Raised
-when a provider is not available or unhealthy""" pass class
-TokenLimitExceededError(AIProviderError): """Raised when token limit is
-exceeded""" pass
+# templates/ai-chat/apps/api/src/ai/base.py.hbs
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from typing import AsyncGenerator, List, Dict, Any, Optional
+from pydantic import BaseModel
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ChatMessage(BaseModel):
+    """Standard chat message format"""
+    role: str  # "system", "user", "assistant"
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
+
+class AIResponse(BaseModel):
+    """Standard AI response format"""
+    content: str
+    model: str
+    provider: str
+    tokens_used: Optional[int] = None
+    metadata: Dict[str, Any] = {}
+
+class AIProvider(ABC):
+    """Abstract AI provider interface for consistent multi-provider support"""
+
+    def __init__(self, default_model: str, available_models: List[str] = None):
+        self.default_model = default_model
+        self.available_models = available_models or [default_model]
+        self.is_initialized = False
+
+    @abstractmethod
+    async def chat(
+        self, 
+        messages: List[ChatMessage], 
+        model: str, 
+        **kwargs
+    ) -> str:
+        """
+        Generate a single chat completion
+        
+        Args:
+            messages: List of chat messages
+            model: Model name to use
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+            
+        Returns:
+            Generated response content
+        """
+        pass
+
+    @abstractmethod
+    async def chat_stream(
+        self, 
+        messages: List[ChatMessage], 
+        model: str, 
+        **kwargs
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream chat completion chunks
+        
+        Args:
+            messages: List of chat messages
+            model: Model name to use
+            **kwargs: Additional parameters
+            
+        Yields:
+            Content chunks as they're generated
+        """
+        pass
+
+    @abstractmethod
+    async def list_models(self) -> List[str]:
+        """
+        Return available model names
+        
+        Returns:
+            List of available model names
+        """
+        pass
+
+    async def get_default_model(self) -> str:
+        """Get the default model for this provider"""
+        return self.default_model
+
+    async def load_model(self, model: str) -> bool:
+        """
+        Load a model (optional for providers that support dynamic loading)
+        
+        Args:
+            model: Model name to load
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.info(f"Model loading not implemented for {self.__class__.__name__}")
+        return True
+
+    async def unload_model(self, model: str) -> bool:
+        """
+        Unload a model to free resources
+        
+        Args:
+            model: Model name to unload
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.info(f"Model unloading not implemented for {self.__class__.__name__}")
+        return True
+
+    async def health_check(self) -> bool:
+        """
+        Check if the provider is healthy and responsive
+        
+        Returns:
+            True if healthy, False otherwise
+        """
+        try:
+            # Try to list models as a health check
+            models = await self.list_models()
+            return len(models) > 0
+        except Exception as e:
+            logger.error(f"Health check failed for {self.__class__.__name__}: {str(e)}")
+            return False
+
+    async def get_model_info(self, model: str) -> Dict[str, Any]:
+        """
+        Get information about a specific model
+        
+        Args:
+            model: Model name
+            
+        Returns:
+            Model information dictionary
+        """
+        return {
+            "name": model,
+            "provider": self.__class__.__name__,
+            "available": model in self.available_models
+        }
+
+    def validate_model(self, model: str) -> bool:
+        """
+        Check if a model is available with this provider
+        
+        Args:
+            model: Model name to validate
+            
+        Returns:
+            True if model is available
+        """
+        return model in self.available_models
+
+    async def estimate_tokens(self, text: str) -> int:
+        """
+        Estimate token count for text (rough approximation)
+        
+        Args:
+            text: Text to estimate tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        # Rough approximation: ~4 characters per token
+        return len(text) // 4
+
+    def format_messages(self, messages: List[ChatMessage]) -> List[Dict[str, str]]:
+        """
+        Convert ChatMessage objects to provider-specific format
+        
+        Args:
+            messages: List of ChatMessage objects
+            
+        Returns:
+            List of message dictionaries
+        """
+        return [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+
+class LocalAIProvider(AIProvider):
+    """Base class for local AI providers (like Ollama)"""
+    
+    def __init__(self, url: str, default_model: str, available_models: List[str] = None):
+        super().__init__(default_model, available_models)
+        self.url = url.rstrip('/')
+        
+    async def check_service_available(self) -> bool:
+        """Check if the local AI service is running"""
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.url}/api/tags", timeout=5.0)
+                return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Local AI service check failed: {str(e)}")
+            return False
+
+class CloudAIProvider(AIProvider):
+    """Base class for cloud AI providers (like OpenAI)"""
+    
+    def __init__(self, api_key: str, default_model: str, available_models: List[str] = None):
+        super().__init__(default_model, available_models)
+        self.api_key = api_key
+        
+    async def check_api_key_valid(self) -> bool:
+        """Check if the API key is valid"""
+        try:
+            # This should be implemented by subclasses
+            models = await self.list_models()
+            return len(models) > 0
+        except Exception as e:
+            logger.error(f"API key validation failed: {str(e)}")
+            return False
+
+class AIProviderError(Exception):
+    """Base exception for AI provider errors"""
+    
+    def __init__(self, message: str, provider: str = None, model: str = None):
+        self.provider = provider
+        self.model = model
+        super().__init__(message)
+
+class ModelNotFoundError(AIProviderError):
+    """Raised when a requested model is not available"""
+    pass
+
+class ProviderUnavailableError(AIProviderError):
+    """Raised when a provider is not available or unhealthy"""
+    pass
+
+class TokenLimitExceededError(AIProviderError):
+    """Raised when token limit is exceeded"""
+    pass

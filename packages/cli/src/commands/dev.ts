@@ -262,11 +262,8 @@ async function waitForShutdown(): Promise<void> {
 
 // Local validation logic for project
 async function checkProjectValid(projectPath: string): Promise<boolean> {
-  const fs = require("fs");
-  const path = require("path");
-
-  const configPath = path.join(projectPath, "farm.config.ts");
-  return fs.existsSync(configPath);
+  const configPath = join(projectPath, "farm.config.ts");
+  return existsSync(configPath);
 }
 
 // Additional utility functions for the dev command

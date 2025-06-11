@@ -1,107 +1,95 @@
-import { Menu, Settings, Sun, Moon, Monitor } from 'lucide-react'
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { AISettings } from '../ai/AISettings'
-import { Button } from '../ui/button'
+import { Menu, Settings, Sun, Moon, Monitor } from 'lucide-react';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { AISettings } from '../ai/AISettings';
+import { Button } from '../ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
-import { useSettingsStore } from '../../stores/settingsStore'
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 interface HeaderProps {
-  sidebarOpen: boolean
-  onToggleSidebar: () => void
+sidebarOpen: boolean;
+onToggleSidebar: () => void;
 }
 
-export function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const { theme, setTheme } = useSettingsStore()
+export function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) &#123;
+const [settingsOpen, setSettingsOpen] = useState(false);
+const { theme, setTheme } = useSettingsStore();
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme)
-    
-    // Apply theme to document
-    if (newTheme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      document.documentElement.classList.toggle('dark', systemTheme === 'dark')
-    } else {
-      document.documentElement.classList.toggle('dark', newTheme === 'dark')
-    }
-  }
+const handleThemeChange = (next: 'light' | 'dark' | 'system') => {
+setTheme(next);
+const root = document.documentElement;
+if (next === 'system') {
+const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+root.classList.toggle('dark', dark);
+&#125; else {
+root.classList.toggle('dark', next === 'dark');
+}
+};
 
-  return (
-    <>
-      <header className="h-16 border-b border-border px-4 flex items-center justify-between bg-card">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleSidebar}
-            className="hover:bg-accent"
-          >
-            <Menu className="h-5 w-5" />
+return (
+<>
+  <header className="h-16 border-b border-border px-4 flex items-center justify-between bg-card">
+    <div className="flex items-center gap-4">
+      <Button variant="ghost" size="icon" onClick={onToggleSidebar}>
+        <Menu className="h-5 w-5" />
+      </Button>
+
+      <motion.h1 initial=\&#123;&#123; opacity: 0, y: -10 &#125;\&#125; animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125;
+        className="text-xl font-semibold">
+        &#123;{project_name}&#125; AI Chat
+      </motion.h1>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            {theme === 'light' ? (
+            <Sun className="h-5 w-5" />
+            ) : theme === 'dark' ? (
+            <Moon className="h-5 w-5" />
+            ) : (
+            <Monitor className="h-5 w-5" />
+            )}
           </Button>
-          
-          <motion.h1 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-xl font-semibold"
-          >
-            {{name}} AI Chat
-          </motion.h1>
-        </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={()=> handleThemeChange('light')}>
+            <Sun className="mr-2 h-4 w-4" />
+            Light
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={()=> handleThemeChange('dark')}>
+            <Moon className="mr-2 h-4 w-4" />
+            Dark
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={()=> handleThemeChange('system')}>
+            <Monitor className="mr-2 h-4 w-4" />
+            System
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                {theme === 'light' ? (
-                  <Sun className="h-5 w-5" />
-                ) : theme === 'dark' ? (
-                  <Moon className="h-5 w-5" />
-                ) : (
-                  <Monitor className="h-5 w-5" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleThemeChange('light')}>
-                <Sun className="mr-2 h-4 w-4" />
-                Light
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleThemeChange('dark')}>
-                <Moon className="mr-2 h-4 w-4" />
-                Dark
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleThemeChange('system')}>
-                <Monitor className="mr-2 h-4 w-4" />
-                System
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      <Button variant="ghost" size="icon" onClick={()=> setSettingsOpen(true)}
+        >
+        <Settings className="h-5 w-5" />
+      </Button>
+    </div>
+  </header>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
-
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>AI Settings</DialogTitle>
-          </DialogHeader>
-          <AISettings onClose={() => setSettingsOpen(false)} />
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+  <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>AI Settings</DialogTitle>
+      </DialogHeader>
+      <AISettings onClose={()=> setSettingsOpen(false)} />
+    </DialogContent>
+  </Dialog>
+</>
+)
 }

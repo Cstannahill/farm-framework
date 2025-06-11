@@ -1,32 +1,123 @@
-version: '3.9' services: # MongoDB Database mongodb: image: mongo:7.0
-container_name:
-{{name}}-mongodb restart: unless-stopped ports: - "27017:27017" environment:
-MONGO_INITDB_DATABASE:
-{{name}}
-MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-} MONGO_INITDB_ROOT_PASSWORD:
-${MONGODB_PASSWORD:-} volumes: - mongodb_data:/data/db -
-mongodb_config:/data/configdb networks: -
-{{name}}-network # Ollama for Local AI ollama: image: ollama/ollama:latest
-container_name:
-{{name}}-ollama restart: unless-stopped ports: - "11434:11434" volumes: -
-ollama_data:/root/.ollama environment: - OLLAMA_KEEP_ALIVE=24h -
-OLLAMA_HOST=0.0.0.0 deploy: resources: reservations: devices: - driver: nvidia
-count: all capabilities: [gpu] networks: -
-{{name}}-network # Redis for caching (optional) redis: image: redis:7-alpine
-container_name:
-{{name}}-redis restart: unless-stopped ports: - "6379:6379" volumes: -
-redis_data:/data networks: -
-{{name}}-network # Nginx reverse proxy (production) nginx: image: nginx:alpine
-container_name:
-{{name}}-nginx restart: unless-stopped ports: - "80:80" - "443:443" volumes: -
-./nginx.conf:/etc/nginx/nginx.conf:ro - ./apps/web/dist:/usr/share/nginx/html:ro
-depends_on: - api networks: -
-{{name}}-network profiles: - production # API service (production) api: build:
-context: ./apps/api dockerfile: Dockerfile container_name:
-{{name}}-api restart: unless-stopped ports: - "8000:8000" environment: -
-DATABASE_URL=mongodb://mongodb:27017/{{name}}
-- OLLAMA_URL=http://ollama:11434 - REDIS_URL=redis://redis:6379 depends_on: -
-mongodb - ollama - redis volumes: - ./apps/api:/app networks: -
-{{name}}-network profiles: - production volumes: mongodb_data: mongodb_config:
-ollama_data: redis_data: networks:
-{{name}}-network: driver: bridge
+{{! templates/ai-chat/docker-compose.yml.hbs }}
+version: "3.9"
+
+services:
+  # ────────────────────────────────────────────────────────────────────────
+  # MongoDB
+  # ────────────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: {{project_name_kebab}}-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: "{{project_name_kebab}}"
+      # If user/password are *not* provided, Mongo runs in auth‑less mode.
+      MONGO_INITDB_ROOT_USERNAME: "${MONGODB_USER:-}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGODB_PASSWORD:-}"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - {{project_name_kebab}}-net
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Ollama (local AI back‑end)
+  # ────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: {{project_name_kebab}}-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    {{#if_feature "gpu"}}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    {{/if_feature}}
+    networks:
+      - {{project_name_kebab}}-net
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Redis (optional cache)
+  # ────────────────────────────────────────────────────────────────────────
+  {{#if_feature "redis"}}
+  redis:
+    image: redis:7-alpine
+    container_name: {{project_name_kebab}}-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - {{project_name_kebab}}-net
+  {{/if_feature}}
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Nginx reverse proxy (prod)
+  # ────────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: {{project_name_kebab}}-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./apps/web/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    networks:
+      - {{project_name_kebab}}-net
+    profiles:
+      - production
+
+  # ────────────────────────────────────────────────────────────────────────
+  # FastAPI back‑end (prod)
+  # ────────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: {{project_name_kebab}}-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mongodb://mongodb:27017/{{project_name_kebab}}
+      - OLLAMA_URL=http://ollama:11434
+      {{#if_feature "redis"}}
+      - REDIS_URL=redis://redis:6379
+      {{/if_feature}}
+    depends_on:
+      - mongodb
+      - ollama
+      {{#if_feature "redis"}}- redis{{/if_feature}}
+    volumes:
+      - ./apps/api:/app
+    networks:
+      - {{project_name_kebab}}-net
+    profiles:
+      - production
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+  ollama_data:
+  {{#if_feature "redis"}}redis_data:{{/if_feature}}
+
+networks:
+  {{project_name_kebab}}-net:
+    driver: bridge

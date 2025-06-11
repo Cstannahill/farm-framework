@@ -286,8 +286,7 @@ export function getConfiguration(configPath?: string) {
  */
 export function isInFarmProject(): boolean {
   try {
-    const fs = require("fs");
-    return fs.existsSync("farm.config.ts") || fs.existsSync("farm.config.js");
+    return existsSync("farm.config.ts") || existsSync("farm.config.js");
   } catch {
     return false;
   }

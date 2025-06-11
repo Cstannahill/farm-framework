@@ -1,108 +1,204 @@
-# templates/ai-chat/apps/api/src/ai/openai.py.hbs import os import json import
-logging from typing import AsyncGenerator, List, Dict, Any import httpx from
-.base import CloudAIProvider, ChatMessage, AIProviderError, ModelNotFoundError
-logger = logging.getLogger(__name__) class OpenAIProvider(CloudAIProvider):
-"""OpenAI API provider implementation""" def __init__( self, api_key: str =
-None, default_model: str = "{{ai.providers.openai.defaultModel}}",
-available_models: List[str] = None ): api_key = api_key or
-os.getenv("OPENAI_API_KEY") available_models = available_models or
-{{json ai.providers.openai.models}}
+# templates/ai-chat/apps/api/src/ai/openai.py.hbs
+import os
+import json
+import logging
+from typing import AsyncGenerator, List, Dict, Any
 
-if not api_key: raise ValueError("OpenAI API key is required")
-super().__init__(api_key, default_model, available_models) self.base_url =
-"https://api.openai.com/v1" self.timeout = 120.0 # 2 minutes for OpenAI requests
-def _get_headers(self) -> Dict[str, str]: """Get headers for OpenAI API
-requests""" return { "Authorization": f"Bearer {self.api_key}", "Content-Type":
-"application/json" } async def chat( self, messages: List[ChatMessage], model:
-str, **kwargs ) -> str: """Generate chat completion using OpenAI""" try: #
-Validate model if not self.validate_model(model): raise
-ModelNotFoundError(f"Model {model} not available in OpenAI") # Format request
-request_data = { "model": model, "messages": self.format_messages(messages) } #
-Add optional parameters if "temperature" in kwargs: request_data["temperature"]
-= kwargs["temperature"] if "max_tokens" in kwargs: request_data["max_tokens"] =
-kwargs["max_tokens"] # Add other OpenAI-specific parameters for param in
-["top_p", "frequency_penalty", "presence_penalty", "stop"]: if param in kwargs:
-request_data[param] = kwargs[param] logger.debug(f"OpenAI chat request to
-{model}") async with httpx.AsyncClient(timeout=self.timeout) as client: response
-= await client.post( f"{self.base_url}/chat/completions",
-headers=self._get_headers(), json=request_data ) response.raise_for_status()
-data = response.json() # Extract content if "choices" in data and
-len(data["choices"]) > 0: content = data["choices"][0]["message"]["content"]
-return content or "" else: logger.warning(f"No choices in OpenAI response for
-model {model}") return "I apologize, but I couldn't generate a response. Please
-try again." except httpx.HTTPStatusError as e: logger.error(f"OpenAI HTTP error:
-{e.response.status_code} - {e.response.text}") # Handle specific OpenAI errors
-if e.response.status_code == 401: raise AIProviderError("Invalid OpenAI API
-key") elif e.response.status_code == 429: raise AIProviderError("OpenAI rate
-limit exceeded") elif e.response.status_code == 400: error_data =
-e.response.json() if e.response.headers.get("content-type",
-"").startswith("application/json") else {} error_message =
-error_data.get("error", {}).get("message", "Bad request") raise
-AIProviderError(f"OpenAI request error: {error_message}") else: raise
-AIProviderError(f"OpenAI request failed: {e.response.status_code}") except
-httpx.RequestError as e: logger.error(f"OpenAI connection error: {str(e)}")
-raise AIProviderError(f"Failed to connect to OpenAI: {str(e)}") except Exception
-as e: logger.error(f"OpenAI chat error: {str(e)}") raise
-AIProviderError(f"OpenAI chat failed: {str(e)}") async def chat_stream( self,
-messages: List[ChatMessage], model: str, **kwargs ) -> AsyncGenerator[str,
-None]: """Stream chat completion using OpenAI""" try: # Validate model if not
-self.validate_model(model): raise ModelNotFoundError(f"Model {model} not
-available in OpenAI") # Format request request_data = { "model": model,
-"messages": self.format_messages(messages), "stream": True } # Add optional
-parameters if "temperature" in kwargs: request_data["temperature"] =
-kwargs["temperature"] if "max_tokens" in kwargs: request_data["max_tokens"] =
-kwargs["max_tokens"] # Add other OpenAI-specific parameters for param in
-["top_p", "frequency_penalty", "presence_penalty", "stop"]: if param in kwargs:
-request_data[param] = kwargs[param] logger.debug(f"OpenAI stream request to
-{model}") async with httpx.AsyncClient(timeout=self.timeout) as client: async
-with client.stream( "POST", f"{self.base_url}/chat/completions",
-headers=self._get_headers(), json=request_data ) as response:
-response.raise_for_status() async for line in response.aiter_lines(): if
-line.startswith("data: "): data_str = line[6:] # Remove "data: " prefix # Check
-for end of stream if data_str.strip() == "[DONE]": break try: data =
-json.loads(data_str) # Extract content delta if "choices" in data and
-len(data["choices"]) > 0: delta = data["choices"][0].get("delta", {}) content =
-delta.get("content") if content: yield content except json.JSONDecodeError as e:
-logger.warning(f"Failed to parse OpenAI stream line: {data_str}") continue
-except httpx.HTTPStatusError as e: logger.error(f"OpenAI HTTP error:
-{e.response.status_code} - {e.response.text}") # Handle specific errors if
-e.response.status_code == 401: raise AIProviderError("Invalid OpenAI API key")
-elif e.response.status_code == 429: raise AIProviderError("OpenAI rate limit
-exceeded") else: raise AIProviderError(f"OpenAI stream failed:
-{e.response.status_code}") except httpx.RequestError as e: logger.error(f"OpenAI
-connection error: {str(e)}") raise AIProviderError(f"Failed to connect to
-OpenAI: {str(e)}") except Exception as e: logger.error(f"OpenAI stream error:
-{str(e)}") raise AIProviderError(f"OpenAI stream failed: {str(e)}") async def
-list_models(self) -> List[str]: """List available models from OpenAI""" try:
-async with httpx.AsyncClient(timeout=30.0) as client: response = await
-client.get( f"{self.base_url}/models", headers=self._get_headers() )
-response.raise_for_status() data = response.json() # Filter to chat models only
-models = [] for model in data.get("data", []): model_id = model.get("id", "") #
-Include GPT models and other chat-capable models if any(prefix in model_id for
-prefix in ["gpt-", "text-davinci-", "claude-"]): models.append(model_id)
-logger.debug(f"OpenAI available models: {models}") return models except
-httpx.HTTPStatusError as e: logger.error(f"OpenAI list models HTTP error:
-{e.response.status_code}") # Return configured models as fallback return
-self.available_models except httpx.RequestError as e: logger.error(f"OpenAI
-connection error: {str(e)}") return self.available_models except Exception as e:
-logger.error(f"Failed to list OpenAI models: {str(e)}") return
-self.available_models async def health_check(self) -> bool: """Check if OpenAI
-API is accessible""" try: async with httpx.AsyncClient(timeout=10.0) as client:
-response = await client.get( f"{self.base_url}/models",
-headers=self._get_headers() ) return response.status_code == 200 except
-Exception as e: logger.debug(f"OpenAI health check failed: {str(e)}") return
-False async def get_model_info(self, model: str) -> Dict[str, Any]: """Get
-detailed information about a model""" try: async with
-httpx.AsyncClient(timeout=30.0) as client: response = await client.get(
-f"{self.base_url}/models/{model}", headers=self._get_headers() ) if
-response.status_code == 200: data = response.json() return { "name": model,
-"provider": "openai", "id": data.get("id"), "created": data.get("created"),
-"owned_by": data.get("owned_by"), "available": True } else: return { "name":
-model, "provider": "openai", "available": False, "error": f"HTTP
-{response.status_code}" } except Exception as e: logger.error(f"Failed to get
-model info for {model}: {str(e)}") return { "name": model, "provider": "openai",
-"available": False, "error": str(e) } async def estimate_tokens(self, text: str)
--> int: """ Estimate token count for OpenAI models More accurate approximation
-based on OpenAI's tokenization """ # More accurate approximation for OpenAI
-models # Average is about 3.3 characters per token for English text return
-len(text) // 3
+import httpx
+
+from .base import (
+    CloudAIProvider,
+    ChatMessage,
+    AIProviderError,
+    ModelNotFoundError,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class OpenAIProvider(CloudAIProvider):
+    """OpenAI API provider implementation"""
+
+    def __init__(
+        self,
+        api_key: str = None,
+        default_model: str = "{{ai.providers.openai.defaultModel}}",
+        available_models: List[str] = None,
+    ):
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+
+        {{#if ai.providers.openai.models}}
+        # User‑supplied models
+        available_models = available_models or {{{json ai.providers.openai.models}}}
+        {{else}}
+        # Fallback to empty list so Python stays valid
+        available_models = available_models or []
+        {{/if}}
+
+        if not api_key:
+            raise ValueError("OpenAI API key is required")
+
+        super().__init__(api_key, default_model, available_models)
+        self.base_url = "https://api.openai.com/v1"
+        self.timeout = 120.0  # 2 min per request
+
+    # ════════════════════════ helpers ════════════════════════
+    def _get_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+    # ═════════════════════ text‑completions ══════════════════
+    async def chat(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        **kwargs,
+    ) -> str:
+        """Single‑shot chat completion."""
+        try:
+            if not self.validate_model(model):
+                raise ModelNotFoundError(f"Model {model} not available in OpenAI")
+
+            request = {
+                "model": model,
+                "messages": self.format_messages(messages),
+            }
+
+            # optional params
+            for param in (
+                "temperature",
+                "max_tokens",
+                "top_p",
+                "frequency_penalty",
+                "presence_penalty",
+                "stop",
+            ):
+                if param in kwargs:
+                    request[param] = kwargs[param]
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                r = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._get_headers(),
+                    json=request,
+                )
+                r.raise_for_status()
+                data = r.json()
+
+            if data.get("choices"):
+                return data["choices"][0]["message"]["content"] or ""
+
+            logger.warning("Empty response from OpenAI")
+            return (
+                "I’m sorry, but I couldn’t generate a response. Please try again later."
+            )
+
+        # ----- error handling -----
+        except httpx.HTTPStatusError as e:
+            await self._handle_http_error(e)
+        except httpx.RequestError as e:
+            raise AIProviderError(f"Connection error: {str(e)}") from e
+        except Exception as e:
+            raise AIProviderError(f"OpenAI chat failed: {str(e)}") from e
+
+    # ═════════════════════ streaming completions ═════════════
+    async def chat_stream(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Stream chat completion."""
+        if not self.validate_model(model):
+            raise ModelNotFoundError(f"Model {model} not available in OpenAI")
+
+        request = {
+            "model": model,
+            "messages": self.format_messages(messages),
+            "stream": True,
+        }
+
+        for param in (
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+        ):
+            if param in kwargs:
+                request[param] = kwargs[param]
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers=self._get_headers(),
+                    json=request,
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            payload = line[6:].strip()
+                            if payload == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(payload)
+                                delta = chunk["choices"][0]["delta"]
+                                if "content" in delta:
+                                    yield delta["content"]
+                            except json.JSONDecodeError:
+                                logger.debug(f"Bad JSON chunk: {payload}")
+                                continue
+        except httpx.HTTPStatusError as e:
+            await self._handle_http_error(e)
+        except httpx.RequestError as e:
+            raise AIProviderError(f"Connection error: {str(e)}") from e
+        except Exception as e:
+            raise AIProviderError(f"OpenAI stream failed: {str(e)}") from e
+
+    # ═════════════════════ metadata / health ═════════════════
+    async def list_models(self) -> List[str]:
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.get(
+                    f"{self.base_url}/models", headers=self._get_headers()
+                )
+                r.raise_for_status()
+                data = r.json()
+            return [m["id"] for m in data.get("data", [])]
+        except Exception as e:
+            logger.error(f"List models failed: {str(e)}")
+            return self.available_models
+
+    async def health_check(self) -> bool:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(
+                    f"{self.base_url}/models", headers=self._get_headers()
+                )
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    # ═════════════════════ utils ═════════════════════════════
+    async def _handle_http_error(self, err: httpx.HTTPStatusError):
+        status = err.response.status_code
+        text = err.response.text
+        logger.error(f"OpenAI HTTP {status}: {text}")
+
+        if status == 401:
+            raise AIProviderError("Invalid OpenAI API key") from err
+        if status == 429:
+            raise AIProviderError("OpenAI rate limit exceeded") from err
+        if status == 400:
+            try:
+                msg = err.response.json().get("error", {}).get("message", "Bad request")
+            except Exception:  # pragma: no cover
+                msg = "Bad request"
+            raise AIProviderError(f"OpenAI error: {msg}") from err
+
+        raise AIProviderError(f"OpenAI request failed: HTTP {status}") from err

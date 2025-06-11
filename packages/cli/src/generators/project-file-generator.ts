@@ -1,6 +1,5 @@
 // packages/cli/src/generators/project-file-generator.ts
 import { join, dirname } from "path";
-import { mkdir, writeFile } from "fs/promises";
 import {
   TemplateDefinition,
   TemplateFile,
@@ -9,11 +8,12 @@ import {
 import { ProjectStructureGenerator } from "./project-structure.js";
 import { registerHandlebarsHelpers } from "../template/helpers.js";
 import { moduleDirname } from "../utils/modulePath.js";
-import fs from "fs-extra";
+import fsExtra from "fs-extra";
 import path from "path";
 import Handlebars from "handlebars";
 import chalk from "chalk";
 import prettier from "prettier";
+import { formatPython } from "../postProcessors/pythonFormatter.js";
 
 const __dirname = moduleDirname(import.meta.url);
 
@@ -27,22 +27,58 @@ export interface ProjectFileGeneratorHooks {
 
 export class ProjectFileGenerator {
   private structureGenerator = new ProjectStructureGenerator();
+
   hooks?: ProjectFileGeneratorHooks = {
     postGenerate: async (context, generatedFiles) => {
-      const prettierConfig = await prettier.resolveConfig(process.cwd());
-      const projectRoot = context.projectPath || process.cwd();
+      // Use the actual project path passed to generateFromTemplate
+      const projectRoot = this.currentProjectPath || process.cwd();
+
+      console.log(
+        chalk.blue(`🎨 Formatting ${generatedFiles.length} files...`)
+      );
+
+      // Format Python files first
+      await formatPython({
+        projectRoot,
+        verbose: true,
+      });
+
+      // Then format other files with Prettier
+      const prettierConfig = await prettier.resolveConfig(projectRoot);
+
       for (const file of generatedFiles) {
+        // Skip Python files (already handled above)
+        if (file.endsWith(".py")) {
+          continue;
+        }
         const absPath = path.resolve(projectRoot, file);
         try {
-          const content = await fs.readFile(absPath, "utf-8");
+          let content = await fsExtra.readFile(absPath, "utf-8"); // Convert HTML entities back to proper JavaScript syntax for TypeScript/JavaScript files
+          if (
+            file.endsWith(".tsx") ||
+            file.endsWith(".ts") ||
+            file.endsWith(".jsx") ||
+            file.endsWith(".js")
+          ) {
+            content = content.replace(/&#123;/g, "{");
+            content = content.replace(/&#125;/g, "}");
+            // Also fix backslash escapes that might be present
+            content = content.replace(/\\{/g, "{");
+            content = content.replace(/\\}/g, "}");
+            // Write the converted content back to the file
+            await fsExtra.writeFile(absPath, content);
+          }
+
+          // Handle other files with Prettier
           const info = await prettier.getFileInfo(absPath);
           if (info.ignored || info.inferredParser == null) continue;
+
           // prettier.format is now async in Prettier 3.x, so we must await it
           const formatted = await prettier.format(content, {
             ...prettierConfig,
             filepath: absPath,
           });
-          await fs.writeFile(absPath, formatted);
+          await fsExtra.writeFile(absPath, formatted);
           console.log(chalk.green(`✨ Formatted: ${file}`));
         } catch (err) {
           console.warn(chalk.yellow(`⚠️ Could not format ${file}: ${err}`));
@@ -50,13 +86,16 @@ export class ProjectFileGenerator {
       }
     },
   };
-
+  private currentProjectPath?: string;
   async generateFromTemplate(
     projectPath: string,
     context: TemplateContext,
     template: TemplateDefinition
   ): Promise<string[]> {
     const generatedFiles: string[] = [];
+
+    // Store the project path for use in hooks
+    this.currentProjectPath = projectPath;
 
     // Pre-generation hook
     if (this.hooks?.preGenerate) {
@@ -81,10 +120,8 @@ export class ProjectFileGenerator {
     );
     for (const fileConfig of filesToGenerate) {
       if (this.shouldIncludeFile(fileConfig, context)) {
-        const dest = join(projectPath, fileConfig.dest);
-
-        // Ensure directory exists
-        await mkdir(dirname(dest), { recursive: true });
+        const dest = join(projectPath, fileConfig.dest); // Ensure directory exists
+        await fsExtra.ensureDir(dirname(dest));
 
         // Generate file content
         const content = await this.generateFileContent(
@@ -94,7 +131,7 @@ export class ProjectFileGenerator {
         );
 
         // Write file
-        await writeFile(dest, content);
+        await fsExtra.writeFile(dest, content);
         generatedFiles.push(fileConfig.dest);
 
         console.log(`✅ Generated: ${fileConfig.dest}`);
@@ -108,24 +145,19 @@ export class ProjectFileGenerator {
 
     return generatedFiles;
   }
-
   // Generate the list of files to create based on context
   private generateFileList(context: TemplateContext): TemplateFile[] {
-    const fs = require("fs");
-    const path = require("path");
     const templateRoot = path.resolve(
       __dirname,
       "../../../templates",
       context.template
-    );
-
-    // 1. Recursively grab every *.hbs under the template directory
+    ); // 1. Recursively grab every *.hbs under the template directory
     function walk(dir: string): string[] {
       let results: string[] = [];
-      const list = fs.readdirSync(dir);
+      const list = fsExtra.readdirSync(dir);
       list.forEach((file: string) => {
         const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
+        const stat = fsExtra.statSync(filePath);
         if (stat && stat.isDirectory()) {
           results = results.concat(walk(filePath));
         } else if (file.endsWith(".hbs")) {
@@ -169,23 +201,20 @@ export class ProjectFileGenerator {
     }
     return !fileConfig.condition || !!fileConfig.condition;
   }
-
   // Error reporting & validation for missing/malformed template files
   private validateTemplateFiles(
     files: TemplateFile[],
     context: TemplateContext
   ) {
-    const templateRoot = path.resolve(
-      __dirname,
-      "../../../templates",
-      context.template
-    );
+    const templateRoot = path.resolve(__dirname, "../../../templates");
     let hasError = false;
     files.forEach((file) => {
-      const filePath = path.join(templateRoot, file.dest + ".hbs");
-      if (!fs.existsSync(filePath)) {
-        console.error(chalk.red(`❌ Template file missing: ${filePath}`));
-        hasError = true;
+      if (file.src) {
+        const filePath = path.join(templateRoot, file.src);
+        if (!fsExtra.existsSync(filePath)) {
+          console.error(chalk.red(`❌ Template file missing: ${filePath}`));
+          hasError = true;
+        }
       }
     });
     if (hasError) {
@@ -207,10 +236,9 @@ export class ProjectFileGenerator {
         "../../../templates",
         fileConfig.src
       );
-
-      if (await fs.pathExists(templatePath)) {
+      if (await fsExtra.pathExists(templatePath)) {
         try {
-          const templateContent = await fs.readFile(templatePath, "utf-8");
+          const templateContent = await fsExtra.readFile(templatePath, "utf-8");
 
           // Create handlebars instance with registered helpers
           const handlebars = Handlebars.create();

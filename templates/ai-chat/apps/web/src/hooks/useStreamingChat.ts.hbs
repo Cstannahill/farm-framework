@@ -1,25 +1,25 @@
-import { useState, useCallback, useRef } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from '../services/api'
-import { Message, ChatCompletionRequest } from '../types'
-import { useChatStore } from '../stores/chatStore'
-import { useAIStore } from '../stores/aiStore'
-import { useSettingsStore } from '../stores/settingsStore'
+import { useState, useCallback, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../services/api';
+import { Message, ChatCompletionRequest } from '../types';
+import { useChatStore } from '../stores/chatStore';
+import { useAIStore } from '../stores/aiStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 export function useStreamingChat(conversationId: string | null) {
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const queryClient = useQueryClient()
-  
-  const { 
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
     setStreamingMessage, 
     clearStreamingMessage,
     setCurrentConversationId 
-  } = useChatStore()
-  
-  const { selectedProvider, selectedModel, temperature, maxTokens } = useAIStore()
-  const { streamResponses } = useSettingsStore()
+  } = useChatStore();
+
+  const { selectedProvider, selectedModel, temperature, maxTokens } = useAIStore();
+  const { streamResponses } = useSettingsStore();
 
   // Fetch messages for current conversation
   const { data: messages = [] } = useQuery({

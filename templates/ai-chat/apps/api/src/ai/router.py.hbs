@@ -1,154 +1,436 @@
-# templates/ai-chat/apps/api/src/ai/router.py.hbs from fastapi import APIRouter,
-HTTPException, BackgroundTasks, Depends from fastapi.responses import
-StreamingResponse from typing import List, Optional, Dict, Any import json
-import logging from datetime import datetime from .manager import get_ai_manager
-from ..models.ai import ( ChatRequest, ChatResponse, StreamChatRequest,
-GenerateRequest, GenerateResponse, ModelInfo, ProviderStatus, LoadModelRequest,
-ModelListResponse, HealthCheckResponse, ErrorResponse )
+# templates/ai-chat/apps/api/src/ai/router.py.hbs
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi.responses import StreamingResponse
+from typing import List, Optional, Dict, Any
+import json
+import logging
+from datetime import datetime
+
+from .manager import get_ai_manager
+from ..models.ai import (
+    ChatRequest, ChatResponse, StreamChatRequest, 
+    GenerateRequest, GenerateResponse, ModelInfo, 
+    ProviderStatus, LoadModelRequest, ModelListResponse,
+    HealthCheckResponse, ErrorResponse
+)
 {{#if features.auth}}
-  from ..models.user import User from ..core.security import get_current_user
+from ..models.user import User
+from ..core.security import get_current_user
 {{/if}}
 
-router = APIRouter(prefix="/ai", tags=["AI"]) logger =
-logging.getLogger(__name__) @router.post("/chat", response_model=ChatResponse)
-async def chat_completion( request: ChatRequest{{#if features.auth}},
-  current_user: User = Depends(get_current_user){{/if}}
-): """Generate chat completion using specified or default provider""" try: # Get
-AI manager and provider ai_manager = await get_ai_manager() provider_name =
-request.provider or ai_manager.get_default_provider() provider =
-ai_manager.get_provider(provider_name) if not provider: raise HTTPException(
-status_code=400, detail=f"Provider {provider_name} not available" ) # Get model
-model = request.model or await provider.get_default_model() # Build message list
-messages = [] if request.system_prompt: messages.append({"role": "system",
-"content": request.system_prompt}) messages.append({"role": "user", "content":
-request.message}) # Convert to ChatMessage objects from .base import ChatMessage
-chat_messages = [ChatMessage(**msg) for msg in messages]
-logger.info(f"Generating chat completion with {provider_name}/{model}") #
-Generate response response_content = await provider.chat(
-messages=chat_messages, model=model, temperature=request.temperature,
-max_tokens=request.max_tokens, top_p=request.top_p,
-frequency_penalty=request.frequency_penalty,
-presence_penalty=request.presence_penalty ) return ChatResponse(
-id=f"msg_{datetime.utcnow().timestamp()}",
-conversation_id=request.conversation_id or
-f"conv_{datetime.utcnow().timestamp()}", message=response_content,
-provider=provider_name, model=model, timestamp=datetime.utcnow(), metadata={
-"temperature": request.temperature, "max_tokens": request.max_tokens } ) except
-Exception as e: logger.error(f"Chat completion failed: {str(e)}") raise
-HTTPException( status_code=500, detail=f"Chat completion failed: {str(e)}" )
-@router.post("/chat/stream") async def chat_completion_stream(request:
-StreamChatRequest): """Stream chat completion using specified or default
-provider""" try: # Get AI manager and provider ai_manager = await
-get_ai_manager() provider_name = request.provider or
-ai_manager.get_default_provider() provider =
-ai_manager.get_provider(provider_name) if not provider: raise HTTPException(
-status_code=400, detail=f"Provider {provider_name} not available" ) async def
-generate_stream(): """Generate streaming response""" try: logger.info(f"Starting
-stream with {provider_name}/{request.model}") async for chunk in
-provider.chat_stream( messages=request.messages, model=request.model,
-temperature=request.temperature, max_tokens=request.max_tokens,
-top_p=request.top_p ): if chunk: yield f"data: {json.dumps({'content': chunk,
-'done': False})}\n\n" # Send completion signal yield f"data:
-{json.dumps({'content': '', 'done': True})}\n\n" except Exception as e:
-logger.error(f"Stream error: {str(e)}") yield f"data: {json.dumps({'error':
-str(e), 'done': True})}\n\n" return StreamingResponse( generate_stream(),
-media_type="text/event-stream", headers={ "Cache-Control": "no-cache",
-"Connection": "keep-alive", "X-Accel-Buffering": "no" } ) except Exception as e:
-logger.error(f"Stream setup failed: {str(e)}") raise HTTPException(
-status_code=500, detail=f"Stream setup failed: {str(e)}" )
-@router.post("/generate", response_model=GenerateResponse) async def
-text_generation(request: GenerateRequest): """Generate text completion (non-chat
-format)""" try: # Get AI manager and provider ai_manager = await
-get_ai_manager() provider_name = request.provider or
-ai_manager.get_default_provider() provider =
-ai_manager.get_provider(provider_name) if not provider: raise HTTPException(
-status_code=400, detail=f"Provider {provider_name} not available" ) # Convert
-prompt to chat format from .base import ChatMessage messages =
-[ChatMessage(role="user", content=request.prompt)] # Generate response
-response_content = await provider.chat( messages=messages, model=request.model,
-temperature=request.temperature, max_tokens=request.max_tokens ) return
-GenerateResponse( text=response_content, model=request.model,
-provider=provider_name ) except Exception as e: logger.error(f"Text generation
-failed: {str(e)}") raise HTTPException( status_code=500, detail=f"Text
-generation failed: {str(e)}" ) @router.get("/models",
-response_model=ModelListResponse) async def list_models(provider: Optional[str]
-= None): """List available models for a provider or all providers""" try:
-ai_manager = await get_ai_manager() if provider: # Get models for specific
-provider provider_instance = ai_manager.get_provider(provider) if not
-provider_instance: raise HTTPException( status_code=404, detail=f"Provider
-{provider} not found" ) models = await provider_instance.list_models()
-model_infos = [] for model in models: model_info = await
-provider_instance.get_model_info(model)
-model_infos.append(ModelInfo(**model_info)) return ModelListResponse(
-models=model_infos, providers=[provider] ) else: # Get models from all providers
-all_models = [] all_providers = [] for provider_name in
-ai_manager.providers.keys(): try: provider_instance =
-ai_manager.get_provider(provider_name) models = await
-provider_instance.list_models() all_providers.append(provider_name) for model in
-models: model_info = await provider_instance.get_model_info(model)
-all_models.append(ModelInfo(**model_info)) except Exception as e:
-logger.warning(f"Failed to get models for {provider_name}: {str(e)}") continue
-return ModelListResponse( models=all_models, providers=all_providers ) except
-HTTPException: raise except Exception as e: logger.error(f"Failed to list
-models: {str(e)}") raise HTTPException( status_code=500, detail=f"Failed to list
-models: {str(e)}" ) @router.get("/health", response_model=HealthCheckResponse)
-async def health_check(): """Check health of all AI providers""" try: ai_manager
-= await get_ai_manager() health_results = await ai_manager.health_check_all()
-providers = {} for name, is_healthy in health_results.items(): provider_instance
-= ai_manager.get_provider(name) if provider_instance: try: models = await
-provider_instance.list_models() default_model = await
-provider_instance.get_default_model() except Exception: models = []
-default_model = None providers[name] = ProviderStatus( name=name,
-status="healthy" if is_healthy else "unhealthy", models=models,
-default_model=default_model ) else: providers[name] = ProviderStatus( name=name,
-status="unknown", models=[], default_model=None ) return HealthCheckResponse(
-providers=providers, default_provider=ai_manager.get_default_provider() ) except
-Exception as e: logger.error(f"Health check failed: {str(e)}") raise
-HTTPException( status_code=500, detail=f"Health check failed: {str(e)}" )
-@router.post("/models/{model_name}/load") async def load_model( model_name: str,
-request: LoadModelRequest, background_tasks: BackgroundTasks ): """Load a
-specific model in the background""" try: ai_manager = await get_ai_manager()
-provider = ai_manager.get_provider(request.provider) if not provider: raise
-HTTPException( status_code=404, detail=f"Provider {request.provider} not found"
-) # Load model in background to avoid request timeout
-background_tasks.add_task(provider.load_model, model_name) return { "message":
-f"Loading model {model_name} on {request.provider}...", "model": model_name,
-"provider": request.provider, "status": "loading" } except HTTPException: raise
-except Exception as e: logger.error(f"Failed to load model {model_name}:
-{str(e)}") raise HTTPException( status_code=500, detail=f"Failed to load model:
-{str(e)}" ) @router.delete("/models/{model_name}") async def
-unload_model(model_name: str, provider: Optional[str] = None): """Unload a
-specific model to free resources""" try: ai_manager = await get_ai_manager()
-provider_instance = ai_manager.get_provider(provider) if not provider_instance:
-raise HTTPException( status_code=404, detail=f"Provider {provider} not found" )
-success = await provider_instance.unload_model(model_name) if success: return {
-"message": f"Model {model_name} unloaded successfully", "model": model_name,
-"provider": provider or ai_manager.get_default_provider() } else: return {
-"message": f"Model unloading not supported by {provider}", "model": model_name,
-"provider": provider or ai_manager.get_default_provider() } except
-HTTPException: raise except Exception as e: logger.error(f"Failed to unload
-model {model_name}: {str(e)}") raise HTTPException( status_code=500,
-detail=f"Failed to unload model: {str(e)}" ) @router.get("/providers") async def
-list_providers(): """List all configured AI providers and their status""" try:
-ai_manager = await get_ai_manager() providers_info = {} for name in
-ai_manager.providers.keys(): try: provider = ai_manager.get_provider(name)
-is_healthy = await provider.health_check() models = await provider.list_models()
-default_model = await provider.get_default_model() providers_info[name] = {
-"name": name, "status": "healthy" if is_healthy else "unhealthy", "models":
-models, "default_model": default_model, "is_default": name ==
-ai_manager.get_default_provider() } except Exception as e:
-logger.warning(f"Error getting info for provider {name}: {str(e)}")
-providers_info[name] = { "name": name, "status": "error", "models": [],
-"default_model": None, "is_default": False, "error": str(e) } return
-providers_info except Exception as e: logger.error(f"Failed to list providers:
-{str(e)}") raise HTTPException( status_code=500, detail=f"Failed to list
-providers: {str(e)}" ) @router.post("/reload") async def reload_providers():
-"""Reload all AI providers (useful for development)""" try: ai_manager = await
-get_ai_manager() await ai_manager.reload_providers() return { "message": "AI
-providers reloaded successfully", "providers":
-list(ai_manager.providers.keys()), "default_provider":
-ai_manager.get_default_provider(), "timestamp": datetime.utcnow().isoformat() }
-except Exception as e: logger.error(f"Failed to reload providers: {str(e)}")
-raise HTTPException( status_code=500, detail=f"Failed to reload providers:
-{str(e)}" ) # Convenience function to get the AI router def get_ai_router() ->
-APIRouter: """Get the AI router instance""" return router
+router = APIRouter(prefix="/ai", tags=["AI"])
+logger = logging.getLogger(__name__)
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat_completion(
+    request: ChatRequest{{#if features.auth}},
+    current_user: User = Depends(get_current_user){{/if}}
+):
+    """Generate chat completion using specified or default provider"""
+    
+    try:
+        # Get AI manager and provider
+        ai_manager = await get_ai_manager()
+        provider_name = request.provider or ai_manager.get_default_provider()
+        provider = ai_manager.get_provider(provider_name)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider {provider_name} not available"
+            )
+        
+        # Get model
+        model = request.model or await provider.get_default_model()
+        
+        # Build message list
+        messages = []
+        if request.system_prompt:
+            messages.append({"role": "system", "content": request.system_prompt})
+        
+        messages.append({"role": "user", "content": request.message})
+        
+        # Convert to ChatMessage objects
+        from .base import ChatMessage
+        chat_messages = [ChatMessage(**msg) for msg in messages]
+        
+        logger.info(f"Generating chat completion with {provider_name}/{model}")
+        
+        # Generate response
+        response_content = await provider.chat(
+            messages=chat_messages,
+            model=model,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            frequency_penalty=request.frequency_penalty,
+            presence_penalty=request.presence_penalty
+        )
+        
+        return ChatResponse(
+            id=f"msg_{datetime.utcnow().timestamp()}",
+            conversation_id=request.conversation_id or f"conv_{datetime.utcnow().timestamp()}",
+            message=response_content,
+            provider=provider_name,
+            model=model,
+            timestamp=datetime.utcnow(),
+            metadata={
+                "temperature": request.temperature,
+                "max_tokens": request.max_tokens
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Chat completion failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat completion failed: {str(e)}"
+        )
+
+@router.post("/chat/stream")
+async def chat_completion_stream(request: StreamChatRequest):
+    """Stream chat completion using specified or default provider"""
+    
+    try:
+        # Get AI manager and provider
+        ai_manager = await get_ai_manager()
+        provider_name = request.provider or ai_manager.get_default_provider()
+        provider = ai_manager.get_provider(provider_name)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider {provider_name} not available"
+            )
+        
+        async def generate_stream():
+            """Generate streaming response"""
+            try:
+                logger.info(f"Starting stream with {provider_name}/{request.model}")
+                
+                async for chunk in provider.chat_stream(
+                    messages=request.messages,
+                    model=request.model,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    top_p=request.top_p
+                ):
+                    if chunk:
+                        yield f"data: {json.dumps({'content': chunk, 'done': False})}\n\n"
+                
+                # Send completion signal
+                yield f"data: {json.dumps({'content': '', 'done': True})}\n\n"
+                
+            except Exception as e:
+                logger.error(f"Stream error: {str(e)}")
+                yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Stream setup failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stream setup failed: {str(e)}"
+        )
+
+@router.post("/generate", response_model=GenerateResponse)
+async def text_generation(request: GenerateRequest):
+    """Generate text completion (non-chat format)"""
+    
+    try:
+        # Get AI manager and provider
+        ai_manager = await get_ai_manager()
+        provider_name = request.provider or ai_manager.get_default_provider()
+        provider = ai_manager.get_provider(provider_name)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider {provider_name} not available"
+            )
+        
+        # Convert prompt to chat format
+        from .base import ChatMessage
+        messages = [ChatMessage(role="user", content=request.prompt)]
+        
+        # Generate response
+        response_content = await provider.chat(
+            messages=messages,
+            model=request.model,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens
+        )
+        
+        return GenerateResponse(
+            text=response_content,
+            model=request.model,
+            provider=provider_name
+        )
+        
+    except Exception as e:
+        logger.error(f"Text generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Text generation failed: {str(e)}"
+        )
+
+@router.get("/models", response_model=ModelListResponse)
+async def list_models(provider: Optional[str] = None):
+    """List available models for a provider or all providers"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        
+        if provider:
+            # Get models for specific provider
+            provider_instance = ai_manager.get_provider(provider)
+            if not provider_instance:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Provider {provider} not found"
+                )
+            
+            models = await provider_instance.list_models()
+            model_infos = []
+            
+            for model in models:
+                model_info = await provider_instance.get_model_info(model)
+                model_infos.append(ModelInfo(**model_info))
+            
+            return ModelListResponse(
+                models=model_infos,
+                providers=[provider]
+            )
+        
+        else:
+            # Get models from all providers
+            all_models = []
+            all_providers = []
+            
+            for provider_name in ai_manager.providers.keys():
+                try:
+                    provider_instance = ai_manager.get_provider(provider_name)
+                    models = await provider_instance.list_models()
+                    all_providers.append(provider_name)
+                    
+                    for model in models:
+                        model_info = await provider_instance.get_model_info(model)
+                        all_models.append(ModelInfo(**model_info))
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to get models for {provider_name}: {str(e)}")
+                    continue
+            
+            return ModelListResponse(
+                models=all_models,
+                providers=all_providers
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list models: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list models: {str(e)}"
+        )
+
+@router.get("/health", response_model=HealthCheckResponse)
+async def health_check():
+    """Check health of all AI providers"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        health_results = await ai_manager.health_check_all()
+        
+        providers = {}
+        for name, is_healthy in health_results.items():
+            provider_instance = ai_manager.get_provider(name)
+            
+            if provider_instance:
+                try:
+                    models = await provider_instance.list_models()
+                    default_model = await provider_instance.get_default_model()
+                except Exception:
+                    models = []
+                    default_model = None
+                
+                providers[name] = ProviderStatus(
+                    name=name,
+                    status="healthy" if is_healthy else "unhealthy",
+                    models=models,
+                    default_model=default_model
+                )
+            else:
+                providers[name] = ProviderStatus(
+                    name=name,
+                    status="unknown",
+                    models=[],
+                    default_model=None
+                )
+        
+        return HealthCheckResponse(
+            providers=providers,
+            default_provider=ai_manager.get_default_provider()
+        )
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {str(e)}"
+        )
+
+@router.post("/models/{model_name}/load")
+async def load_model(
+    model_name: str,
+    request: LoadModelRequest,
+    background_tasks: BackgroundTasks
+):
+    """Load a specific model in the background"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        provider = ai_manager.get_provider(request.provider)
+        
+        if not provider:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Provider {request.provider} not found"
+            )
+        
+        # Load model in background to avoid request timeout
+        background_tasks.add_task(provider.load_model, model_name)
+        
+        return {
+            "message": f"Loading model {model_name} on {request.provider}...",
+            "model": model_name,
+            "provider": request.provider,
+            "status": "loading"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to load model {model_name}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load model: {str(e)}"
+        )
+
+@router.delete("/models/{model_name}")
+async def unload_model(model_name: str, provider: Optional[str] = None):
+    """Unload a specific model to free resources"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        provider_instance = ai_manager.get_provider(provider)
+        
+        if not provider_instance:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Provider {provider} not found"
+            )
+        
+        success = await provider_instance.unload_model(model_name)
+        
+        if success:
+            return {
+                "message": f"Model {model_name} unloaded successfully",
+                "model": model_name,
+                "provider": provider or ai_manager.get_default_provider()
+            }
+        else:
+            return {
+                "message": f"Model unloading not supported by {provider}",
+                "model": model_name,
+                "provider": provider or ai_manager.get_default_provider()
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to unload model {model_name}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to unload model: {str(e)}"
+        )
+
+@router.get("/providers")
+async def list_providers():
+    """List all configured AI providers and their status"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        providers_info = {}
+        
+        for name in ai_manager.providers.keys():
+            try:
+                provider = ai_manager.get_provider(name)
+                is_healthy = await provider.health_check()
+                models = await provider.list_models()
+                default_model = await provider.get_default_model()
+                
+                providers_info[name] = {
+                    "name": name,
+                    "status": "healthy" if is_healthy else "unhealthy",
+                    "models": models,
+                    "default_model": default_model,
+                    "is_default": name == ai_manager.get_default_provider()
+                }
+                
+            except Exception as e:
+                logger.warning(f"Error getting info for provider {name}: {str(e)}")
+                providers_info[name] = {
+                    "name": name,
+                    "status": "error",
+                    "models": [],
+                    "default_model": None,
+                    "is_default": False,
+                    "error": str(e)
+                }
+        
+        return providers_info
+        
+    except Exception as e:
+        logger.error(f"Failed to list providers: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list providers: {str(e)}"
+        )
+
+@router.post("/reload")
+async def reload_providers():
+    """Reload all AI providers (useful for development)"""
+    
+    try:
+        ai_manager = await get_ai_manager()
+        await ai_manager.reload_providers()
+        
+        return {
+            "message": "AI providers reloaded successfully",
+            "providers": list(ai_manager.providers.keys()),
+            "default_provider": ai_manager.get_default_provider(),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to reload providers: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reload providers: {str(e)}"
+        )
+
+# Convenience function to get the AI router
+def get_ai_router() -> APIRouter:
+    """Get the AI router instance"""
+    return router

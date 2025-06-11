@@ -1,94 +1,214 @@
-# templates/ai-chat/apps/api/src/core/config.py.hbs import os from typing import
-List, Optional from pydantic import BaseSettings, validator from functools
-import lru_cache class Settings(BaseSettings): """Application settings with
-environment variable support""" # Application APP_NAME: str = "{{name}}"
-VERSION: str = "1.0.0" ENVIRONMENT: str = "development" DEBUG: bool = True #
-Server HOST: str = "0.0.0.0" PORT: int = 8000 WORKERS: int = 1 # Database
-DATABASE_URL: str = "{{database.url}}" DATABASE_NAME: str = "{{name}}" #
-Security SECRET_KEY: str = "your-secret-key-change-in-production"
-{{#if features.auth}}
-  JWT_ALGORITHM: str = "HS256" JWT_EXPIRE_MINUTES: int = 30
-  JWT_REFRESH_EXPIRE_DAYS: int = 7
-{{/if}}
+# templates/ai-chat/apps/api/src/core/config.py.hbs
+import os
+from typing import List, Optional
+from pydantic import BaseSettings, validator
+from functools import lru_cache
 
-# CORS ALLOWED_ORIGINS: List[str] = [ "http://localhost:3000",
-"http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001" ]
-ALLOWED_HOSTS: List[str] = ["*"] # AI Providers OLLAMA_URL: str = "{{ai.providers.ollama.url}}"
-OLLAMA_DEFAULT_MODEL: str = "{{ai.providers.ollama.defaultModel}}"
+class Settings(BaseSettings):
+    """Application settings with environment variable support"""
+    
+    # Application
+    APP_NAME: str = "{{name}}"
+    VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    WORKERS: int = 1
+    
+    # Database
+    DATABASE_URL: str = "{{database.url}}"
+    DATABASE_NAME: str = "{{name}}"
+    
+    # Security
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    {{#if features.auth}}
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_EXPIRE_DAYS: int = 7
+    {{/if}}
+    
+    # CORS
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001"
+    ]
+    ALLOWED_HOSTS: List[str] = ["*"]
+    
+    # AI Providers
+    OLLAMA_URL: str = "{{ai.providers.ollama.url}}"
+    OLLAMA_DEFAULT_MODEL: str = "{{ai.providers.ollama.defaultModel}}"
+    
+    {{#if ai.providers.openai.enabled}}
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_DEFAULT_MODEL: str = "{{ai.providers.openai.defaultModel}}"
+    {{/if}}
+    
+    # Provider routing
+    AI_DEFAULT_PROVIDER: str = "{{ai.routing.development}}"
+    AI_FALLBACK_PROVIDER: str = "{{ai.routing.production}}"
+    
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    # Rate limiting
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 60  # seconds
+    
+    # File uploads (if needed)
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    UPLOAD_DIRECTORY: str = "./uploads"
+    
+    # WebSocket settings
+    {{#if features.realtime}}
+    WEBSOCKET_HEARTBEAT_INTERVAL: int = 30  # seconds
+    WEBSOCKET_MAX_CONNECTIONS: int = 1000
+    {{/if}}
+    
+    @validator("ENVIRONMENT")
+    def validate_environment(cls, v):
+        """Validate environment setting"""
+        valid_environments = ["development", "staging", "production"]
+        if v not in valid_environments:
+            raise ValueError(f"Environment must be one of: {valid_environments}")
+        return v
+    
+    @validator("ALLOWED_ORIGINS", pre=True)
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from string or list"""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
+    
+    @validator("ALLOWED_HOSTS", pre=True)
+    def parse_allowed_hosts(cls, v):
+        """Parse allowed hosts from string or list"""
+        if isinstance(v, str):
+            return [host.strip() for host in v.split(",")]
+        return v
+    
+    {{#if features.auth}}
+    @validator("SECRET_KEY")
+    def validate_secret_key(cls, v, values):
+        """Ensure secret key is secure in production"""
+        environment = values.get("ENVIRONMENT", "development")
+        if environment == "production" and v == "your-secret-key-change-in-production":
+            raise ValueError("SECRET_KEY must be changed in production")
+        return v
+    {{/if}}
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode"""
+        return self.ENVIRONMENT == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production mode"""
+        return self.ENVIRONMENT == "production"
+    
+    @property
+    def database_config(self) -> dict:
+        """Get database configuration"""
+        return {
+            "url": self.DATABASE_URL,
+            "name": self.DATABASE_NAME
+        }
+    
+    @property
+    def ai_config(self) -> dict:
+        """Get AI provider configuration"""
+        config = {
+            "default_provider": self.AI_DEFAULT_PROVIDER,
+            "fallback_provider": self.AI_FALLBACK_PROVIDER,
+            "providers": {
+                "ollama": {
+                    "url": self.OLLAMA_URL,
+                    "default_model": self.OLLAMA_DEFAULT_MODEL,
+                    "enabled": True
+                }
+            }
+        }
+        
+        {{#if ai.providers.openai.enabled}}
+        if self.OPENAI_API_KEY:
+            config["providers"]["openai"] = {
+                "api_key": self.OPENAI_API_KEY,
+                "default_model": self.OPENAI_DEFAULT_MODEL,
+                "enabled": True
+            }
+        {{/if}}
+        
+        return config
+    
+    {{#if features.auth}}
+    @property
+    def jwt_config(self) -> dict:
+        """Get JWT configuration"""
+        return {
+            "secret_key": self.SECRET_KEY,
+            "algorithm": self.JWT_ALGORITHM,
+            "expire_minutes": self.JWT_EXPIRE_MINUTES,
+            "refresh_expire_days": self.JWT_REFRESH_EXPIRE_DAYS
+        }
+    {{/if}}
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
 
-{{#if ai.providers.openai.enabled}}
-  OPENAI_API_KEY: Optional[str] = None OPENAI_DEFAULT_MODEL: str = "{{ai.providers.openai.defaultModel}}"
-{{/if}}
+class DevelopmentSettings(Settings):
+    """Development-specific settings"""
+    
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    LOG_LEVEL: str = "DEBUG"
+    
+    # More permissive CORS for development
+    ALLOWED_ORIGINS: List[str] = ["*"]
 
-# Provider routing AI_DEFAULT_PROVIDER: str = "{{ai.routing.development}}"
-AI_FALLBACK_PROVIDER: str = "{{ai.routing.production}}" # Logging LOG_LEVEL: str
-= "INFO" LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s -
-%(message)s" # Rate limiting RATE_LIMIT_REQUESTS: int = 100 RATE_LIMIT_WINDOW:
-int = 60 # seconds # File uploads (if needed) MAX_UPLOAD_SIZE: int = 10 * 1024 *
-1024 # 10MB UPLOAD_DIRECTORY: str = "./uploads" # WebSocket settings
-{{#if features.realtime}}
-  WEBSOCKET_HEARTBEAT_INTERVAL: int = 30 # seconds WEBSOCKET_MAX_CONNECTIONS:
-  int = 1000
-{{/if}}
+class ProductionSettings(Settings):
+    """Production-specific settings"""
+    
+    ENVIRONMENT: str = "production"
+    DEBUG: bool = False
+    LOG_LEVEL: str = "INFO"
+    
+    # Stricter settings for production
+    WORKERS: int = 4
+    
+    # Use cloud AI provider by default in production
+    AI_DEFAULT_PROVIDER: str = "{{ai.routing.production}}"
 
-@validator("ENVIRONMENT") def validate_environment(cls, v): """Validate
-environment setting""" valid_environments = ["development", "staging",
-"production"] if v not in valid_environments: raise ValueError(f"Environment
-must be one of: {valid_environments}") return v @validator("ALLOWED_ORIGINS",
-pre=True) def parse_cors_origins(cls, v): """Parse CORS origins from string or
-list""" if isinstance(v, str): return [origin.strip() for origin in
-v.split(",")] return v @validator("ALLOWED_HOSTS", pre=True) def
-parse_allowed_hosts(cls, v): """Parse allowed hosts from string or list""" if
-isinstance(v, str): return [host.strip() for host in v.split(",")] return v
+class TestingSettings(Settings):
+    """Testing-specific settings"""
+    
+    ENVIRONMENT: str = "testing"
+    DEBUG: bool = True
+    LOG_LEVEL: str = "DEBUG"
+    
+    # Use in-memory or test database
+    DATABASE_URL: str = "mongodb://localhost:27017"
+    DATABASE_NAME: str = "{{name}}_test"
 
-{{#if features.auth}}
-  @validator("SECRET_KEY") def validate_secret_key(cls, v, values): """Ensure
-  secret key is secure in production""" environment = values.get("ENVIRONMENT",
-  "development") if environment == "production" and v ==
-  "your-secret-key-change-in-production": raise ValueError("SECRET_KEY must be
-  changed in production") return v
-{{/if}}
-
-@property def is_development(self) -> bool: """Check if running in development
-mode""" return self.ENVIRONMENT == "development" @property def
-is_production(self) -> bool: """Check if running in production mode""" return
-self.ENVIRONMENT == "production" @property def database_config(self) -> dict:
-"""Get database configuration""" return { "url": self.DATABASE_URL, "name":
-self.DATABASE_NAME } @property def ai_config(self) -> dict: """Get AI provider
-configuration""" config = { "default_provider": self.AI_DEFAULT_PROVIDER,
-"fallback_provider": self.AI_FALLBACK_PROVIDER, "providers": { "ollama": {
-"url": self.OLLAMA_URL, "default_model": self.OLLAMA_DEFAULT_MODEL, "enabled":
-True } } }
-
-{{#if ai.providers.openai.enabled}}
-  if self.OPENAI_API_KEY: config["providers"]["openai"] = { "api_key":
-  self.OPENAI_API_KEY, "default_model": self.OPENAI_DEFAULT_MODEL, "enabled":
-  True }
-{{/if}}
-
-return config
-
-{{#if features.auth}}
-  @property def jwt_config(self) -> dict: """Get JWT configuration""" return {
-  "secret_key": self.SECRET_KEY, "algorithm": self.JWT_ALGORITHM,
-  "expire_minutes": self.JWT_EXPIRE_MINUTES, "refresh_expire_days":
-  self.JWT_REFRESH_EXPIRE_DAYS }
-{{/if}}
-
-class Config: env_file = ".env" env_file_encoding = "utf-8" case_sensitive =
-True class DevelopmentSettings(Settings): """Development-specific settings"""
-ENVIRONMENT: str = "development" DEBUG: bool = True LOG_LEVEL: str = "DEBUG" #
-More permissive CORS for development ALLOWED_ORIGINS: List[str] = ["*"] class
-ProductionSettings(Settings): """Production-specific settings""" ENVIRONMENT:
-str = "production" DEBUG: bool = False LOG_LEVEL: str = "INFO" # Stricter
-settings for production WORKERS: int = 4 # Use cloud AI provider by default in
-production AI_DEFAULT_PROVIDER: str = "{{ai.routing.production}}" class
-TestingSettings(Settings): """Testing-specific settings""" ENVIRONMENT: str =
-"testing" DEBUG: bool = True LOG_LEVEL: str = "DEBUG" # Use in-memory or test
-database DATABASE_URL: str = "mongodb://localhost:27017" DATABASE_NAME: str = "{{name}}_test"
-@lru_cache() def get_settings() -> Settings: """Get application settings based
-on environment""" environment = os.getenv("ENVIRONMENT", "development").lower()
-settings_map = { "development": DevelopmentSettings, "production":
-ProductionSettings, "testing": TestingSettings, "staging": ProductionSettings, #
-Use production settings for staging } settings_class =
-settings_map.get(environment, DevelopmentSettings) return settings_class()
+@lru_cache()
+def get_settings() -> Settings:
+    """Get application settings based on environment"""
+    
+    environment = os.getenv("ENVIRONMENT", "development").lower()
+    
+    settings_map = {
+        "development": DevelopmentSettings,
+        "production": ProductionSettings,
+        "testing": TestingSettings,
+        "staging": ProductionSettings,  # Use production settings for staging
+    }
+    
+    settings_class = settings_map.get(environment, DevelopmentSettings)
+    return settings_class()

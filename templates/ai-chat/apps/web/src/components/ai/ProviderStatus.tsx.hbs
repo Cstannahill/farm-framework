@@ -1,30 +1,64 @@
-import { useAIProviders } from '../../hooks/useAIProviders'
-import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '../../utils/cn'
+import { useAIProviders } from '../../hooks/useAIProviders';
+import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../../utils/cn';
 
-export function ProviderStatus() {
-  const { providers, isLoading } = useAIProviders()
+export function ProviderStatus() &#123;
+  const { providers, isLoading } = useAIProviders();
 
-  if (isLoading || Object.keys(providers).length === 0) return null
+  if (isLoading || Object.keys(providers).length === 0) return null;
 
-  const defaultProvider = Object.entries(providers).find(([_, info]) => info.is_default)
-  
-  if (!defaultProvider) return null
+  const defaultProvider = Object.entries(providers).find(
+    ([_, info]) => info.is_default
+  );
+  if (!defaultProvider) return null;
 
-  const [name, info] = defaultProvider
-  const isHealthy = info.status === 'healthy'
+  const [name, info] = defaultProvider;
 
   return (
-    <AnimatePresence>
-      {!isHealthy && (
+    <AnimatePresence mode="wait">
+      {info.is_online ? (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
+          key="online"
+          initial=&#123;&#123; opacity: 0, y: -20 \&#125;&#125;
+          animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125;
+          exit=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125;
           className={cn(
-            "mx-4 mt-4 p-3 rounded-lg flex items-center gap-2",
-            "bg-destructive/10 text-destructive"
+            'mx-4 mt-4 p-3 rounded-lg flex items-center gap-2',
+            'bg-emerald-900/10 text-emerald-400'
+          )}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="text-sm">
+            {name} provider is online&nbsp;
+            &#123;info.model ? `(model ${info.model})` : ''&#125;
+          </span>
+        </motion.div>
+      ) : info.error ? (
+        <motion.div
+          key="error"
+          initial=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125;
+          animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125;
+          exit=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125;
+          className={cn(
+            'mx-4 mt-4 p-3 rounded-lg flex items-center gap-2',
+            'bg-orange-900/10 text-orange-400'
+          )}
+        >
+          <AlertCircle className="h-4 w-4" />
+          <span className="text-sm">
+            {name} provider error&nbsp;—&nbsp;{info.error}
+          </span>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="offline"
+          initial=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125;
+          animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125;
+          exit=\&#123;&#123; opacity: 0, y: -20 &#125;\&#125;
+          className={cn(
+            'mx-4 mt-4 p-3 rounded-lg flex items-center gap-2',
+            'bg-destructive/10 text-destructive'
           )}
         >
           <XCircle className="h-4 w-4" />
@@ -34,5 +68,5 @@ export function ProviderStatus() {
         </motion.div>
       )}
     </AnimatePresence>
-  )
+  );
 }

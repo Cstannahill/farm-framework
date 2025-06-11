@@ -470,12 +470,15 @@ export class TemplateProcessor {
     // validation helper
     this.handlebars.registerHelper("validate_name", (name: string) =>
       /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)
-    );
-
-    // lazy helper
+    ); // lazy helper
     this.handlebars.registerHelper("lazy", (fn: () => string) =>
       typeof fn === "function" ? fn() : fn
     );
+
+    // Raw block helper - allows content to be passed through without Handlebars processing
+    this.handlebars.registerHelper("raw", (options: any) => {
+      return options.fn();
+    });
   }
 
   // ────────────────────────────────────────────────────────────

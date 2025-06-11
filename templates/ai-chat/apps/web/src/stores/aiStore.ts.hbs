@@ -1,15 +1,15 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface AIStore {
-  selectedProvider: string
-  selectedModel: string
-  temperature: number
-  maxTokens: number
-  setSelectedProvider: (provider: string) => void
-  setSelectedModel: (model: string) => void
-  setTemperature: (temp: number) => void
-  setMaxTokens: (tokens: number) => void
+  selectedProvider: string;
+  selectedModel: string;
+  temperature: number;
+  maxTokens: number;
+  setSelectedProvider: (provider: string) => void;
+  setSelectedModel: (model: string) => void;
+  setTemperature: (temp: number) => void;
+  setMaxTokens: (tokens: number) => void;
 }
 
 export const useAIStore = create<AIStore>()(

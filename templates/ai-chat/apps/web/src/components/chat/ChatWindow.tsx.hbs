@@ -1,55 +1,54 @@
-import { useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
-import { MessageList } from './MessageList'
-import { MessageInput } from './MessageInput'
-import { TypingIndicator } from './TypingIndicator'
-import { useStreamingChat } from '../../hooks/useStreamingChat'
-import { useChatStore } from '../../stores/chatStore'
-import { ProviderStatus } from '../ai/ProviderStatus'
+
+import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { MessageList } from './MessageList';
+import { MessageInput } from './MessageInput';
+import { TypingIndicator } from './TypingIndicator';
+import { useStreamingChat } from '../../hooks/useStreamingChat';
+import { useChatStore } from '../../stores/chatStore';
+import { ProviderStatus } from '../ai/ProviderStatus';
 
 interface ChatWindowProps {
-  conversationId: string | null
+conversationId: string | null;
 }
 
-export function ChatWindow({ conversationId }: ChatWindowProps) {
-  const { messages, isStreaming, sendMessage, error } = useStreamingChat(conversationId)
-  const { streamingMessage } = useChatStore()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+export function ChatWindow({ conversationId }: ChatWindowProps) &#123;
+const { messages, isStreaming, sendMessage, error } =
+useStreamingChat(conversationId);
+const { streamingMessage &#125; = useChatStore();
+const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingMessage])
+  useEffect(() => &#123;
+  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  &#125;, [messages, streamingMessage]);
 
   const handleSendMessage = async (content: string) => {
-    await sendMessage(content)
-  }
+  await sendMessage(content);
+  };
 
-  const allMessages = streamingMessage 
-    ? [...messages, streamingMessage]
-    : messages
+  const allMessages = streamingMessage
+  ? [...messages, streamingMessage]
+  : messages;
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      <ProviderStatus />
-      
-      <div className="flex-1 overflow-hidden">
-        <MessageList messages={allMessages} />
-        {isStreaming && !streamingMessage && <TypingIndicator />}
-        <div ref={messagesEndRef} />
-      </div>      {error && (
-        <motion.div
-          initial=\{{{{opacity: 0, y: 10}}}}
-          animate=\{{{{opacity: 1, y: 0}}}}
-          className="mx-4 mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"
-        >
-          {error}
-        </motion.div>
-      )}
+  <div className="h-full flex flex-col bg-background">
+    <ProviderStatus />
 
-      <MessageInput 
-        onSendMessage={handleSendMessage}
-        disabled={isStreaming}
-      />
+    <div className="flex-1 overflow-hidden">
+      <MessageList messages={allMessages} />
+      {isStreaming && !streamingMessage &&
+      <TypingIndicator />}
+      <div ref={messagesEndRef} />
     </div>
-  )
-}
+
+    &#123;error && (
+    <motion.div initial=&#123;&#123; opacity: 0, y: 10 &#125;\&#125; animate=\&#123;&#123; opacity: 1, y: 0 &#125;\&#125;
+      className="mx-4 mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+      {error}
+    </motion.div>
+    )}
+
+    <MessageInput onSendMessage={handleSendMessage} disabled={isStreaming} />
+  </div>
+  );
+  }

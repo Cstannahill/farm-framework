@@ -1,9 +1,28 @@
-import { useQuery } from '@tanstack/react-query' import { useCallback } from
-'react' import { apiClient } from '../services/api' export function
-useAIProviders() { const { data: providers = {}, isLoading, error, refetch } =
-useQuery({ queryKey: ['ai-providers'], queryFn: () =>
-apiClient.ai.listProviders(), refetchInterval: 60000, // Check health every
-minute }) const healthCheck = useCallback(async () => { try { await
-apiClient.ai.healthCheck() refetch() } catch (error) { console.error('Health
-check failed:', error) } }, [refetch]) return { providers, isLoading, error:
-error?.message, healthCheck, refetch, } }
+import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { apiClient } from '../services/api';
+
+export function useAIProviders() {
+  const { data: providers = {}, isLoading, error, refetch } = useQuery({
+    queryKey: ['ai-providers'],
+    queryFn: () => apiClient.ai.listProviders(),
+    refetchInterval: 60000, // Check health every minute
+  })
+
+  const healthCheck = useCallback(async () => {
+    try {
+      await apiClient.ai.healthCheck()
+      refetch()
+    } catch (error) {
+      console.error('Health check failed:', error)
+    }
+  }, [refetch])
+
+  return {
+    providers,
+    isLoading,
+    error: error?.message,
+    healthCheck,
+    refetch,
+  }
+}

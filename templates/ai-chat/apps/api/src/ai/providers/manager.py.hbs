@@ -1,101 +1,202 @@
-# templates/ai-chat/apps/api/src/ai/manager.py.hbs import os import logging from
-typing import Dict, Optional, List, Any from .base import AIProvider from
-.ollama import OllamaProvider from .openai import OpenAIProvider logger =
-logging.getLogger(__name__) class AIProviderManager: """Manages multiple AI
-providers with routing and fallback logic""" def __init__(self): self.providers:
-Dict[str, AIProvider] = {} self.default_provider: Optional[str] = None
-self.routing_config = { "development": "{{ai.routing.development}}",
-"production": "{{ai.routing.production}}" } async def initialize(self):
-"""Initialize all configured AI providers""" # Initialize providers based on
-configuration await self._initialize_providers() # Set default provider based on
-environment environment = os.getenv("ENVIRONMENT", "development")
-self.default_provider = self.routing_config.get(environment, "{{ai.routing.development}}")
-logger.info(f"AI Manager initialized with providers:
-{list(self.providers.keys())}") logger.info(f"Default provider:
-{self.default_provider}") async def _initialize_providers(self): """Initialize
-individual providers based on configuration"""
+# templates/ai-chat/apps/api/src/ai/manager.py.hbs
+import os
+import logging
+from typing import Dict, Optional, List, Any
+from .base import AIProvider
+from .ollama import OllamaProvider
+from .openai import OpenAIProvider
 
-{{#if ai.providers.ollama.enabled}}
-  # Initialize Ollama provider try: ollama = OllamaProvider( url="{{ai.providers.ollama.url}}",
-  default_model="{{ai.providers.ollama.defaultModel}}", available_models={{json
-    ai.providers.ollama.models
-  }}
-  ) # Test health if await ollama.health_check(): self.providers["ollama"] =
-  ollama logger.info("Ollama provider initialized successfully") else:
-  logger.warning("Ollama provider health check failed") except Exception as e:
-  logger.error(f"Failed to initialize Ollama provider: {str(e)}")
-{{/if}}
+logger = logging.getLogger(__name__)
 
-{{#if ai.providers.openai.enabled}}
-  # Initialize OpenAI provider try: openai_api_key = os.getenv("OPENAI_API_KEY")
-  if openai_api_key: openai = OpenAIProvider( api_key=openai_api_key,
-  default_model="{{ai.providers.openai.defaultModel}}", available_models={{json
-    ai.providers.openai.models
-  }}
-  ) # Test health if await openai.health_check(): self.providers["openai"] =
-  openai logger.info("OpenAI provider initialized successfully") else:
-  logger.warning("OpenAI provider health check failed") else:
-  logger.warning("OpenAI API key not found, skipping OpenAI provider") except
-  Exception as e: logger.error(f"Failed to initialize OpenAI provider:
-  {str(e)}")
-{{/if}}
+class AIProviderManager:
+    """Manages multiple AI providers with routing and fallback logic"""
+    
+    def __init__(self):
+        self.providers: Dict[str, AIProvider] = {}
+        self.default_provider: Optional[str] = None
+        self.routing_config = {
+            "development": "{{ai.routing.development}}",
+            "production": "{{ai.routing.production}}",
+        }
+        
+    async def initialize(self):
+        """Initialize all configured AI providers"""
+        await self._initialize_providers()
 
-# Log initialization results if not self.providers: logger.error("No AI
-providers successfully initialized!") else: logger.info(f"Successfully
-initialized providers: {list(self.providers.keys())}") def get_provider(self,
-provider_name: Optional[str] = None) -> Optional[AIProvider]: """Get a specific
-provider or the default provider""" if provider_name: provider =
-self.providers.get(provider_name) if not provider: logger.warning(f"Requested
-provider '{provider_name}' not available") return None return provider # Return
-default provider if self.default_provider and self.default_provider in
-self.providers: return self.providers[self.default_provider] # Fallback to any
-available provider if self.providers: fallback_provider =
-next(iter(self.providers.values())) logger.warning(f"Using fallback provider:
-{next(iter(self.providers.keys()))}") return fallback_provider logger.error("No
-AI providers available") return None def get_default_provider(self) -> str:
-"""Get the name of the default provider""" return self.default_provider or
-next(iter(self.providers.keys()), "") async def get_available_models(self,
-provider_name: Optional[str] = None) -> Dict[str, List[str]]: """Get available
-models for all providers or a specific provider""" if provider_name: provider =
-self.get_provider(provider_name) if provider: try: models = await
-provider.list_models() return {provider_name: models} except Exception as e:
-logger.error(f"Failed to get models for {provider_name}: {str(e)}") return {}
-return {} # Get models for all providers all_models = {} for name, provider in
-self.providers.items(): try: models = await provider.list_models()
-all_models[name] = models except Exception as e: logger.error(f"Failed to get
-models for {name}: {str(e)}") all_models[name] = [] return all_models async def
-health_check_all(self) -> Dict[str, bool]: """Check health of all providers"""
-health_results = {} for name, provider in self.providers.items(): try:
-is_healthy = await provider.health_check() health_results[name] = is_healthy
-except Exception as e: logger.error(f"Health check failed for {name}: {str(e)}")
-health_results[name] = False return health_results async def
-reload_providers(self): """Reload all providers (useful for development)"""
-logger.info("Reloading AI providers...") self.providers.clear() await
-self.initialize() async def get_provider_with_fallback(self, preferred_provider:
-Optional[str] = None) -> Optional[AIProvider]: """Get provider with automatic
-fallback logic""" # Try preferred provider first if preferred_provider: provider
-= self.get_provider(preferred_provider) if provider: # Check if provider is
-healthy try: if await provider.health_check(): return provider else:
-logger.warning(f"Provider {preferred_provider} unhealthy, falling back") except
-Exception as e: logger.warning(f"Provider {preferred_provider} health check
-failed: {str(e)}") # Try default provider default_provider = self.get_provider()
-if default_provider: try: if await default_provider.health_check(): return
-default_provider else: logger.warning("Default provider unhealthy, trying
-alternatives") except Exception as e: logger.warning(f"Default provider health
-check failed: {str(e)}") # Try any healthy provider for name, provider in
-self.providers.items(): try: if await provider.health_check():
-logger.info(f"Using fallback provider: {name}") return provider except Exception
-as e: logger.warning(f"Provider {name} health check failed: {str(e)}")
-logger.error("No healthy AI providers available") return None # Global AI
-manager instance _ai_manager: Optional[AIProviderManager] = None async def
-get_ai_manager() -> AIProviderManager: """Get the global AI manager instance"""
-global _ai_manager if _ai_manager is None: _ai_manager = AIProviderManager()
-await _ai_manager.initialize() return _ai_manager async def
-initialize_ai_manager(): """Initialize the global AI manager""" global
-_ai_manager if _ai_manager is None: _ai_manager = AIProviderManager() await
-_ai_manager.initialize() # Convenience functions for easy access async def
-get_default_provider() -> Optional[AIProvider]: """Get the default AI
-provider""" manager = await get_ai_manager() return manager.get_provider() async
-def get_provider_by_name(name: str) -> Optional[AIProvider]: """Get a specific
-AI provider by name""" manager = await get_ai_manager() return
-manager.get_provider(name)
+        # Set default provider based on environment
+        environment = os.getenv("ENVIRONMENT", "development")
+        self.default_provider = self.routing_config.get(
+            environment, "{{ai.routing.development}}"
+        )
+
+        logger.info(
+            f"AI Manager initialized with providers: {list(self.providers.keys())}"
+        )
+        logger.info(f"Default provider: {self.default_provider}")
+        
+    async def _initialize_providers(self):
+        """Initialize individual providers based on configuration"""
+        
+        {{#if ai.providers.ollama.enabled}}
+        # ── Ollama ────────────────────────────────────────────────────────────
+        try:
+            ollama = OllamaProvider(
+                url="{{ai.providers.ollama.url}}",
+                default_model="{{ai.providers.ollama.defaultModel}}",
+                available_models = available_models or {{{json ai.providers.ollama.models}}}
+            )
+
+            if await ollama.health_check():
+                self.providers["ollama"] = ollama
+                logger.info("Ollama provider initialized successfully")
+            else:
+                logger.warning("Ollama provider health check failed")
+        except Exception as e:
+            logger.error(f"Failed to initialize Ollama provider: {str(e)}")
+        {{/if}}
+        
+        {{#if ai.providers.openai.enabled}}
+        # ── OpenAI ────────────────────────────────────────────────────────────
+        try:
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if openai_api_key:
+                openai = OpenAIProvider(
+                    api_key=openai_api_key,
+                    default_model="{{ai.providers.openai.defaultModel}}",
+                    available_models = available_models or {{{json ai.providers.ollama.models}}}
+                )
+
+                if await openai.health_check():
+                    self.providers["openai"] = openai
+                    logger.info("OpenAI provider initialized successfully")
+                else:
+                    logger.warning("OpenAI provider health check failed")
+            else:
+                logger.warning("OpenAI API key not found, skipping OpenAI provider")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI provider: {str(e)}")
+        {{/if}}
+        
+        if not self.providers:
+            logger.error("No AI providers successfully initialized!")
+        else:
+            logger.info(
+                f"Successfully initialized providers: {list(self.providers.keys())}"
+            )
+    
+    # ───────────────────────── Provider lookup helpers ──────────────────────
+    def get_provider(self, provider_name: Optional[str] = None) -> Optional[AIProvider]:
+        """Get a specific provider or the default provider"""
+        if provider_name:
+            provider = self.providers.get(provider_name)
+            if not provider:
+                logger.warning(f"Requested provider '{provider_name}' not available")
+                return None
+            return provider
+
+        if self.default_provider and self.default_provider in self.providers:
+            return self.providers[self.default_provider]
+
+        if self.providers:
+            fallback_name = next(iter(self.providers.keys()))
+            logger.warning(f"Using fallback provider: {fallback_name}")
+            return self.providers[fallback_name]
+
+        logger.error("No AI providers available")
+        return None
+    
+    def get_default_provider(self) -> str:
+        """Return the name of the default provider (or empty string)"""
+        return self.default_provider or next(iter(self.providers.keys()), "")
+    
+    # ───────────────────────── Model & health utilities ─────────────────────
+    async def get_available_models(
+        self, provider_name: Optional[str] = None
+    ) -> Dict[str, List[str]]:
+        """Return available models for one or all providers"""
+        if provider_name:
+            provider = self.get_provider(provider_name)
+            if provider:
+                try:
+                    return {provider_name: await provider.list_models()}
+                except Exception as e:
+                    logger.error(
+                        f"Failed to get models for {provider_name}: {str(e)}"
+                    )
+            return {}
+
+        all_models: Dict[str, List[str]] = {}
+        for name, provider in self.providers.items():
+            try:
+                all_models[name] = await provider.list_models()
+            except Exception as e:
+                logger.error(f"Failed to get models for {name}: {str(e)}")
+                all_models[name] = []
+        return all_models
+    
+    async def health_check_all(self) -> Dict[str, bool]:
+        """Return health status for all providers"""
+        results: Dict[str, bool] = {}
+        for name, provider in self.providers.items():
+            try:
+                results[name] = await provider.health_check()
+            except Exception as e:
+                logger.error(f"Health check failed for {name}: {str(e)}")
+                results[name] = False
+        return results
+    
+    async def reload_providers(self):
+        """Clear & re‑init all providers (dev helper)"""
+        logger.info("Reloading AI providers...")
+        self.providers.clear()
+        await self.initialize()
+    
+    async def get_provider_with_fallback(
+        self, preferred_provider: Optional[str] = None
+    ) -> Optional[AIProvider]:
+        """Return a healthy provider, preferring the requested one"""
+        # 1️⃣ preferred provider
+        if preferred_provider:
+            provider = self.get_provider(preferred_provider)
+            if provider and await provider.health_check():
+                return provider
+            logger.warning(f"Preferred provider {preferred_provider} unavailable")
+
+        # 2️⃣ default provider
+        default = self.get_provider()
+        if default and await default.health_check():
+            return default
+
+        # 3️⃣ any healthy provider
+        for name, provider in self.providers.items():
+            if await provider.health_check():
+                logger.info(f"Using fallback provider: {name}")
+                return provider
+
+        logger.error("No healthy AI providers available")
+        return None
+
+# ───────────────────────────── Module‑level helpers ─────────────────────────
+_ai_manager: Optional[AIProviderManager] = None
+
+async def get_ai_manager() -> AIProviderManager:
+    """Return the singleton AIProviderManager"""
+    global _ai_manager
+    if _ai_manager is None:
+        _ai_manager = AIProviderManager()
+        await _ai_manager.initialize()
+    return _ai_manager
+
+async def initialize_ai_manager():
+    """Force (re)initialization of the global manager"""
+    global _ai_manager
+    if _ai_manager is None:
+        _ai_manager = AIProviderManager()
+    await _ai_manager.initialize()
+
+# Convenience wrappers
+async def get_default_provider() -> Optional[AIProvider]:
+    return (await get_ai_manager()).get_provider()
+
+async def get_provider_by_name(name: str) -> Optional[AIProvider]:
+    return (await get_ai_manager()).get_provider(name)

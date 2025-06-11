@@ -215,9 +215,7 @@ export class ProjectScaffolder {
       if (!(await fs.pathExists(gitignorePath))) {
         const gitignoreContent = this.generateGitignore();
         await fs.writeFile(gitignorePath, gitignoreContent);
-      }
-
-      // Stage all files
+      } // Stage all files
       await execAsync("git add .", { cwd: projectPath });
 
       // Create initial commit
