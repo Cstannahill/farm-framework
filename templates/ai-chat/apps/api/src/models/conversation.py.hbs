@@ -1,11 +1,32 @@
-"""Conversation database model."""
-from datetime import datetime
-from beanie import Document
-from pydantic import Field
-
-class Conversation(Document):
-    title: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Settings:
-        name = "conversations"
+# templates/ai-chat/apps/api/src/models/conversation.py.hbs from datetime import
+datetime from typing import Optional from beanie import Document, Indexed from
+pydantic import Field class Conversation(Document): """Conversation document for
+storing chat conversations""" title: str = Field(..., description="Conversation
+title")
+{{#if features.auth}}
+  user_id: Indexed(str) = Field(..., description="ID of the user who owns this
+  conversation")
+{{/if}}
+created_at: datetime = Field(default_factory=datetime.utcnow, description="When
+the conversation was created") last_activity: datetime =
+Field(default_factory=datetime.utcnow, description="Last activity timestamp") #
+Optional metadata metadata: dict = Field(default_factory=dict,
+description="Additional conversation metadata") # AI settings for this
+conversation preferred_provider: Optional[str] = Field(None,
+description="Preferred AI provider for this conversation") preferred_model:
+Optional[str] = Field(None, description="Preferred AI model for this
+conversation") system_prompt: Optional[str] = Field(None, description="Custom
+system prompt for this conversation") class Settings: name = "conversations"
+indexes = [
+{{#if features.auth}}
+  "user_id", [("user_id", 1), ("last_activity", -1)], # Compound index for
+  user's recent conversations
+{{/if}}
+"last_activity", "created_at" ] class Config: json_schema_extra = { "example": {
+"title": "AI Development Discussion",
+{{#if features.auth}}
+  "user_id": "user_123",
+{{/if}}
+"created_at": "2025-06-10T12:00:00Z", "last_activity": "2025-06-10T12:30:00Z",
+"preferred_provider": "ollama", "preferred_model": "llama3.1", "system_prompt":
+"You are a helpful AI assistant specialized in software development." } }

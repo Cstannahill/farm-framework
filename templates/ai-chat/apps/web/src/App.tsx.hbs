@@ -1,20 +1,54 @@
-import React from 'react'; import { BrowserRouter as Router, Routes, Route }
-from 'react-router-dom'; import { QueryClient, QueryClientProvider } from
-'@tanstack/react-query'; import { ReactQueryDevtools } from
-'@tanstack/react-query-devtools'; import Layout from
-'./components/layout/Layout'; import Home from './pages/Home'; import About from
-'./pages/About'; import './index.css'; const queryClient = new QueryClient({
-defaultOptions: { queries: { staleTime: 1000 * 60 * 5, // 5 minutes retry: 1, },
-}, }); function App() { return (
-<QueryClientProvider client="{queryClient}">
-  <Router>
-    <Layout>
-      <Routes>
-        <Route path="/" element="{<Home" />} />
-        <Route path="/about" element="{<About" />} />
-      </Routes>
-    </Layout>
-  </Router>
-  <ReactQueryDevtools initialIsOpen="{false}" />
-</QueryClientProvider>
-); } export default App;
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Header } from './components/layout/Header'
+import { Sidebar } from './components/layout/Sidebar'
+import { ChatWindow } from './components/chat/ChatWindow'
+import { useConversations } from './hooks/useConversations'
+import { useChatStore } from './stores/chatStore'
+import { useAIProviders } from './hooks/useAIProviders'
+
+export default function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { conversations, isLoading } = useConversations()
+  const { currentConversationId, setCurrentConversationId } = useChatStore()
+  const { healthCheck } = useAIProviders()
+
+  useEffect(() => {
+    // Check AI providers health on app load
+    healthCheck()
+  }, [healthCheck])
+
+  return (
+    <div className="flex h-screen bg-background">
+      <AnimatePresence mode="wait">
+        {sidebarOpen && (          <motion.div
+            initial=\{{{{x: -300}}}}
+            animate=\{{{{x: 0}}}}
+            exit=\{{{{x: -300}}}}
+            transition=\{{{{type: "spring", damping: 20}}}}
+            className="w-80 border-r border-border"
+          >
+            <Sidebar
+              conversations={conversations}
+              currentConversationId={currentConversationId}
+              onSelectConversation={setCurrentConversationId}
+              onNewConversation={() => setCurrentConversationId(null)}
+              isLoading={isLoading}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex-1 flex flex-col">
+        <Header 
+          sidebarOpen={sidebarOpen} 
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+        />
+        
+        <main className="flex-1 overflow-hidden">
+          <ChatWindow conversationId={currentConversationId} />
+        </main>
+      </div>
+    </div>
+  )
+}

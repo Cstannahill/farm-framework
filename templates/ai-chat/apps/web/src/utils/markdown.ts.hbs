@@ -1,0 +1,26 @@
+// Markdown utilities for chat rendering export const markdownComponents = { //
+Custom link rendering a: ({ href, children }: any) => (
+<a
+  href="{href}"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-primary underline hover:no-underline"
+>
+  {children}
+</a>
+), // Custom code block handling pre: ({ children }: any) => (
+<pre
+  className="overflow-x-auto rounded-md bg-muted p-4 my-2"
+>
+      {children}
+    </pre>
+), // Inline code code: ({ children }: any) => (
+<code className="px-1 py-0.5 rounded bg-muted text-sm">
+  {children}
+</code>
+), } // Extract language from code block className export function
+extractLanguage(className?: string): string | null { if (!className) return null
+const match = className.match(/language-(\w+)/) return match ? match[1] : null }
+// Format message content for display export function
+formatMessageContent(content: string): string { // Remove excessive newlines
+return content.replace(/\n{3,}/g, '\n\n').trim() }

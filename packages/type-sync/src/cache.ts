@@ -146,21 +146,28 @@ export class GenerationCache {
 
     return normalized;
   }
-
   /**
    * Get a cache entry by hash, handling decompression errors as cache-miss.
    */
   public async get(hash: string): Promise<CacheEntry | null> {
     const file = this.entryPath(hash);
     if (!(await fs.pathExists(file))) return null;
+
     try {
       const raw = await this.readAndDecompress(file);
       return JSON.parse(raw.toString()) as CacheEntry;
     } catch (err: any) {
+      // Log the error if logger is available
       if (this.logger && typeof this.logger.warn === "function") {
-        this.logger.warn(`Corrupted cache for ${hash}: ${err}. Removing.`);
+        this.logger.warn(
+          `Cache read failed for ${hash}: ${err.message}. Treating as miss.`
+        );
       }
+
+      // Remove corrupted cache file
       await fs.unlink(file).catch(() => {});
+
+      // Return null to treat as cache miss instead of throwing
       return null;
     }
   }

@@ -1,32 +1,20 @@
-// templates/ai-chat/farm.config.ts.hbs import { defineConfig } from
-'@farm/core'; export default defineConfig({ name: '{{projectName}}', version:
-'1.0.0', description: 'AI-powered chat application with streaming responses',
-template: 'ai-chat', features: [{{#each features}}'{{this}}'{{#unless @last}},
-  {{/unless}}{{/each}}], database: { type: '{{database.type}}', url:
-process.env.DATABASE_URL || '{{database.defaultUrl}}' }, ai: { providers: {
-{{#if ai.ollama.enabled}}
-  ollama: { enabled: true, url: 'http://localhost:11434', models: [{{#each
-    ai.ollama.models
-  }}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}], defaultModel: '{{ai.ollama.defaultModel}}',
-  autoStart: true, autoPull: ['{{ai.ollama.defaultModel}}'], gpu:
-  {{ai.ollama.gpu}}
-  },
-{{/if}}
-{{#if ai.openai.enabled}}
-  openai: { enabled: true, apiKey: process.env.OPENAI_API_KEY, models: [{{#each
-    ai.openai.models
-  }}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}], defaultModel: '{{ai.openai.defaultModel}}',
-  rateLimiting: { requestsPerMinute: 60, tokensPerMinute: 40000 } }
-{{/if}}
-}, routing: { development: '{{ai.routing.development}}', staging: '{{ai.routing.staging}}',
-production: '{{ai.routing.production}}' }, features: { streaming: true, caching:
-true, rateLimiting: true, fallback: true, contextWindow: 4000 } },
+//
+{{name}}
+- FARM Configuration // Generated on
+{{timestamp}}
 
-{{#if features.includes "realtime"}}
-  websocket: { enabled: true, cors: ['http://localhost:3000'], maxConnections:
-  1000, heartbeatInterval: 30000 },
-{{/if}}
-
-development: { ports: { frontend: 3000, backend: 8000, proxy: 4000
-{{#if ai.ollama.enabled}}, ollama: 11434{{/if}}
-}, hotReload: { enabled: true, typeGeneration: true, aiModels: true } } });
+import { defineConfig } from '@farm/core'; export default defineConfig({ name: '{{name}}',
+template: 'ai-chat', features: [
+{{#if features.auth}}'auth', {{/if}}
+{{#if features.realtime}}'realtime', {{/if}}
+'ai' ], ai: { providers: { ollama: { enabled: true, url: process.env.OLLAMA_URL
+|| 'http://localhost:11434', models: ['llama3.1', 'codestral', 'mistral'],
+defaultModel: 'llama3.1', autoStart: true, autoPull: ['llama3.1'] }, openai: {
+enabled: true, apiKey: process.env.OPENAI_API_KEY, models: ['gpt-4',
+'gpt-3.5-turbo'], defaultModel: 'gpt-3.5-turbo' } }, routing: { development:
+'ollama', production: 'openai' }, features: { streaming: true, caching: true,
+fallback: true } }, database: { type: 'mongodb', url: process.env.DATABASE_URL
+|| 'mongodb://localhost:27017/{{name}}' }, development: { ports: { frontend:
+3000, backend: 8000, proxy: 4000 }, hotReload: { enabled: true, typeGeneration:
+true } }, deployment: { docker: { enabled: true, compose: './docker-compose.yml'
+}, platforms: ['vercel', 'railway', 'docker'] } });

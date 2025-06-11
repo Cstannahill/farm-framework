@@ -1,604 +1,211 @@
-# FARM Framework Template Authoring Guidelines
+Below is an updated **AI‑Chat Template Authoring Guide** that folds in the latest Handlebars features, highlights a few corrective notes from an audit of your current `templates/ai‑chat/` files, and extends (but doesn’t duplicate) your existing FARM‑wide guidelines.
 
-This document provides comprehensive guidelines for creating and maintaining templates in the FARM framework.
+---
 
-## Template Structure
+```md
+# AI‑Chat Template Authoring Guidelines
 
-### Directory Organization
+These rules apply to every file in `templates/ai-chat/`.  
+They assume the FARM helper set defined in `packages/cli/src/templates/helpers.ts` and Handlebars v4.7+.
 
+---
+
+## 1  Directory Layout
 ```
+
 templates/
-├── basic/                    # Basic full-stack template
-├── ai-chat/                 # AI-powered chat application
-├── ai-dashboard/            # AI analytics dashboard
-├── ecommerce/               # E-commerce platform
-├── cms/                     # Content management system
-├── api-only/                # Backend-only template
-└── frontend/                # Frontend-only templates
-    ├── basic/
-    └── advanced/
-```
-
-### Required Files
-
-Every template must include:
-
-- `package.json.hbs` - Project configuration
-- `farm.config.ts.hbs` - FARM framework configuration
-- `README.md.hbs` - Documentation
-- `.gitignore.hbs` - Git ignore patterns
-
-### File Naming Conventions
-
-- Use lowercase with hyphens: `user-profile.component.tsx.hbs`
-- Add `.hbs` extension to template files: `config.ts.hbs`
-- Use descriptive names that reflect the file's purpose
-- Group related files in directories: `components/`, `pages/`, `utils/`
-
-## Handlebars Syntax
-
-### Available Helpers
-
-#### Feature Checking
-
-```handlebars
-{{#if_feature "ai"}}
-  // AI-specific code
-{{/if_feature}}
-
-{{#unless_feature "auth"}}
-  // Code when auth is disabled
-{{/unless_feature}}
-
-{{#has_features}}
-  // Code when any features are enabled
-{{/has_features}}
-```
-
-#### Template Type Checking
-
-```handlebars
-{{#if_template "ai-chat"}}
-  // AI chat specific code
-{{/if_template}}
-
-{{#is_basic}}
-  // Basic template specific code
-{{/is_basic}}
-```
-
-#### Database Helpers
-
-```handlebars
-{{#if_database "mongodb"}}
-  // MongoDB specific configuration
-{{/if_database}}
-
-{{#is_postgresql}}
-  // PostgreSQL specific code
-{{/is_postgresql}}
-```
-
-#### AI Provider Helpers
-
-```handlebars
-{{#has_ollama}}
-  // Ollama configuration
-{{/has_ollama}}
-
-{{#if_ai_provider "openai"}}
-  // OpenAI specific setup
-{{/if_ai_provider}}
-```
-
-#### String Manipulation
-
-```handlebars
-{{kebab_case projectName}}
-// my-project
-{{snake_case projectName}}
-// my_project
-{{camel_case projectName}}
-// myProject
-{{pascal_case projectName}}
-// MyProject
-{{capitalize projectName}}
-// My project
-{{lowercase projectName}}
-// my project
-{{uppercase projectName}}
-// MY PROJECT
-```
-
-#### Project Helpers
-
-```handlebars
-{{project_name}}
-// Original project name
-{{project_name_kebab}}
-// kebab-case version
-{{project_name_snake}}
-// snake_case version
-{{project_name_camel}}
-// camelCase version
-{{project_name_pascal}}
-// PascalCase version
-```
-
-#### Array and Object Helpers
-
-```handlebars
-{{join features ", "}}
-// Join array with separator
-{{length features}}
-// Array length
-{{#includes features "ai"}}
-  // Check if array includes value
-{{/includes}}
-```
-
-#### Logic Helpers
-
-```handlebars
-{{#and condition1 condition2}}
-  // Logical AND
-{{/and}}
-
-{{#or condition1 condition2}}
-  // Logical OR
-{{/or}}
-
-{{#not condition}}
-  // Logical NOT
-{{/not}}
-
-{{#eq value1 value2}}
-  // Equality check
-{{/eq}}
-
-{{#gt number1 number2}}
-  // Greater than
-{{/gt}}
-```
-
-#### Environment Helpers
-
-```handlebars
-{{#is_development}}
-  // Development environment code
-{{/is_development}}
-
-{{#if_env "production"}}
-  // Production specific code
-{{/if_env}}
-```
-
-#### Utility Helpers
-
-```handlebars
-{{timestamp}}
-// Current ISO timestamp
-{{year}}
-// Current year
-{{farm_version}}
-// FARM framework version
-{{default value "fallback"}}
-// Default value if empty
-{{json object}}
-// JSON stringify
-```
-
-### Advanced Helpers
-
-#### Switch/Case Logic
-
-```handlebars
-{{#switch database.type}}
-  {{#case "mongodb"}}
-    mongodb://localhost:27017/{{project_name_snake}}
-  {{/case}}
-  {{#case "postgresql"}}
-    postgresql://localhost:5432/{{project_name_snake}}
-  {{/case}}
-{{/switch}}
-```
-
-#### Code Formatting
-
-```handlebars
-{{indent code 4}}
-// Indent code by 4 spaces
-{{comment "This is a comment" "js"}}
-// Add language-specific comment
-{{import_path "./utils" true}}
-// Format import path
-```
-
-#### Validation
-
-```handlebars
-{{#validate_name projectName}}
-  // Valid project name
-{{else}}
-  // Invalid project name
-{{/validate_name}}
-```
-
-## Best Practices
-
-### 1. Conditional File Generation
-
-Use file path patterns to conditionally include files:
+└── ai-chat/
+├── .env.example.hbs
+├── .gitignore.hbs
+├── apps/
+│ ├── api/… # FastAPI‑based backend
+│ └── web/… # React + Vite frontend
+└── README.md.hbs
 
 ```
-apps/web/                          # Skip for api-only template
-src/ai/                           # Only for AI features
-src/auth/                         # Only for auth features
+
+### Required metadata
+Add a short `README.md.hbs` in every sub‑template folder (e.g. `apps/api/`) explaining:
+
 ```
 
-### 2. Feature-Driven Development
+<!-- README.md.hbs -->
 
-Structure templates around features:
+{{capitalize template}} template
+Features: {{join features ", "}}
+Database: {{database.type}}
 
-```handlebars
-{{#if_feature "ai"}}
-  import { AIProvider } from '@farm/ai';
-{{/if_feature}}
+````
 
-{{#if_feature "auth"}}
-  import { AuthProvider } from '@farm/auth';
-{{/if_feature}}
-```
+---
 
-### 3. Configuration Management
+## 2  Handlebars Fundamentals (v4.7+ recap)
 
-Use nested configuration objects:
+| Feature | Syntax | Notes |
+|---------|--------|-------|
+| **Built‑in blocks** | `#if / #unless / #each / #with` | `else` sections are available for `if`, `unless`, and `each` :contentReference[oaicite:0]{index=0} |
+| **Sub‑expressions** | `{{helper (otherHelper arg)}}` | Great for inline logic :contentReference[oaicite:1]{index=1} |
+| **Partials & partial‑blocks** | `{{> myPartial}}`  /  `{{#> myPartial}}fallback{{/myPartial}}` | Lets you fail‑over or pass a block to a partial :contentReference[oaicite:2]{index=2} |
+| **Block parameters** | `{{#each items as |item idx|}}` | Gives local aliases without `this` gymnastics :contentReference[oaicite:3]{index=3} |
+| **Whitespace control** | `{{~` … `~}}` | Trim left/right whitespace. Use in tight TOML/JSON contexts. |
+| **Comments** | `{{! this is ignored }}` | Prefer over inline code comments for template hints. |
+| **Data frames** | `Handlebars.createFrame(options.data)` | Useful when writing custom helpers that need deep context copies :contentReference[oaicite:4]{index=4} |
 
-```handlebars
-// AI configuration
-{{#if_feature "ai"}}
-  ai: { providers: {
-  {{#has_ollama}}
-    ollama: { enabled: true, url: 'http://localhost:11434', models: [{{#each
-      ai.providers.ollama.models
-    }}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}] },
-  {{/has_ollama}}
-  {{#has_openai}}
-    openai: { enabled: true, apiKey: process.env.OPENAI_API_KEY, models: [{{#each
-      ai.providers.openai.models
-    }}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}] }
-  {{/has_openai}}
-  } },
-{{/if_feature}}
-```
+---
 
-### 4. Performance Optimization
+## 3  FARM‑specific Helpers (quick lookup)
 
-- Keep templates under 10KB when possible
-- Limit nesting depth to 5 levels
-- Use partials for repeated code
-- Cache complex computations in helpers
+| Category | Example | Purpose |
+|----------|---------|---------|
+| **Feature flags** | `#if_feature "ai"` / `#unless_feature` | Toggle code blobs per enabled feature |
+| **Database** | `#if_database "mongodb"` | Inject DSNs, ORM config |
+| **Project casing** | `{{project_name_kebab}}` | Consistent naming across files |
+| **Logic & arrays** | `#and`, `#eq`, `join`, `includes` | Clean inline logic—avoid JS `if` chains |
 
-### 5. Error Handling
+> **Tip:** When mixing built‑ins and custom helpers inside a sub‑expression, put the *built‑in* **inside** for readability:
+> `{{#if (includes features "auth")}}…{{/if}}`
 
-Always provide fallbacks:
+---
 
-```handlebars
-{{#if projectName}}
-  "name": "{{projectName}}",
-{{else}}
-  "name": "farm-app",
-{{/if}}
-```
+## 4  Common Patterns & Pitfalls
 
-### 6. Documentation
+### 4.1  Comma‑safe array literals (TOML / JSON)
 
-Include comments in templates:
+**Current issue:** in `apps/api/pyproject.toml.hbs` a trailing comma is left behind when `features.auth` is **false**, breaking TOML 1.0 strict parsing.
 
-```handlebars
-{{! Database configuration based on selected type }}
-{{#switch database.type}}
-  {{#case "mongodb"}}
-    {{! MongoDB connection string }}
-    "url": "mongodb://localhost:27017/{{project_name_snake}}"
-  {{/case}}
-{{/switch}}
-```
-
-## Template Development Workflow
-
-### 1. Create Template Structure
-
-```bash
-mkdir templates/my-template
-cd templates/my-template
-```
-
-### 2. Add Required Files
-
-```bash
-touch package.json.hbs
-touch farm.config.ts.hbs
-touch README.md.hbs
-touch .gitignore.hbs
-```
-
-### 3. Implement Template Logic
-
-Start with basic structure, then add conditional logic:
-
-```handlebars
-{ "name": "{{project_name_kebab}}", "version": "0.1.0", "scripts": {
-{{#unless (eq template "api-only")}}
-  "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"", "dev:web": "cd
-  apps/web && npm run dev",
-{{/unless}}
-"dev:api": "cd apps/api && uvicorn src.main:app --reload" } }
-```
-
-### 4. Test Template
-
-```bash
-# Validate template syntax
-farm validate-template my-template
-
-# Generate test project
-farm create test-project --template my-template --features ai,auth
-```
-
-### 5. Performance Testing
-
-```bash
-# Test with large projects
-farm create large-project --template my-template --features ai,auth,realtime,payments
-
-# Measure generation time
-time farm create perf-test --template my-template
-```
-
-## Debugging Templates
-
-### 1. Syntax Validation
-
-Use the template validator:
-
-```bash
-farm validate-template my-template --strict
-```
-
-### 2. Debug Helpers
-
-Add debug output to templates:
-
-```handlebars
-{{debug features}}
-// Log features array
-{{log "Processing AI config"}}
-// Log message
-```
-
-### 3. Dry Run Generation
-
-Test without creating files:
-
-```bash
-farm create test-project --template my-template --dry-run
-```
-
-### 4. Verbose Output
-
-Get detailed generation information:
-
-```bash
-farm create test-project --template my-template --verbose
-```
-
-## Common Patterns
-
-### 1. Package.json Dependencies
-
-```handlebars
-"dependencies": { "@farm/core": "^1.0.0"
-{{#if_feature "ai"}}, "@farm/ai": "^1.0.0"
-{{/if_feature}}
-{{#if_feature "auth"}}, "@farm/auth": "^1.0.0"
-{{/if_feature}}
-}
-```
-
-### 2. Import Statements
-
-```handlebars
-{{#if_feature "ai"}}
-  import { AIHooks } from '@farm/ai';
-{{/if_feature}}
-{{#if_feature "auth"}}
-  import { useAuth } from '@farm/auth';
-{{/if_feature}}
-```
-
-### 3. Environment Variables
-
-```handlebars
-# Database DATABASE_URL={{database.url}}
-
-{{#if_feature "ai"}}
-  # AI Configuration
-  {{#has_ollama}}
-    OLLAMA_URL=http://localhost:11434
-  {{/has_ollama}}
-  {{#has_openai}}
-    OPENAI_API_KEY=your_openai_key_here
-  {{/has_openai}}
-{{/if_feature}}
-```
-
-### 4. Configuration Files
-
-```handlebars
-export default defineConfig({ name: '{{project_name}}', features: [{{#each
-  features
-}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}],
-
-{{#if_feature "ai"}}
-  ai: { providers: {
-  {{#has_ollama}}
-    ollama: { enabled: true, models: [{{#each
-      ai.providers.ollama.models
-    }}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}] }
-  {{/has_ollama}}
-  } },
-{{/if_feature}}
-
-database: { type: '{{database.type}}', url: process.env.DATABASE_URL } });
-```
-
-## Performance Guidelines
-
-### Template Size Limits
-
-- Individual templates: < 10KB
-- Total template directory: < 1MB
-- Maximum nesting depth: 5 levels
-- Maximum helpers per template: 50
-
-### Optimization Techniques
-
-1. **Use Partials**: Break large templates into reusable parts
-2. **Cache Complex Logic**: Move complex computations to helpers
-3. **Minimize Conditionals**: Reduce branching complexity
-4. **Lazy Loading**: Use lazy helper for expensive operations
-
-### Memory Management
-
-- Clear template cache periodically
-- Limit concurrent template processing
-- Use streaming for large file generation
-
-## Security Considerations
-
-### Input Validation
-
-Always validate user input in templates:
-
-```handlebars
-{{#validate_name projectName}}
-  "name": "{{projectName}}"
-{{else}}
-  "name": "farm-app"
-{{/validate_name}}
-```
-
-### Path Traversal Prevention
-
-Never use user input directly in file paths:
-
-```handlebars
-<!-- Bad -->
-{{userInput}}/config.json
-
-<!-- Good -->
-config/{{kebab_case userInput}}.json
-```
-
-### Environment Variable Security
-
-Don't expose sensitive data in templates:
-
-```handlebars
-<!-- Bad -->
-API_KEY={{apiKey}}
-
-<!-- Good -->
-API_KEY=your_api_key_here
-```
-
-## Maintenance
-
-### Regular Updates
-
-1. Update helper documentation
-2. Test templates with new framework versions
-3. Validate against security best practices
-4. Performance testing with large projects
-
-### Deprecation Process
-
-1. Mark deprecated features in templates
-2. Provide migration guides
-3. Maintain backward compatibility for 2 major versions
-4. Remove deprecated features with clear warnings
-
-### Version Control
-
-- Tag template versions with framework releases
-- Maintain compatibility matrix
-- Document breaking changes
-- Provide upgrade instructions
-
-## Advanced Topics
-
-### Custom Helper Development
-
-Create specialized helpers for complex logic:
-
-```typescript
-// In helpers.ts
-handlebars.registerHelper("generate_api_routes", (endpoints) => {
-  return endpoints
-    .map(
-      (endpoint) =>
-        `app.${endpoint.method.toLowerCase()}('${endpoint.path}', ${endpoint.handler});`
-    )
-    .join("\n");
-});
-```
-
-### Template Inheritance
-
-Use partials for template inheritance:
-
-```handlebars
-<!-- base.hbs -->
-<!DOCTYPE html>
-<html>
-<head>
-  {{> head}}
-</head>
-<body>
-  {{> body}}
-</body>
-</html>
-```
-
-### Dynamic Content Generation
-
-Generate content based on external data:
-
-```handlebars
-{{#each endpoints}}
-  //
-  {{capitalize method}}
-  {{path}}
-  app.{{lowercase method}}('{{path}}', async (req, res) => { // Implementation
-  for
-  {{description}}
+```toml
+dependencies = [
+  "python-dotenv>=1.0.0",               <‑‑ last safe entry
   {{#if_feature "auth"}}
-    const user = await authenticateUser(req);
-  {{/if_feature}}
+    "python-jose[cryptography]>=3.3.0",
+  {{/if_feature}}                       <‑‑ trailing comma risk
+]
+````
 
-  {{#switch method}}
-    {{#case "GET"}}
-      const data = await get{{pascal_case name}}(); res.json(data);
-    {{/case}}
-    {{#case "POST"}}
-      const result = await create{{pascal_case name}}(req.body);
-      res.status(201).json(result);
-    {{/case}}
-  {{/switch}}
-  });
+**Fix:** build the list in JS first or use a sub‑expression helper.
 
+```toml
+dependencies = [
+{{#each (joinList deps) as |dep idx|}}
+  "{{dep}}"{{#unless @last}},{{/unless}}
+{{/each}}
+]
+```
+
+_(Add a `joinList` helper that merges base deps with conditional blocks and returns an array.)_
+
+---
+
+### 4.2  Whitespace in block helpers
+
+When a block yields nothing (e.g. disabled feature) you sometimes end up with blank lines in Dockerfiles or `.env` stubs:
+
+```dockerfile
+{{#if_feature "ollama"}}
+ENV OLLAMA_URL={{ollama.url}}
+{{/if_feature}}
+
+# if_feature false → above leaves a stray newline
+```
+
+Apply whitespace control:
+
+```dockerfile
+{{~#if_feature "ollama"}}
+ENV OLLAMA_URL={{ollama.url}}
+{{~/if_feature}}
+```
+
+---
+
+### 4.3  Block parameters for clarity
+
+Instead of:
+
+```ts
+{{#each ai.providers}}
+  const {{@key}} = new Provider("{{@key}}")
 {{/each}}
 ```
 
-This comprehensive guide ensures consistent, maintainable, and efficient template development in the FARM framework.
+use block params:
+
+```ts
+{{#each ai.providers as |prov name|}}
+  const {{name}} = new Provider("{{name}}")
+{{/each}}
+```
+
+---
+
+## 5  Template Quality Checklist
+
+| ✅                                                                                                                | Check |
+| ----------------------------------------------------------------------------------------------------------------- | ----- |
+| ☐ **Balanced tags** – run `farm validate-template` (all 61 files currently pass)                                  |       |
+| ☐ **No trailing commas** in generated TOML/JSON                                                                   |       |
+| ☐ **No stray newlines** from disabled blocks                                                                      |       |
+| ☐ **Partials registered** before use (`loader.ts` handles this)                                                   |       |
+| ☐ **Helpers typed** in `helpers.ts` (already fully typed)                                                         |       |
+| ☐ **Render speed** < 250 ms for fresh create (`project-file-generator.ts` streams files; keep single‑pass writes) |       |
+
+---
+
+## 6  Authoring Workflow
+
+1. **Bootstrap**
+
+   ```bash
+   pnpm cli farm new my‑chat --template ai-chat --dry-run
+   ```
+
+   Inspect console output for helper errors.
+
+2. **Iterate**
+
+   - Edit template `.hbs` files.
+   - Add/modify helpers in `helpers.ts`; they auto‑register via `loader.ts`.
+
+3. **Validate**
+
+   ```bash
+   farm validate-template ai-chat --strict
+   ```
+
+4. **Snapshot test** _(optional)_
+   Use `vitest` + `@farm/template-tester` to render fixtures and snapshot.
+
+---
+
+## 7  Advanced Tips
+
+- **Partial‑blocks** are perfect for fallback‑UI stubs.
+
+  ```tsx
+  {{#> MessageBubble}}
+    <div className="text-muted">Unsupported message</div>
+  {{/MessageBubble}}
+  ```
+
+- **Inline JS evaluation** is blocked; keep logic inside helpers to maintain security.
+- **Pre‑compile** templates at publish time to shave \~40 ms off cold starts ([handlebarsjs.com][1]).
+
+---
+
+## 8  Upcoming Work
+
+| Item                                                                 | Owner       | Status |
+| -------------------------------------------------------------------- | ----------- | ------ |
+| `joinList` helper to solve trailing‑comma issue                      | ✨ **todo** |        |
+| Switch `.env` generator to whitespace‑trim blocks                    | ✨ **todo** |        |
+| Split huge `helpers.ts` into domain files (`project.ts`, `logic.ts`) | ideation    |        |
+
+---
+
+Following these rules will keep the AI‑Chat templates valid, readable, and compatible with the latest Handlebars runtime while aligning with FARM’s helper ecosystem.
+
+```
+::contentReference[oaicite:6]{index=6}
+```
+
+[1]: https://handlebarsjs.com/api-reference/compilation.html?utm_source=chatgpt.com "(Pre-)Compilation - Handlebars"

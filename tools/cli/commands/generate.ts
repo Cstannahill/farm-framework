@@ -54,7 +54,12 @@ export function createGenerateCommand(): Command {
         const config = {
           apiUrl: "http://localhost:8000",
           outputDir: ".farm/types/generated",
-          features: { client: true, hooks: true, streaming: false },
+          features: {
+            client: true,
+            hooks: true,
+            streaming: false,
+            aiHooks: false,
+          },
         };
         const orchestrator = new TypeSyncOrchestrator();
         await orchestrator.initialize(config);

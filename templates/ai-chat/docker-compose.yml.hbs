@@ -1,20 +1,32 @@
-# templates/ai-chat/docker-compose.yml.hbs (ENHANCED) version: '3.8' services:
-mongodb: image: mongo:7.0 ports: - "27017:27017" environment:
-MONGO_INITDB_ROOT_USERNAME:
-{{projectName}}
-MONGO_INITDB_ROOT_PASSWORD: development volumes: - mongodb_data:/data/db ollama:
-image: ollama/ollama:latest ports: - "11434:11434" volumes: -
-ollama_models:/root/.ollama - ./apps/api/models/ollama:/models environment: -
-OLLAMA_ORIGINS=* - OLLAMA_HOST=0.0.0.0 restart: unless-stopped
-{{#if gpuEnabled}}
-  deploy: resources: reservations: devices: - driver: nvidia count: all
-  capabilities: [gpu]
-{{/if}}
-
-api: build: context: ./apps/api dockerfile: Dockerfile ports: - "8000:8000"
-environment: - DATABASE_URL=mongodb://{{projectName}}:development@mongodb:27017
-- OLLAMA_URL=http://ollama:11434 - OPENAI_API_KEY=${OPENAI_API_KEY} -
-FARM_ENV=development depends_on: - mongodb - ollama volumes: - ./apps/api:/app
-web: build: context: ./apps/web dockerfile: Dockerfile.dev ports: - "3000:3000"
-environment: - VITE_API_URL=http://localhost:8000 volumes: - ./apps/web:/app -
-/app/node_modules depends_on: - api volumes: mongodb_data: ollama_models:
+version: '3.9' services: # MongoDB Database mongodb: image: mongo:7.0
+container_name:
+{{name}}-mongodb restart: unless-stopped ports: - "27017:27017" environment:
+MONGO_INITDB_DATABASE:
+{{name}}
+MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-} MONGO_INITDB_ROOT_PASSWORD:
+${MONGODB_PASSWORD:-} volumes: - mongodb_data:/data/db -
+mongodb_config:/data/configdb networks: -
+{{name}}-network # Ollama for Local AI ollama: image: ollama/ollama:latest
+container_name:
+{{name}}-ollama restart: unless-stopped ports: - "11434:11434" volumes: -
+ollama_data:/root/.ollama environment: - OLLAMA_KEEP_ALIVE=24h -
+OLLAMA_HOST=0.0.0.0 deploy: resources: reservations: devices: - driver: nvidia
+count: all capabilities: [gpu] networks: -
+{{name}}-network # Redis for caching (optional) redis: image: redis:7-alpine
+container_name:
+{{name}}-redis restart: unless-stopped ports: - "6379:6379" volumes: -
+redis_data:/data networks: -
+{{name}}-network # Nginx reverse proxy (production) nginx: image: nginx:alpine
+container_name:
+{{name}}-nginx restart: unless-stopped ports: - "80:80" - "443:443" volumes: -
+./nginx.conf:/etc/nginx/nginx.conf:ro - ./apps/web/dist:/usr/share/nginx/html:ro
+depends_on: - api networks: -
+{{name}}-network profiles: - production # API service (production) api: build:
+context: ./apps/api dockerfile: Dockerfile container_name:
+{{name}}-api restart: unless-stopped ports: - "8000:8000" environment: -
+DATABASE_URL=mongodb://mongodb:27017/{{name}}
+- OLLAMA_URL=http://ollama:11434 - REDIS_URL=redis://redis:6379 depends_on: -
+mongodb - ollama - redis volumes: - ./apps/api:/app networks: -
+{{name}}-network profiles: - production volumes: mongodb_data: mongodb_config:
+ollama_data: redis_data: networks:
+{{name}}-network: driver: bridge

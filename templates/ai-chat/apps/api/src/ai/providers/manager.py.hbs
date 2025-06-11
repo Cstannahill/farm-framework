@@ -1,79 +1,101 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks from
-fastapi.responses import StreamingResponse from typing import List, Optional,
-Dict, Any import json import asyncio from ai.providers.base import ChatMessage
-from ai.providers.manager import AIProviderManager from models.ai import (
-ChatRequest, ChatResponse, GenerateRequest, GenerateResponse, ModelInfo,
-ProviderStatus, LoadModelRequest ) router = APIRouter(prefix="/ai", tags=["AI"])
-# Global AI provider manager ai_manager = AIProviderManager() async def
-initialize_ai_providers(): """Initialize AI providers based on configuration."""
-await ai_manager.initialize() @router.post("/chat", response_model=ChatResponse)
-async def chat_completion(request: ChatRequest): """Generate chat completion
-using specified or default provider.""" try: provider =
-ai_manager.get_provider(request.provider) response = await provider.chat(
-messages=request.messages, model=request.model, temperature=request.temperature,
-max_tokens=request.max_tokens ) return ChatResponse( response=response,
-model=request.model, provider=request.provider or
-ai_manager.get_default_provider_name(), usage={ "prompt_tokens": 0, # TODO:
-Implement token counting "completion_tokens": 0, "total_tokens": 0 } ) except
-Exception as e: raise HTTPException(status_code=500, detail=f"Chat completion
-failed: {str(e)}") @router.post("/chat/stream") async def
-chat_completion_stream(request: ChatRequest): """Stream chat completion using
-specified or default provider.""" try: provider =
-ai_manager.get_provider(request.provider) async def generate_stream():
-"""Generate streaming response.""" try: async for chunk in provider.chat_stream(
-messages=request.messages, model=request.model, temperature=request.temperature,
-max_tokens=request.max_tokens ): yield f"data: {json.dumps({'content': chunk,
-'done': False})}\n\n" # Send completion signal yield f"data:
-{json.dumps({'content': '', 'done': True})}\n\n" except Exception as e: yield
-f"data: {json.dumps({'error': str(e), 'done': True})}\n\n" return
-StreamingResponse( generate_stream(), media_type="text/event-stream", headers={
-"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering":
-"no", # Disable nginx buffering } ) except Exception as e: raise
-HTTPException(status_code=500, detail=f"Stream setup failed: {str(e)}")
-@router.get("/models", response_model=List[ModelInfo]) async def
-list_models(provider: Optional[str] = None): """List available models for a
-provider or all providers.""" try: if provider: ai_provider =
-ai_manager.get_provider(provider) models = await ai_provider.list_models()
-return [ ModelInfo( name=model, provider=provider, description=f"{model} model
-from {provider}" ) for model in models ] else: # Return models from all
-providers all_models = [] for provider_name, provider_instance in
-ai_manager.providers.items(): try: models = await
-provider_instance.list_models() for model in models: all_models.append(
-ModelInfo( name=model, provider=provider_name, description=f"{model} model from
-{provider_name}" ) ) except Exception as e: # Skip providers that fail to list
-models continue return all_models except Exception as e: raise
-HTTPException(status_code=500, detail=f"Failed to list models: {str(e)}")
-@router.get("/health", response_model=Dict[str, ProviderStatus]) async def
-health_check(): """Check health of all AI providers.""" health_results = await
-ai_manager.health_check_all() return { name: ProviderStatus( name=name,
-status="healthy" if healthy else "unhealthy",
-models=list(ai_manager.providers[name].models.keys()) if healthy and name in
-ai_manager.providers else [] ) for name, healthy in health_results.items() }
-@router.post("/models/{model_name}/load") async def load_model( model_name: str,
-request: LoadModelRequest, background_tasks: BackgroundTasks ): """Load a
-specific model in the background.""" try: provider =
-ai_manager.get_provider(request.provider) # Load model in background to avoid
-request timeout background_tasks.add_task(provider.load_model, model_name)
-return {"message": f"Loading model {model_name} on {request.provider}..."}
-except Exception as e: raise HTTPException(status_code=500, detail=f"Failed to
-load model: {str(e)}") @router.post("/models/{model_name}/unload") async def
-unload_model(model_name: str, provider: Optional[str] = None): """Unload a
-specific model to free resources.""" try: ai_provider =
-ai_manager.get_provider(provider) if hasattr(ai_provider, 'unload_model'): await
-ai_provider.unload_model(model_name) return {"message": f"Model {model_name}
-unloaded successfully"} else: return {"message": f"Provider {provider} does not
-support model unloading"} except Exception as e: raise
-HTTPException(status_code=500, detail=f"Failed to unload model: {str(e)}")
-@router.get("/providers") async def list_providers(): """List all configured AI
-providers and their status.""" providers_info = {} for name, provider in
-ai_manager.providers.items(): try: is_healthy = await provider.health_check()
-models = list(provider.models.keys()) if hasattr(provider, 'models') else []
-providers_info[name] = { "name": name, "status": "healthy" if is_healthy else
-"unhealthy", "models": models, "default": name ==
-ai_manager.get_default_provider_name() } except Exception: providers_info[name]
-= { "name": name, "status": "error", "models": [], "default": False } return
-providers_info @router.post("/reload") async def reload_providers(): """Reload
-all AI providers (useful for development).""" try: await
-ai_manager.reload_providers() return {"message": "AI providers reloaded
-successfully"} except Exception as e: raise HTTPException(status_code=500,
-detail=f"Failed to reload providers: {str(e)}")
+# templates/ai-chat/apps/api/src/ai/manager.py.hbs import os import logging from
+typing import Dict, Optional, List, Any from .base import AIProvider from
+.ollama import OllamaProvider from .openai import OpenAIProvider logger =
+logging.getLogger(__name__) class AIProviderManager: """Manages multiple AI
+providers with routing and fallback logic""" def __init__(self): self.providers:
+Dict[str, AIProvider] = {} self.default_provider: Optional[str] = None
+self.routing_config = { "development": "{{ai.routing.development}}",
+"production": "{{ai.routing.production}}" } async def initialize(self):
+"""Initialize all configured AI providers""" # Initialize providers based on
+configuration await self._initialize_providers() # Set default provider based on
+environment environment = os.getenv("ENVIRONMENT", "development")
+self.default_provider = self.routing_config.get(environment, "{{ai.routing.development}}")
+logger.info(f"AI Manager initialized with providers:
+{list(self.providers.keys())}") logger.info(f"Default provider:
+{self.default_provider}") async def _initialize_providers(self): """Initialize
+individual providers based on configuration"""
+
+{{#if ai.providers.ollama.enabled}}
+  # Initialize Ollama provider try: ollama = OllamaProvider( url="{{ai.providers.ollama.url}}",
+  default_model="{{ai.providers.ollama.defaultModel}}", available_models={{json
+    ai.providers.ollama.models
+  }}
+  ) # Test health if await ollama.health_check(): self.providers["ollama"] =
+  ollama logger.info("Ollama provider initialized successfully") else:
+  logger.warning("Ollama provider health check failed") except Exception as e:
+  logger.error(f"Failed to initialize Ollama provider: {str(e)}")
+{{/if}}
+
+{{#if ai.providers.openai.enabled}}
+  # Initialize OpenAI provider try: openai_api_key = os.getenv("OPENAI_API_KEY")
+  if openai_api_key: openai = OpenAIProvider( api_key=openai_api_key,
+  default_model="{{ai.providers.openai.defaultModel}}", available_models={{json
+    ai.providers.openai.models
+  }}
+  ) # Test health if await openai.health_check(): self.providers["openai"] =
+  openai logger.info("OpenAI provider initialized successfully") else:
+  logger.warning("OpenAI provider health check failed") else:
+  logger.warning("OpenAI API key not found, skipping OpenAI provider") except
+  Exception as e: logger.error(f"Failed to initialize OpenAI provider:
+  {str(e)}")
+{{/if}}
+
+# Log initialization results if not self.providers: logger.error("No AI
+providers successfully initialized!") else: logger.info(f"Successfully
+initialized providers: {list(self.providers.keys())}") def get_provider(self,
+provider_name: Optional[str] = None) -> Optional[AIProvider]: """Get a specific
+provider or the default provider""" if provider_name: provider =
+self.providers.get(provider_name) if not provider: logger.warning(f"Requested
+provider '{provider_name}' not available") return None return provider # Return
+default provider if self.default_provider and self.default_provider in
+self.providers: return self.providers[self.default_provider] # Fallback to any
+available provider if self.providers: fallback_provider =
+next(iter(self.providers.values())) logger.warning(f"Using fallback provider:
+{next(iter(self.providers.keys()))}") return fallback_provider logger.error("No
+AI providers available") return None def get_default_provider(self) -> str:
+"""Get the name of the default provider""" return self.default_provider or
+next(iter(self.providers.keys()), "") async def get_available_models(self,
+provider_name: Optional[str] = None) -> Dict[str, List[str]]: """Get available
+models for all providers or a specific provider""" if provider_name: provider =
+self.get_provider(provider_name) if provider: try: models = await
+provider.list_models() return {provider_name: models} except Exception as e:
+logger.error(f"Failed to get models for {provider_name}: {str(e)}") return {}
+return {} # Get models for all providers all_models = {} for name, provider in
+self.providers.items(): try: models = await provider.list_models()
+all_models[name] = models except Exception as e: logger.error(f"Failed to get
+models for {name}: {str(e)}") all_models[name] = [] return all_models async def
+health_check_all(self) -> Dict[str, bool]: """Check health of all providers"""
+health_results = {} for name, provider in self.providers.items(): try:
+is_healthy = await provider.health_check() health_results[name] = is_healthy
+except Exception as e: logger.error(f"Health check failed for {name}: {str(e)}")
+health_results[name] = False return health_results async def
+reload_providers(self): """Reload all providers (useful for development)"""
+logger.info("Reloading AI providers...") self.providers.clear() await
+self.initialize() async def get_provider_with_fallback(self, preferred_provider:
+Optional[str] = None) -> Optional[AIProvider]: """Get provider with automatic
+fallback logic""" # Try preferred provider first if preferred_provider: provider
+= self.get_provider(preferred_provider) if provider: # Check if provider is
+healthy try: if await provider.health_check(): return provider else:
+logger.warning(f"Provider {preferred_provider} unhealthy, falling back") except
+Exception as e: logger.warning(f"Provider {preferred_provider} health check
+failed: {str(e)}") # Try default provider default_provider = self.get_provider()
+if default_provider: try: if await default_provider.health_check(): return
+default_provider else: logger.warning("Default provider unhealthy, trying
+alternatives") except Exception as e: logger.warning(f"Default provider health
+check failed: {str(e)}") # Try any healthy provider for name, provider in
+self.providers.items(): try: if await provider.health_check():
+logger.info(f"Using fallback provider: {name}") return provider except Exception
+as e: logger.warning(f"Provider {name} health check failed: {str(e)}")
+logger.error("No healthy AI providers available") return None # Global AI
+manager instance _ai_manager: Optional[AIProviderManager] = None async def
+get_ai_manager() -> AIProviderManager: """Get the global AI manager instance"""
+global _ai_manager if _ai_manager is None: _ai_manager = AIProviderManager()
+await _ai_manager.initialize() return _ai_manager async def
+initialize_ai_manager(): """Initialize the global AI manager""" global
+_ai_manager if _ai_manager is None: _ai_manager = AIProviderManager() await
+_ai_manager.initialize() # Convenience functions for easy access async def
+get_default_provider() -> Optional[AIProvider]: """Get the default AI
+provider""" manager = await get_ai_manager() return manager.get_provider() async
+def get_provider_by_name(name: str) -> Optional[AIProvider]: """Get a specific
+AI provider by name""" manager = await get_ai_manager() return
+manager.get_provider(name)

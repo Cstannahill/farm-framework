@@ -79,15 +79,13 @@ export class TemplateProcessor {
     totalProcessingTime: 0,
     startTime: 0,
   };
+
   constructor() {
     // Point to the actual templates directory
     this.templatesDir = path.resolve(__dirname, "../../../templates");
     this.handlebars = Handlebars.create();
 
-    // Register comprehensive helpers from dedicated module
     registerHandlebarsHelpers(this.handlebars);
-
-    // Register additional processor-specific helpers
     this.registerProcessorHelpers();
 
     logger.debug(
@@ -221,9 +219,6 @@ export class TemplateProcessor {
     return templateData;
   }
 
-  /**
-   * Create cache key from context
-   */
   private createCacheKey(context: TemplateContext): string {
     const relevantData = {
       projectName: context.projectName,
@@ -237,9 +232,6 @@ export class TemplateProcessor {
       .digest("hex");
   }
 
-  /**
-   * Create batches for parallel processing
-   */
   private createBatches<T>(items: T[], batchSize: number): T[][] {
     const batches: T[][] = [];
     for (let i = 0; i < items.length; i += batchSize) {
@@ -248,9 +240,6 @@ export class TemplateProcessor {
     return batches;
   }
 
-  /**
-   * Process a batch of files
-   */
   private async processBatch(
     templateFiles: string[],
     templatePath: string,
@@ -262,13 +251,11 @@ export class TemplateProcessor {
     const generated: string[] = [];
     const skipped: string[] = [];
 
-    // Process files in parallel within batch
     const promises = templateFiles.map(async (templateFile) => {
       const sourcePath = path.join(templatePath, templateFile);
       const relativePath = templateFile.replace(/\.hbs$/, "");
       const targetPath = path.join(outputPath, relativePath);
 
-      // Skip if condition doesn't match
       if (!this.shouldProcessFile(templateFile, context)) {
         skipped.push(relativePath);
         return;
@@ -310,7 +297,7 @@ export class TemplateProcessor {
   }
 
   /**
-   * Process Handlebars template file
+   * Render & write a Handlebars template
    */
   private async processHandlebarsFile(
     sourcePath: string,
@@ -320,7 +307,6 @@ export class TemplateProcessor {
   ): Promise<void> {
     const templateContent = await fs.readFile(sourcePath, "utf-8");
 
-    // Use cached compiled template if available
     const cacheKey = sourcePath;
     let compiledTemplate = this.templateCache.get(cacheKey);
 
@@ -333,12 +319,13 @@ export class TemplateProcessor {
     const output = compiledTemplate(templateData);
 
     if (!options.dryRun) {
+      // writeFile overwrites by default – ensures later template passes win
       await fs.writeFile(targetPath, output);
     }
   }
 
   /**
-   * Copy binary file
+   * Copy binary or static file – **now always overwrites** existing dest
    */
   private async copyBinaryFile(
     sourcePath: string,
@@ -346,27 +333,26 @@ export class TemplateProcessor {
     options: TemplateProcessingOptions
   ): Promise<void> {
     if (!options.dryRun) {
-      await fs.copy(sourcePath, targetPath);
+      await fs.copy(sourcePath, targetPath, { overwrite: true });
     }
   }
 
-  /**
-   * Log performance metrics
-   */
   private logPerformanceMetrics(): void {
-    const metrics = this.metrics;
-    const cacheHitRatio =
-      (metrics.cacheHits / (metrics.cacheHits + metrics.cacheMisses)) * 100;
+    const { cacheHits, cacheMisses } = this.metrics;
+    const cacheHitRatio = (cacheHits / (cacheHits + cacheMisses || 1)) * 100;
 
     logger.info("📊 Template Processing Performance:");
-    logger.info(`   Files processed: ${metrics.filesProcessed}`);
-    logger.info(`   Templates compiled: ${metrics.templatesCompiled}`);
+    logger.info(`   Files processed: ${this.metrics.filesProcessed}`);
+    logger.info(`   Templates compiled: ${this.metrics.templatesCompiled}`);
     logger.info(`   Cache hit ratio: ${cacheHitRatio.toFixed(1)}%`);
-    logger.info(`   Total time: ${metrics.totalProcessingTime}ms`);
+    logger.info(`   Total time: ${this.metrics.totalProcessingTime}ms`);
     logger.info(
-      `   Avg time per file: ${(metrics.totalProcessingTime / metrics.filesProcessed).toFixed(2)}ms`
+      `   Avg time per file: ${(
+        this.metrics.totalProcessingTime / this.metrics.filesProcessed
+      ).toFixed(2)}ms`
     );
   }
+
   private async getTemplateFiles(
     templatePath: string,
     context?: TemplateContext
@@ -390,55 +376,41 @@ export class TemplateProcessor {
       path.relative(templatePath, file)
     );
 
-    // Pre-filter files based on context if provided
-    if (context) {
-      return relativeFiles.filter((file) =>
-        this.shouldProcessFile(file, context)
-      );
-    }
-
-    return relativeFiles;
+    return context
+      ? relativeFiles.filter((file) => this.shouldProcessFile(file, context))
+      : relativeFiles;
   }
+
   private shouldProcessFile(
     filePath: string,
     context: TemplateContext
   ): boolean {
-    // Skip frontend files for api-only template
     if (
       (context.template || "basic") === "api-only" &&
       filePath.includes("apps/web")
-    ) {
+    )
       return false;
-    }
 
-    // Skip AI files if AI feature not enabled
     if (
       !context.features.includes("ai") &&
       (filePath.includes("/ai/") || filePath.includes("/chat/"))
-    ) {
+    )
       return false;
-    }
 
-    // Skip auth files if auth feature not enabled
-    if (!context.features.includes("auth") && filePath.includes("/auth/")) {
+    if (!context.features.includes("auth") && filePath.includes("/auth/"))
       return false;
-    }
 
-    // Skip payments files if payments feature not enabled
     if (
       !context.features.includes("payments") &&
       filePath.includes("/payments/")
-    ) {
+    )
       return false;
-    }
 
-    // Skip realtime files if realtime feature not enabled
     if (
       !context.features.includes("realtime") &&
       filePath.includes("/realtime/")
-    ) {
+    )
       return false;
-    }
 
     return true;
   }
@@ -447,7 +419,7 @@ export class TemplateProcessor {
    * Register processor-specific Handlebars helpers
    */
   private registerProcessorHelpers(): void {
-    // Switch/case helpers for complex conditional logic
+    // switch/case helpers
     this.handlebars.registerHelper("switch", (value, options) => {
       this.switch_value = value;
       this.switch_break = false;
@@ -465,18 +437,17 @@ export class TemplateProcessor {
       return "";
     });
 
-    // Code formatting helpers
+    // indentation helper
     this.handlebars.registerHelper(
       "indent",
-      (str: string, spaces: number = 2) => {
-        const indent = " ".repeat(spaces);
-        return String(str)
+      (str: string, spaces: number = 2) =>
+        String(str)
           .split("\n")
-          .map((line) => indent + line)
-          .join("\n");
-      }
+          .map((line) => " ".repeat(spaces) + line)
+          .join("\n")
     );
 
+    // comment helper
     this.handlebars.registerHelper(
       "comment",
       (str: string, style: "js" | "py" | "html" = "js") => {
@@ -487,54 +458,55 @@ export class TemplateProcessor {
       }
     );
 
-    // Import/export helpers
+    // path helper
     this.handlebars.registerHelper(
       "import_path",
-      (moduleName: string, isRelative: boolean = false) => {
-        if (isRelative && !moduleName.startsWith(".")) {
-          return `./${moduleName}`;
-        }
-        return moduleName;
-      }
+      (moduleName: string, isRelative: boolean = false) =>
+        isRelative && !moduleName.startsWith(".")
+          ? `./${moduleName}`
+          : moduleName
     );
 
-    // Validation helpers
-    this.handlebars.registerHelper("validate_name", (name: string) => {
-      return /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name);
-    });
+    // validation helper
+    this.handlebars.registerHelper("validate_name", (name: string) =>
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)
+    );
 
-    // Performance helper for large templates
-    this.handlebars.registerHelper("lazy", (fn: () => string) => {
-      return typeof fn === "function" ? fn() : fn;
-    });
+    // lazy helper
+    this.handlebars.registerHelper("lazy", (fn: () => string) =>
+      typeof fn === "function" ? fn() : fn
+    );
   }
+
+  // ────────────────────────────────────────────────────────────
+  //  Template‑data helpers
+  // ────────────────────────────────────────────────────────────
+
   private createTemplateData(context: TemplateContext) {
     const projectName = context?.projectName || "unnamed-project";
     const kebabName = this.toKebabCase(projectName);
     const template = context.template || "basic";
 
     return {
-      // Basic project info
-      projectName: projectName,
+      projectName,
       projectNamePascal: this.toPascalCase(projectName),
       projectNameKebab: kebabName,
-      template: template,
+      template,
       version: "0.1.0",
       description:
         context.description ||
         `A FARM Stack application using ${template} template`,
 
-      // Features
       features: context.features,
       hasFeature: (feature: string) =>
-        context.features.includes(feature as any), // Database configuration
+        context.features.includes(feature as any),
+
       database: {
         type: context.database,
         url: this.getDatabaseUrl(context.database, kebabName),
         options: this.getDatabaseOptions(context.database),
       },
 
-      // AI configuration (only if AI feature enabled)
       ai: context.features.includes("ai")
         ? {
             providers: {
@@ -572,7 +544,8 @@ export class TemplateProcessor {
               fallback: true,
             },
           }
-        : undefined, // Development configuration
+        : undefined,
+
       development: {
         ports: {
           frontend: template !== "api-only" ? 3000 : undefined,
@@ -588,7 +561,6 @@ export class TemplateProcessor {
         ssl: false,
       },
 
-      // Build configuration
       build: {
         target: "node18",
         sourcemap: true,
@@ -597,7 +569,6 @@ export class TemplateProcessor {
         outDir: "dist",
       },
 
-      // Deployment (optional)
       deployment:
         context.template !== "basic"
           ? {
@@ -609,17 +580,16 @@ export class TemplateProcessor {
             }
           : undefined,
 
-      // Plugins (optional)
       plugins: (() => {
         const pluginList = this.getPluginsForTemplate(context);
         return pluginList.length > 0 ? pluginList : undefined;
       })(),
 
-      // Helper flags
       typescript: context.typescript,
       docker: context.docker,
       git: context.git,
       currentYear: new Date().getFullYear(),
+
       isApiOnly: context.template === "api-only",
       hasAI: context.features.includes("ai"),
       hasAuth: context.features.includes("auth"),
@@ -643,15 +613,9 @@ export class TemplateProcessor {
   }
 
   private getDatabaseOptions(database: string): any {
-    switch (database) {
-      case "mongodb":
-        return {
-          maxPoolSize: 10,
-          serverSelectionTimeoutMS: 5000,
-        };
-      default:
-        return undefined;
-    }
+    return database === "mongodb"
+      ? { maxPoolSize: 10, serverSelectionTimeoutMS: 5000 }
+      : undefined;
   }
 
   private getPluginsForTemplate(context: TemplateContext): any[] {
@@ -667,33 +631,22 @@ export class TemplateProcessor {
 
     return plugins;
   }
-  /**
-   * Legacy helper registration for backward compatibility
-   * Most helpers are now in the dedicated helpers module
-   */
-  private registerHelpers(): void {
-    // This method is kept for backward compatibility
-    // Most helpers are now registered via registerHandlebarsHelpers()
-    logger.debug(
-      "Legacy registerHelpers called - modern helpers already registered"
-    );
-  }
+
   private toPascalCase(str: string): string {
-    if (!str || typeof str !== "string") {
-      return "";
-    }
     return str
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join("");
+      ? str
+          .split(/[-_]/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join("")
+      : "";
   }
+
   private toKebabCase(str: string): string {
-    if (!str || typeof str !== "string") {
-      return "";
-    }
     return str
-      .replace(/([a-z])([A-Z])/g, "$1-$2")
-      .replace(/[\s_]+/g, "-")
-      .toLowerCase();
+      ? str
+          .replace(/([a-z])([A-Z])/g, "$1-$2")
+          .replace(/[\s_]+/g, "-")
+          .toLowerCase()
+      : "";
   }
 }

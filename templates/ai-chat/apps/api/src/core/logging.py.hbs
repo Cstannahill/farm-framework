@@ -1,0 +1,61 @@
+# templates/ai-chat/apps/api/src/core/logging.py.hbs import logging import
+logging.config import sys from typing import Dict, Any from .config import
+get_settings def setup_logging(): """Configure application logging""" settings =
+get_settings() # Define logging configuration logging_config: Dict[str, Any] = {
+"version": 1, "disable_existing_loggers": False, "formatters": { "default": {
+"format": settings.LOG_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S", }, "detailed": {
+"format": ( "%(asctime)s - %(name)s - %(levelname)s - " "%(filename)s:%(lineno)d
+- %(funcName)s() - %(message)s" ), "datefmt": "%Y-%m-%d %H:%M:%S", }, "json": {
+"class": "pythonjsonlogger.jsonlogger.JsonFormatter", "format": ( "%(asctime)s
+%(name)s %(levelname)s %(filename)s " "%(lineno)d %(funcName)s %(message)s" ),
+}, }, "handlers": { "console": { "class": "logging.StreamHandler", "stream":
+sys.stdout, "formatter": "default" if settings.is_development else "json",
+"level": settings.LOG_LEVEL, }, "error_console": { "class":
+"logging.StreamHandler", "stream": sys.stderr, "formatter": "detailed", "level":
+"ERROR", }, }, "loggers": { # Root logger "": { "level": settings.LOG_LEVEL,
+"handlers": ["console"], "propagate": False, }, # Application loggers "{{name}}":
+{ "level": settings.LOG_LEVEL, "handlers": ["console"], "propagate": False, }, #
+FastAPI loggers "uvicorn": { "level": "INFO", "handlers": ["console"],
+"propagate": False, }, "uvicorn.access": { "level": "INFO" if
+settings.is_development else "WARNING", "handlers": ["console"], "propagate":
+False, }, "uvicorn.error": { "level": "INFO", "handlers": ["console",
+"error_console"], "propagate": False, }, # Database loggers "motor": { "level":
+"WARNING", "handlers": ["console"], "propagate": False, }, "beanie": { "level":
+"INFO" if settings.is_development else "WARNING", "handlers": ["console"],
+"propagate": False, }, # HTTP client loggers "httpx": { "level": "WARNING",
+"handlers": ["console"], "propagate": False, }, "httpcore": { "level":
+"WARNING", "handlers": ["console"], "propagate": False, }, # AI provider loggers
+"openai": { "level": "INFO" if settings.is_development else "WARNING",
+"handlers": ["console"], "propagate": False, }, }, } # Add file logging in
+production if settings.is_production: logging_config["handlers"]["file"] = {
+"class": "logging.handlers.RotatingFileHandler", "filename": "/var/log/{{name}}/app.log",
+"maxBytes": 10 * 1024 * 1024, # 10MB "backupCount": 5, "formatter": "json",
+"level": "INFO", } logging_config["handlers"]["error_file"] = { "class":
+"logging.handlers.RotatingFileHandler", "filename": "/var/log/{{name}}/error.log",
+"maxBytes": 10 * 1024 * 1024, # 10MB "backupCount": 5, "formatter": "detailed",
+"level": "ERROR", } # Add file handlers to root logger
+logging_config["loggers"][""]["handlers"].extend(["file", "error_file"])
+logging_config["loggers"]["{{name}}"]["handlers"].extend(["file", "error_file"])
+# Configure logging logging.config.dictConfig(logging_config) # Set up custom
+formatters for development if settings.is_development: # Add colored logging for
+development try: import coloredlogs coloredlogs.install(
+level=settings.LOG_LEVEL, fmt=settings.LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S",
+) except ImportError: # coloredlogs is optional pass # Log startup message
+logger = logging.getLogger("{{name}}") logger.info(f"Logging configured for
+{settings.ENVIRONMENT} environment") logger.info(f"Log level:
+{settings.LOG_LEVEL}") class StructuredLogger: """Structured logger for
+consistent log formatting""" def __init__(self, name: str): self.logger =
+logging.getLogger(name) def info(self, message: str, **kwargs): """Log info
+message with structured data""" extra = {"structured_data": kwargs} if kwargs
+else {} self.logger.info(message, extra=extra) def warning(self, message: str,
+**kwargs): """Log warning message with structured data""" extra =
+{"structured_data": kwargs} if kwargs else {} self.logger.warning(message,
+extra=extra) def error(self, message: str, error: Exception = None, **kwargs):
+"""Log error message with structured data""" extra = {"structured_data": kwargs}
+if kwargs else {} if error: extra["error_type"] = type(error).__name__
+extra["error_message"] = str(error) self.logger.error(message, exc_info=error,
+extra=extra) else: self.logger.error(message, extra=extra) def debug(self,
+message: str, **kwargs): """Log debug message with structured data""" extra =
+{"structured_data": kwargs} if kwargs else {} self.logger.debug(message,
+extra=extra) def get_logger(name: str) -> StructuredLogger: """Get a structured
+logger instance""" return StructuredLogger(name)

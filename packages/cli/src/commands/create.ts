@@ -7,6 +7,8 @@ import { ProjectFileGenerator } from "../generators/project-file-generator.js";
 import { FileGeneratorAdapter } from "../generators/file-generator-adapter.js";
 import { PackageInstaller } from "../utils/package-installer.js";
 import { GitInitializer } from "../utils/git-initializer.js";
+import { displayWelcome, promptForMissingOptions } from "../utils/prompts.js";
+import { styles, icons, messages, format } from "../utils/styling.js";
 import {
   createTemplateContext,
   type CreateCommandOptions,
@@ -24,9 +26,19 @@ export function createCreateCommand(): Command {
   createCmd
     .description("Create a new FARM application")
     .argument("<project-name>", "Name of the project")
-    .option("-t, --template <template>", "Project template", "basic")
-    .option("-f, --features <features>", "Comma-separated list of features")
-    .option("-d, --database <database>", "Database type", "mongodb")
+    .option(
+      "-t, --template <template>",
+      "Project template (basic, ai-chat, ai-dashboard, ecommerce, cms, api-only)"
+    )
+    .option(
+      "-f, --features <features>",
+      "Comma-separated list of features (auth, ai, realtime, payments, email, storage, search, analytics)"
+    )
+    .option(
+      "-d, --database <database>",
+      "Database type (mongodb, postgresql, mysql, sqlite)",
+      "mongodb"
+    )
     .option("--no-typescript", "Disable TypeScript")
     .option("--no-docker", "Disable Docker configuration")
     .option("--no-testing", "Disable testing setup")
@@ -44,56 +56,82 @@ async function createProject(
   options: CreateCommandOptions
 ): Promise<void> {
   try {
-    // Validate project name
+    // Show welcome message if interactive mode
+    if (options.interactive !== false) {
+      displayWelcome();
+    } // Validate project name
     if (!isValidProjectName(projectName)) {
       console.error(
-        chalk.red(
-          "❌ Invalid project name. Use alphanumeric characters, hyphens, and underscores only."
+        messages.error(
+          "Invalid project name. Use alphanumeric characters, hyphens, and underscores only."
         )
       );
       process.exit(1);
     }
 
-    // Validate and normalize options
+    // Check if directory already exists
+    const projectPath = path.resolve(projectName);
+    if (await fs.pathExists(projectPath)) {
+      console.error(
+        messages.error(`Directory "${projectName}" already exists.`)
+      );
+      process.exit(1);
+    }
+
+    // Validate and normalize options, with interactive prompts if needed
     const normalizedOptions = await validateAndNormalizeOptions(
       options,
       projectName
     );
 
-    // Check if directory already exists
-    const projectPath = path.resolve(projectName);
-    if (await fs.pathExists(projectPath)) {
-      console.error(chalk.red(`❌ Directory "${projectName}" already exists.`));
-      process.exit(1);
-    }
-
     // Create template context
-    const context = createTemplateContext(projectName, normalizedOptions);
+    const context = createTemplateContext(projectName, normalizedOptions); // Display configuration summary
+    console.log(styles.subtitle("\n📋 Project Configuration:"));
+    console.log(styles.muted("─".repeat(50)));
+    console.log(styles.info(`Project Name:  ${styles.emphasis(projectName)}`));
+    console.log(
+      styles.info(`Template:      ${styles.emphasis(context.template)}`)
+    );
+    console.log(
+      styles.info(
+        `Database:      ${styles.emphasis(typeof context.database === "object" ? context.database.type : context.database)}`
+      )
+    );
+    console.log(
+      styles.info(
+        `Features:      ${styles.emphasis(context.features.length > 0 ? context.features.join(", ") : "none")}`
+      )
+    );
+    console.log(
+      styles.info(
+        `TypeScript:    ${styles.emphasis(context.typescript ? "Yes" : "No")}`
+      )
+    );
+    console.log(
+      styles.info(
+        `Docker:        ${styles.emphasis(normalizedOptions.docker ? "Yes" : "No")}`
+      )
+    );
+    console.log(
+      styles.info(
+        `Testing:       ${styles.emphasis(normalizedOptions.testing ? "Yes" : "No")}`
+      )
+    );
+    console.log(
+      styles.info(
+        `Git:           ${styles.emphasis(normalizedOptions.git ? "Yes" : "No")}`
+      )
+    );
+    console.log(styles.muted("─".repeat(50)));
 
-    // Log configuration if verbose
-    if (normalizedOptions.verbose) {
-      console.log(chalk.blue("ℹ️  📋 Configuration:"));
-      console.log(chalk.blue(`ℹ️     Template: ${context.template}`));
-      console.log(
-        chalk.blue(
-          `ℹ️     Database: ${typeof context.database === "object" ? context.database.type : context.database}`
-        )
-      );
-      console.log(
-        chalk.blue(
-          `ℹ️     Features: ${context.features.length > 0 ? context.features.join(", ") : "none"}`
-        )
-      );
-      console.log(
-        chalk.blue(`ℹ️     TypeScript: ${context.typescript ? "Yes" : "No"}`)
-      );
-      console.log(chalk.blue("ℹ️"));
-    }
-
-    console.log(chalk.blue(`ℹ️  🌾 Creating FARM application: ${projectName}`));
+    console.log(
+      styles.brand(
+        `\n🌾 Creating FARM application: ${styles.emphasis(projectName)}`
+      )
+    );
 
     // Generate project structure
-    console.log(chalk.blue("ℹ️  🏗️  Generating project structure..."));
+    console.log(messages.step("🏗️  Generating project structure..."));
     const projectGenerator = new ProjectFileGenerator();
     const adapter = new FileGeneratorAdapter(projectGenerator as any);
     // Pass a dummy template definition for new generator signature compatibility
@@ -109,41 +147,90 @@ async function createProject(
 
     // Initialize git repository
     if (normalizedOptions.git) {
-      console.log(chalk.blue("ℹ️  📦 Initializing git repository..."));
+      console.log(messages.step("📦 Initializing git repository..."));
       const gitInitializer = new GitInitializer();
       await gitInitializer.initialize(projectPath);
     }
 
     // Install dependencies
     if (normalizedOptions.install) {
-      console.log(chalk.blue("ℹ️  📦 Installing dependencies..."));
+      console.log(messages.step("📦 Installing dependencies..."));
       const packageInstaller = new PackageInstaller();
       await packageInstaller.installAll(projectPath, {
         verbose: normalizedOptions.verbose,
       });
     }
 
-    // Success message
-    console.log(chalk.green("\n🎉 Project created successfully!\n"));
-    console.log(chalk.blue("📁 Next steps:"));
-    console.log(chalk.blue(`   cd ${projectName}`));
+    // Success message with next steps
+    console.log(messages.success("🎉 Project created successfully!"));
 
-    if (!normalizedOptions.install) {
-      console.log(chalk.blue("   pnpm install"));
+    // Next steps
+    const nextSteps = [
+      `cd ${projectName}`,
+      ...(normalizedOptions.install ? [] : ["pnpm install"]),
+      "farm dev",
+    ];
+
+    console.log(styles.subtitle("\n📁 Next steps:"));
+    console.log(styles.muted("─".repeat(30)));
+    console.log(format.numberedList(nextSteps, "info"));
+
+    // Resources
+    const resources = {
+      Documentation: "https://farm-stack.dev",
+      Community: "https://discord.gg/farm-stack",
+    };
+
+    console.log(styles.subtitle("\n📚 Resources:"));
+    console.log(styles.muted("─".repeat(30)));
+    Object.entries(resources).forEach(([name, url]) => {
+      console.log(styles.info(`   ${name}: ${styles.url(url)}`));
+    });
+
+    // Template-specific next steps
+    if (context.template === "ai-chat" || context.template === "ai-dashboard") {
+      console.log(styles.subtitle("\n🤖 AI Setup:"));
+      console.log(styles.muted("─".repeat(30)));
+      const aiSteps = [
+        "Configure your AI provider in .env",
+        "Install Ollama for local AI: https://ollama.ai",
+        "Review AI configuration in config/ai.ts",
+      ];
+      console.log(format.bulletList(aiSteps, "info"));
     }
 
-    console.log(chalk.blue("   farm dev"));
-    console.log(chalk.blue("\n📚 Documentation: https://farm-stack.dev"));
-    console.log(chalk.blue("💬 Community: https://discord.gg/farm-stack\n"));
+    if (context.features.includes("auth")) {
+      console.log(styles.subtitle("\n🔐 Authentication:"));
+      console.log(styles.muted("─".repeat(30)));
+      const authSteps = [
+        "Configure JWT secrets in .env",
+        "Review auth settings in config/auth.ts",
+        "Set up user roles and permissions",
+      ];
+      console.log(format.bulletList(authSteps, "info"));
+    }
+
+    if (context.features.includes("payments")) {
+      console.log(styles.subtitle("\n💳 Payments:"));
+      console.log(styles.muted("─".repeat(30)));
+      const paymentSteps = [
+        "Configure Stripe keys in .env",
+        "Review payment settings in config/payments.ts",
+        "Set up webhooks for payment events",
+      ];
+      console.log(format.bulletList(paymentSteps, "info"));
+    }
+
+    console.log();
   } catch (error) {
     console.error(
-      chalk.red("❌ Project creation failed:"),
+      messages.error("Project creation failed:"),
       error instanceof Error ? error.message : String(error)
     );
 
     if (options.verbose && error instanceof Error) {
-      console.error(chalk.gray("\nStack trace:"));
-      console.error(chalk.gray(error.stack));
+      console.error(styles.muted("\nStack trace:"));
+      console.error(styles.muted(error.stack));
     }
 
     process.exit(1);
@@ -151,29 +238,24 @@ async function createProject(
 }
 
 function isValidProjectName(name: string): boolean {
-  // Allow alphanumeric characters, hyphens, underscores, and dots
-  // Must start with a letter or number
-  const regex = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-  return regex.test(name) && name.length <= 214; // npm package name limit
+  return /^[a-zA-Z0-9_-]+$/.test(name);
 }
 
 async function validateAndNormalizeOptions(
   options: CreateCommandOptions,
   projectName: string
 ): Promise<CreateCommandOptions> {
-  const normalized: CreateCommandOptions = { ...options };
+  let normalized: CreateCommandOptions = { ...options };
 
-  // Handle interactive mode
+  // Handle interactive mode - prompt for missing options
   if (normalized.interactive !== false) {
-    // TODO: Implement interactive prompts
-    // For now, we'll use the provided options or defaults
+    normalized = await promptForMissingOptions(normalized);
   }
-
   // Validate template
   if (normalized.template && !isTemplateName(normalized.template)) {
-    console.error(chalk.red(`❌ Invalid template: ${normalized.template}`));
+    console.error(messages.error(`Invalid template: ${normalized.template}`));
     console.error(
-      chalk.gray(
+      styles.muted(
         "Valid templates: basic, ai-chat, ai-dashboard, ecommerce, cms, api-only"
       )
     );
@@ -182,9 +264,9 @@ async function validateAndNormalizeOptions(
 
   // Validate database
   if (normalized.database && !isDatabaseType(normalized.database)) {
-    console.error(chalk.red(`❌ Invalid database: ${normalized.database}`));
+    console.error(messages.error(`Invalid database: ${normalized.database}`));
     console.error(
-      chalk.gray("Valid databases: mongodb, postgresql, mysql, sqlite")
+      styles.muted("Valid databases: mongodb, postgresql, mysql, sqlite")
     );
     process.exit(1);
   }
@@ -200,13 +282,12 @@ async function validateAndNormalizeOptions(
     const invalidFeatures = featureList.filter(
       (f: string) => !isFeatureName(f)
     );
-
     if (invalidFeatures.length > 0) {
       console.error(
-        chalk.red(`❌ Invalid features: ${invalidFeatures.join(", ")}`)
+        messages.error(`Invalid features: ${invalidFeatures.join(", ")}`)
       );
       console.error(
-        chalk.gray(
+        styles.muted(
           "Valid features: auth, ai, realtime, payments, email, storage, search, analytics"
         )
       );

@@ -1,21 +1,172 @@
-"""WebSocket endpoint for streaming chat."""
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from ai.providers.manager import AIProviderManager
-from models.ai import ChatMessage
+# templates/ai-chat/apps/api/src/routes/websocket.py.hbs import json import
+logging from typing import Dict, List, Optional from fastapi import APIRouter,
+WebSocket, WebSocketDisconnect, Depends, HTTPException from datetime import
+datetime from ..ai.manager import get_ai_manager from ..models.conversation
+import Conversation from ..models.message import Message from ..models.ai import
+ChatMessage
+{{#if features.auth}}
+  from ..models.user import User from ..core.security import get_current_user_ws
+{{/if}}
+from ..database.connection import get_database router = APIRouter() logger =
+logging.getLogger(__name__) class ConnectionManager: """Manages WebSocket
+connections for real-time chat""" def __init__(self): # Store active connections
+by conversation ID self.active_connections: Dict[str, List[WebSocket]] = {} #
+Store connection metadata self.connection_info: Dict[WebSocket, Dict] = {} async
+def connect( self, websocket: WebSocket, conversation_id: str{{#if
+  features.auth
+}}, user_id: str{{/if}}
+): """Accept a WebSocket connection and add to conversation room""" await
+websocket.accept() # Add to conversation room if conversation_id not in
+self.active_connections: self.active_connections[conversation_id] = []
+self.active_connections[conversation_id].append(websocket) # Store connection
+metadata self.connection_info[websocket] = { "conversation_id": conversation_id,
+{{#if features.auth}}"user_id": user_id,{{/if}}
+"connected_at": datetime.utcnow() } logger.info(f"WebSocket connected to
+conversation {conversation_id}") # Send connection confirmation await
+websocket.send_json({ "type": "connection_confirmed", "conversation_id":
+conversation_id, "timestamp": datetime.utcnow().isoformat() }) def
+disconnect(self, websocket: WebSocket): """Remove a WebSocket connection"""
+connection_info = self.connection_info.get(websocket) if connection_info:
+conversation_id = connection_info["conversation_id"] # Remove from conversation
+room if conversation_id in self.active_connections: try:
+self.active_connections[conversation_id].remove(websocket) # Clean up empty
+conversation rooms if not self.active_connections[conversation_id]: del
+self.active_connections[conversation_id] except ValueError: pass # WebSocket was
+already removed # Remove connection info del self.connection_info[websocket]
+logger.info(f"WebSocket disconnected from conversation {conversation_id}") async
+def send_to_conversation(self, conversation_id: str, message: dict): """Send a
+message to all connections in a conversation""" if conversation_id in
+self.active_connections: disconnected = [] for websocket in
+self.active_connections[conversation_id]: try: await
+websocket.send_json(message) except Exception as e: logger.warning(f"Failed to
+send message to WebSocket: {str(e)}") disconnected.append(websocket) # Clean up
+disconnected WebSockets for ws in disconnected: self.disconnect(ws) async def
+send_personal_message(self, websocket: WebSocket, message: dict): """Send a
+message to a specific WebSocket connection""" try: await
+websocket.send_json(message) except Exception as e: logger.warning(f"Failed to
+send personal message: {str(e)}") self.disconnect(websocket) # Global connection
+manager manager = ConnectionManager()
 
-router = APIRouter()
-ai_manager = AIProviderManager()
+{{#if features.auth}}
+  async def get_current_user_ws(websocket: WebSocket, token: str) -> User:
+  """Get current user from WebSocket token""" # This should implement your
+  authentication logic # For now, we'll create a simple implementation try: # In
+  a real implementation, you'd validate the JWT token here # and return the user
+  object from ..core.security import verify_token payload = verify_token(token)
+  user_id = payload.get("sub") if not user_id: await websocket.close(code=1008,
+  reason="Invalid token") return None # Get user from database user = await
+  User.find_one({"id": user_id}) if not user: await websocket.close(code=1008,
+  reason="User not found") return None return user except Exception as e:
+  logger.error(f"WebSocket authentication failed: {str(e)}") await
+  websocket.close(code=1008, reason="Authentication failed") return None
+{{/if}}
 
-@router.websocket("/chat")
-async def chat_socket(ws: WebSocket):
-    await ws.accept()
-    provider = ai_manager.get_provider(None)
-    messages: list[ChatMessage] = []
-    try:
-        while True:
-            data = await ws.receive_json()
-            messages.append(ChatMessage(**data))
-            async for chunk in provider.chat_stream(messages, provider.default_model):
-                await ws.send_json({"content": chunk})
-    except WebSocketDisconnect:
-        await ws.close()
+@router.websocket("/chat/{conversation_id}") async def websocket_chat(
+websocket: WebSocket, conversation_id: str{{#if features.auth}}, token:
+  Optional[str] = None{{/if}}
+): """WebSocket endpoint for real-time chat"""
+
+{{#if features.auth}}
+  # Authenticate user if not token: await websocket.close(code=1008,
+  reason="Authentication token required") return user = await
+  get_current_user_ws(websocket, token) if not user: return # Connection already
+  closed in get_current_user_ws user_id = user.id
+{{else}}
+  user_id = None
+{{/if}}
+
+# Verify conversation access try: query = {"id": conversation_id}
+{{#if features.auth}}
+  query["user_id"] = user_id
+{{/if}}
+
+conversation = await Conversation.find_one(query) if not conversation: await
+websocket.close(code=1008, reason="Conversation not found") return except
+Exception as e: logger.error(f"Failed to verify conversation access: {str(e)}")
+await websocket.close(code=1011, reason="Internal error") return # Connect to
+conversation await manager.connect(websocket, conversation_id{{#if
+  features.auth
+}}, user_id{{/if}}) try: while True: # Receive message from WebSocket data =
+await websocket.receive_text() try: message_data = json.loads(data) await
+handle_websocket_message( websocket, conversation_id, message_data{{#if
+  features.auth
+}}, user_id{{/if}}
+) except json.JSONDecodeError: await manager.send_personal_message(websocket, {
+"type": "error", "message": "Invalid JSON format" }) except Exception as e:
+logger.error(f"Error handling WebSocket message: {str(e)}") await
+manager.send_personal_message(websocket, { "type": "error", "message": "Failed
+to process message" }) except WebSocketDisconnect: logger.info(f"WebSocket
+disconnected from conversation {conversation_id}") except Exception as e:
+logger.error(f"WebSocket error: {str(e)}") finally:
+manager.disconnect(websocket) async def handle_websocket_message( websocket:
+WebSocket, conversation_id: str, message_data: dict{{#if features.auth}},
+  user_id: str{{/if}}
+): """Handle different types of WebSocket messages""" message_type =
+message_data.get("type") if message_type == "chat": await
+handle_chat_message(websocket, conversation_id, message_data{{#if
+  features.auth
+}}, user_id{{/if}}) elif message_type == "typing": await
+handle_typing_indicator(websocket, conversation_id, message_data{{#if
+  features.auth
+}}, user_id{{/if}}) elif message_type == "ping": await
+manager.send_personal_message(websocket, { "type": "pong", "timestamp":
+datetime.utcnow().isoformat() }) else: await
+manager.send_personal_message(websocket, { "type": "error", "message": f"Unknown
+message type: {message_type}" }) async def handle_chat_message( websocket:
+WebSocket, conversation_id: str, message_data: dict{{#if features.auth}},
+  user_id: str{{/if}}
+): """Handle chat message from WebSocket""" try: user_message =
+message_data.get("message", "").strip() if not user_message: await
+manager.send_personal_message(websocket, { "type": "error", "message": "Message
+cannot be empty" }) return # Get AI configuration provider_name =
+message_data.get("provider") model_name = message_data.get("model") # Get AI
+manager and provider ai_manager = await get_ai_manager() provider =
+ai_manager.get_provider(provider_name) if provider_name else
+ai_manager.get_provider() if not provider: await
+manager.send_personal_message(websocket, { "type": "error", "message": "AI
+provider not available" }) return # Get model model = model_name or await
+provider.get_default_model() # Get conversation history messages = await
+Message.find( {"conversation_id": conversation_id}
+).sort(Message.timestamp).to_list() # Build AI message history ai_messages = [
+ChatMessage(role=msg.role, content=msg.content) for msg in messages ] # Add new
+user message ai_messages.append(ChatMessage(role="user", content=user_message))
+# Save user message to database user_msg = Message(
+conversation_id=conversation_id, role="user", content=user_message,
+provider=provider.__class__.__name__.lower().replace("provider", ""),
+model=model, timestamp=datetime.utcnow() ) await user_msg.save() # Broadcast
+user message to all connections await
+manager.send_to_conversation(conversation_id, { "type": "new_message",
+"message": { "id": str(user_msg.id), "role": "user", "content": user_message,
+"timestamp": user_msg.timestamp.isoformat() } }) # Start AI response streaming
+await manager.send_to_conversation(conversation_id, { "type": "ai_thinking",
+"provider": provider.__class__.__name__.lower().replace("provider", ""),
+"model": model }) # Stream AI response accumulated_content = "" async for chunk
+in provider.chat_stream( messages=ai_messages, model=model,
+temperature=message_data.get("temperature", 0.7),
+max_tokens=message_data.get("max_tokens", 1000) ): if chunk: accumulated_content
++= chunk # Broadcast chunk to all connections await
+manager.send_to_conversation(conversation_id, { "type": "ai_chunk", "content":
+chunk }) # Save AI response to database ai_msg = Message(
+conversation_id=conversation_id, role="assistant", content=accumulated_content,
+provider=provider.__class__.__name__.lower().replace("provider", ""),
+model=model, timestamp=datetime.utcnow() ) await ai_msg.save() # Send completion
+signal await manager.send_to_conversation(conversation_id, { "type":
+"ai_complete", "message": { "id": str(ai_msg.id), "role": "assistant",
+"content": accumulated_content, "timestamp": ai_msg.timestamp.isoformat() } }) #
+Update conversation activity conversation = await Conversation.find_one({"id":
+conversation_id}) if conversation: conversation.last_activity =
+datetime.utcnow() await conversation.save() except Exception as e:
+logger.error(f"Error in WebSocket chat handler: {str(e)}") await
+manager.send_to_conversation(conversation_id, { "type": "ai_error", "error":
+"Failed to generate AI response" }) async def handle_typing_indicator(
+websocket: WebSocket, conversation_id: str, message_data: dict{{#if
+  features.auth
+}}, user_id: str{{/if}}
+): """Handle typing indicator from WebSocket""" is_typing =
+message_data.get("typing", False) # Broadcast typing indicator to other
+connections (not the sender) for ws in
+manager.active_connections.get(conversation_id, []): if ws != websocket: await
+manager.send_personal_message(ws, { "type": "user_typing",
+{{#if features.auth}}"user_id": user_id,{{/if}}
+"typing": is_typing, "timestamp": datetime.utcnow().isoformat() }) # Global
+manager instance for use in other modules websocket_manager = manager

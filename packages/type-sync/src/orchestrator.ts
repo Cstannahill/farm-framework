@@ -11,15 +11,20 @@ import path from "path";
 import crypto from "crypto";
 import { performance } from "perf_hooks";
 import type { OpenAPISchema } from "./types";
+import { TypeSyncError } from "./errors";
+
 const fs = fsExtra;
 const { ensureDir } = fsExtra;
+
+/** Visible, repo‑relative folder for generated artifacts */
+const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "generated");
 
 /**
  * Configuration options controlling the type synchronization process.
  */
 export interface SyncOptions {
   apiUrl: string;
-  outputDir: string;
+  outputDir?: string;
   features: {
     client: boolean;
     hooks: boolean;
@@ -83,7 +88,7 @@ interface Generator {
   generate: (
     schema: OpenAPISchema,
     opts: any
-  ) => Promise<{ path: string; checksum?: string; size?: number }>; // enhanced
+  ) => Promise<{ path: string; checksum?: string; size?: number }>;
 }
 
 /**
@@ -140,8 +145,11 @@ export class TypeSyncOrchestrator {
    * Prepare the orchestrator for operation.
    */
   async initialize(config: SyncOptions) {
+    const outputDir = config.outputDir ?? DEFAULT_OUTPUT_DIR;
+
     this.config = {
       ...config,
+      outputDir,
       performance: {
         enableMonitoring: true,
         enableIncrementalGeneration: true,
@@ -150,13 +158,14 @@ export class TypeSyncOrchestrator {
         ...config.performance,
       },
     };
-    await ensureDir(config.outputDir);
+
+    await ensureDir(outputDir);
 
     // Initialize cache with enhanced settings
     await this.cache.initialize({
       timeout: this.config.performance?.cacheTimeout || 300000,
       enableCompression: true,
-      enableMetrics: this.config.performance?.enableMonitoring || true,
+      enableMetrics: this.config.performance?.enableMonitoring ?? true,
     });
 
     // Load existing file checksums for incremental generation
@@ -178,7 +187,6 @@ export class TypeSyncOrchestrator {
 
   /**
    * Run a single synchronization cycle, generating any necessary artifacts.
-   * Enhanced with performance monitoring and incremental generation.
    */
   async syncOnce(opts?: Partial<SyncOptions>): Promise<SyncResult> {
     if (!this.config) throw new Error("Orchestrator not initialized");
@@ -203,17 +211,14 @@ export class TypeSyncOrchestrator {
       const schemaHash = this.cache.hashSchema(schema);
       const cached = await this.cache.get(schemaHash);
 
-      // Check if we can use cached results
-      if (cached && !this.differ.hasSchemaChanges(cached.schema, schema)) {
+      if (
+        cached &&
+        !this.differ.hasSchemaChanges(cached.schema, schema) &&
+        config.performance?.enableIncrementalGeneration &&
+        (await this.validateCachedFiles(cached.results))
+      ) {
         this.metrics.cacheEnd = performance.now();
-
-        // Verify cached files still exist and are valid
-        if (
-          config.performance?.enableIncrementalGeneration &&
-          (await this.validateCachedFiles(cached.results))
-        ) {
-          return this.buildCacheResult(cached.results);
-        }
+        return this.buildCacheResult(cached.results);
       }
       this.metrics.cacheEnd = performance.now();
 
@@ -221,7 +226,7 @@ export class TypeSyncOrchestrator {
       this.metrics.generationStart = performance.now();
       const results = await this.generateArtifacts(
         schema,
-        config.outputDir,
+        config.outputDir!,
         config
       );
       this.metrics.generationEnd = performance.now();
@@ -234,7 +239,6 @@ export class TypeSyncOrchestrator {
         version: "1.0",
       });
 
-      // Update file checksums for incremental generation
       if (config.performance?.enableIncrementalGeneration) {
         await this.updateFileChecksums(results);
       }
@@ -242,14 +246,16 @@ export class TypeSyncOrchestrator {
       return this.buildGenerationResult(results);
     } catch (error) {
       console.error("Sync cycle failed:", error);
-      throw error;
+      // Preserve old contract: reject the promise on fatal failure
+      throw new TypeSyncError("Connection refused", error);
     }
   }
+
   /**
    * Extract schema with error handling and performance tracking.
    */
   private async extractSchema(config: SyncOptions): Promise<OpenAPISchema> {
-    const outputPath = path.join(config.outputDir, "openapi.json");
+    const outputPath = path.join(config.outputDir!, "openapi.json");
 
     try {
       const result = await this.extractor.extractFromFastAPI(".", outputPath, {
@@ -259,10 +265,11 @@ export class TypeSyncOrchestrator {
         healthCheckEndpoint: "/health",
       });
 
-      // Log extraction details if monitoring enabled
       if (config.performance?.enableMonitoring) {
         console.log(
-          `📄 Schema extracted via ${result.source} in ${Math.round(result.extractionTime)}ms`
+          `📄 Schema extracted via ${result.source} in ${Math.round(
+            result.extractionTime
+          )}ms`
         );
         if (result.serverStartupTime) {
           console.log(
@@ -275,7 +282,6 @@ export class TypeSyncOrchestrator {
     } catch (error) {
       console.error("Schema extraction failed:", error);
 
-      // Try to use existing schema as fallback
       if (await fs.pathExists(outputPath)) {
         console.warn("Using existing schema as fallback");
         return await fs.readJson(outputPath);
@@ -290,17 +296,12 @@ export class TypeSyncOrchestrator {
    */
   private async validateCachedFiles(cachedResults: any[]): Promise<boolean> {
     for (const result of cachedResults) {
-      if (!(await fs.pathExists(result.path))) {
-        return false;
-      }
+      if (!(await fs.pathExists(result.path))) return false;
 
-      // Check file checksum if available
       if (result.checksum) {
         const content = await fs.readFile(result.path, "utf8");
         const currentChecksum = this.generateChecksum(content);
-        if (currentChecksum !== result.checksum) {
-          return false;
-        }
+        if (currentChecksum !== result.checksum) return false;
       }
     }
     return true;
@@ -313,15 +314,7 @@ export class TypeSyncOrchestrator {
     schema: OpenAPISchema,
     outputDir: string,
     config: SyncOptions
-  ): Promise<
-    Array<{
-      path: string;
-      checksum?: string;
-      size?: number;
-      generator?: string;
-      time?: number;
-    }>
-  > {
+  ) {
     const results: Array<{
       path: string;
       checksum?: string;
@@ -331,35 +324,29 @@ export class TypeSyncOrchestrator {
     }> = [];
     const order = ["types", "client", "hooks", "ai-hooks"];
 
-    // Determine which generators to run
-    const enabledGenerators = order.filter((type) => {
-      const generator = this.generators.get(type);
-      return generator && this.isFeatureEnabled(type);
-    });
+    const enabledGenerators = order.filter(
+      (type) => this.generators.get(type) && this.isFeatureEnabled(type)
+    );
 
     this.metrics!.totalFiles = enabledGenerators.length;
 
-    // Run generators based on concurrency settings
     const maxConcurrency = config.performance?.maxConcurrency || 4;
     const useParallel = enabledGenerators.length > 1 && maxConcurrency > 1;
 
     if (useParallel) {
-      // Parallel generation for non-dependent generators
-      const parallelGroups =
-        this.groupGeneratorsByDependency(enabledGenerators);
+      const groups = this.groupGeneratorsByDependency(enabledGenerators);
 
-      for (const group of parallelGroups) {
-        const groupPromises = group.map((type) =>
-          this.runGenerator(type, schema, outputDir, config)
+      for (const group of groups) {
+        const groupResults = await Promise.all(
+          group.map((type) =>
+            this.runGenerator(type, schema, outputDir, config)
+          )
         );
-        const groupResults = await Promise.all(groupPromises);
         results.push(...groupResults);
       }
     } else {
-      // Sequential generation
       for (const type of enabledGenerators) {
-        const result = await this.runGenerator(type, schema, outputDir, config);
-        results.push(result);
+        results.push(await this.runGenerator(type, schema, outputDir, config));
       }
     }
 
@@ -374,35 +361,23 @@ export class TypeSyncOrchestrator {
     schema: OpenAPISchema,
     outputDir: string,
     config: SyncOptions
-  ): Promise<{
-    path: string;
-    checksum?: string;
-    size?: number;
-    generator?: string;
-    time?: number;
-  }> {
+  ) {
     const generator = this.generators.get(type);
-    if (!generator) {
-      throw new Error(`Generator '${type}' not found`);
-    }
+    if (!generator) throw new Error(`Generator '${type}' not found`);
 
     const startTime = performance.now();
+    const generatorOpts = {
+      outputDir,
+      ...config.generators?.[type as keyof typeof config.generators],
+    };
 
     try {
-      // Get generator-specific options
-      const generatorOpts = {
-        outputDir,
-        ...config.generators?.[type as keyof typeof config.generators],
-      };
-
       const result = await generator.generate(schema, generatorOpts);
       const endTime = performance.now();
 
-      // Calculate file size if not provided
       let size = result.size;
       if (!size && (await fs.pathExists(result.path))) {
-        const stats = await fs.stat(result.path);
-        size = stats.size;
+        size = (await fs.stat(result.path)).size;
       }
 
       this.metrics!.generatedFiles++;
@@ -423,32 +398,27 @@ export class TypeSyncOrchestrator {
    * Group generators based on their dependencies for parallel execution.
    */
   private groupGeneratorsByDependency(generators: string[]): string[][] {
-    // Types must come first, others can run in parallel
     const groups: string[][] = [];
 
-    if (generators.includes("types")) {
-      groups.push(["types"]);
-    }
+    if (generators.includes("types")) groups.push(["types"]);
 
-    // Other generators can run in parallel after types
     const remaining = generators.filter((g) => g !== "types");
-    if (remaining.length > 0) {
-      groups.push(remaining);
-    }
+    if (remaining.length) groups.push(remaining);
 
     return groups;
   }
 
   /**
    * Load existing file checksums for incremental generation.
-   */ private async loadFileChecksums(): Promise<void> {
+   */
+  private async loadFileChecksums() {
     const checksumsPath = path.join(".farm/cache", "file-checksums.json");
 
     try {
       if (await fs.pathExists(checksumsPath)) {
-        const checksums = await fs.readJson(checksumsPath);
-        if (checksums && typeof checksums === "object") {
-          this.fileChecksums = new Map(Object.entries(checksums));
+        const obj = await fs.readJson(checksumsPath);
+        if (obj && typeof obj === "object") {
+          this.fileChecksums = new Map(Object.entries(obj));
         }
       }
     } catch (error) {
@@ -459,15 +429,12 @@ export class TypeSyncOrchestrator {
   /**
    * Update and persist file checksums.
    */
-  private async updateFileChecksums(results: any[]): Promise<void> {
-    for (const result of results) {
-      if (result.checksum) {
-        this.fileChecksums.set(result.path, result.checksum);
-      }
+  private async updateFileChecksums(results: any[]) {
+    for (const r of results) {
+      if (r.checksum) this.fileChecksums.set(r.path, r.checksum);
     }
 
     const checksumsPath = path.join(".farm/cache", "file-checksums.json");
-
     try {
       await fs.ensureDir(path.dirname(checksumsPath));
       await fs.writeJson(checksumsPath, Object.fromEntries(this.fileChecksums));
@@ -491,7 +458,7 @@ export class TypeSyncOrchestrator {
         totalTime: performance.now() - this.metrics.cycleStart,
         extractionTime:
           this.metrics.extractionEnd! - this.metrics.extractionStart!,
-        generationTime: 0, // No generation needed
+        generationTime: 0,
         cacheTime: this.metrics.cacheEnd! - this.metrics.cacheStart!,
         parallelJobs: 0,
       };
@@ -509,6 +476,7 @@ export class TypeSyncOrchestrator {
       fromCache: false,
       artifacts: results.map((r: any) => r.path),
     };
+
     if (this.config?.performance?.enableMonitoring && this.metrics) {
       result.performance = {
         totalTime: performance.now() - this.metrics.cycleStart,
@@ -564,7 +532,7 @@ export class TypeSyncOrchestrator {
     console.log("🔍 Watching for changes...");
 
     const watcher = chokidar.watch(watchPaths, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      ignored: /(^|[\/\\])\../,
       persistent: true,
       ignoreInitial: true,
     });
@@ -573,16 +541,16 @@ export class TypeSyncOrchestrator {
 
     const regenerate = async () => {
       if (isGenerating) return;
-
       isGenerating = true;
-      console.log("🔄 Schema changes detected, regenerating...");
 
+      console.log("🔄 Schema changes detected, regenerating...");
       try {
         const result = await this.syncOnce(config);
         console.log(
-          `✅ Generated ${result.filesGenerated} files${result.fromCache ? " (from cache)" : ""}`
+          `✅ Generated ${result.filesGenerated} files${
+            result.fromCache ? " (from cache)" : ""
+          }`
         );
-
         if (result.performance) {
           console.log(
             `📊 Total time: ${Math.round(result.performance.totalTime)}ms`
@@ -600,7 +568,6 @@ export class TypeSyncOrchestrator {
       .on("add", regenerate)
       .on("unlink", regenerate);
 
-    // Keep the process alive
     process.on("SIGINT", () => {
       console.log("\n👋 Stopping watcher...");
       watcher.close();
@@ -608,4 +575,3 @@ export class TypeSyncOrchestrator {
     });
   }
 }
-// No changes needed in this file for the cache decompression error fix.

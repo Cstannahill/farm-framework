@@ -130,13 +130,13 @@ export class TemplateRegistry {
 
         // AI-specific frontend components
         {
-          src: "frontend/ai-chat/**/*",
+          src: "ai-chat/apps/web/src/**/*",
           dest: "apps/web/src/",
           condition: (ctx) => ctx.template !== "api-only",
         },
 
         // AI-specific backend files
-        { src: "backend/ai/**/*", dest: "apps/api/src/" },
+        { src: "ai-chat/apps/api/src/**/*", dest: "apps/api/src/" },
 
         // WebSocket support
         {

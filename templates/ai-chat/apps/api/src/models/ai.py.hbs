@@ -1,43 +1,93 @@
-"""AI related request and response models."""
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    messages: List[ChatMessage]
-    model: str
-    provider: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 1000
-
-class ChatResponse(BaseModel):
-    response: str
-    model: str
-    provider: str
-    usage: Dict[str, int] = {}
-
-class GenerateRequest(BaseModel):
-    prompt: str
-    model: str
-    provider: Optional[str] = None
-
-class GenerateResponse(BaseModel):
-    text: str
-    model: str
-    provider: str
-
-class ModelInfo(BaseModel):
-    name: str
-    provider: str
-    description: Optional[str] = None
-
-class ProviderStatus(BaseModel):
-    name: str
-    status: str
-    models: List[str] = []
-
-class LoadModelRequest(BaseModel):
-    provider: str
+# templates/ai-chat/apps/api/src/models/ai.py.hbs from datetime import datetime
+from typing import List, Optional, Dict, Any, Literal from pydantic import
+BaseModel, Field, validator class ChatMessage(BaseModel): """Individual chat
+message""" role: Literal["system", "user", "assistant"] = Field(...,
+description="Message role") content: str = Field(..., description="Message
+content") metadata: Optional[Dict[str, Any]] = Field(None, description="Optional
+message metadata") class ChatRequest(BaseModel): """Request for chat
+completion""" message: str = Field(..., min_length=1, description="User
+message") conversation_id: Optional[str] = Field(None, description="Existing
+conversation ID") provider: Optional[str] = Field(None, description="AI provider
+to use (ollama, openai)") model: Optional[str] = Field(None,
+description="Specific model to use") stream: bool = Field(False,
+description="Whether to stream the response") # Generation parameters
+temperature: float = Field(0.7, ge=0.0, le=2.0, description="Sampling
+temperature") max_tokens: int = Field(1000, ge=1, le=4000, description="Maximum
+tokens to generate") top_p: Optional[float] = Field(None, ge=0.0, le=1.0,
+description="Nucleus sampling parameter") frequency_penalty: Optional[float] =
+Field(None, ge=-2.0, le=2.0, description="Frequency penalty") presence_penalty:
+Optional[float] = Field(None, ge=-2.0, le=2.0, description="Presence penalty") #
+System prompt system_prompt: Optional[str] = Field(None, description="Custom
+system prompt for this request") @validator('provider') def
+validate_provider(cls, v): if v is not None and v not in ['ollama', 'openai']:
+raise ValueError('Provider must be either "ollama" or "openai"') return v class
+ChatResponse(BaseModel): """Response from chat completion""" id: str =
+Field(..., description="Message ID") conversation_id: str = Field(...,
+description="Conversation ID") message: str = Field(..., description="Generated
+message content") role: Literal["assistant"] = Field("assistant",
+description="Message role") provider: str = Field(..., description="AI provider
+used") model: str = Field(..., description="AI model used") timestamp: datetime
+= Field(..., description="Response timestamp") # Usage information tokens_used:
+Optional[int] = Field(None, description="Tokens used for generation") metadata:
+Dict[str, Any] = Field(default_factory=dict, description="Additional response
+metadata") class StreamChatRequest(BaseModel): """Request for streaming chat
+completion""" messages: List[ChatMessage] = Field(..., description="Conversation
+messages") provider: Optional[str] = Field(None, description="AI provider to
+use") model: str = Field(..., description="Model to use") # Generation
+parameters temperature: float = Field(0.7, ge=0.0, le=2.0) max_tokens: int =
+Field(1000, ge=1, le=4000) top_p: Optional[float] = Field(None, ge=0.0, le=1.0)
+class GenerateRequest(BaseModel): """Request for text generation (non-chat)"""
+prompt: str = Field(..., min_length=1, description="Generation prompt")
+provider: Optional[str] = Field(None, description="AI provider to use") model:
+str = Field(..., description="Model to use") # Generation parameters
+temperature: float = Field(0.7, ge=0.0, le=2.0) max_tokens: int = Field(1000,
+ge=1, le=4000) class GenerateResponse(BaseModel): """Response from text
+generation""" text: str = Field(..., description="Generated text") model: str =
+Field(..., description="Model used") provider: str = Field(...,
+description="Provider used") tokens_used: Optional[int] = Field(None,
+description="Tokens used") metadata: Dict[str, Any] =
+Field(default_factory=dict) class ModelInfo(BaseModel): """Information about an
+AI model""" name: str = Field(..., description="Model name") provider: str =
+Field(..., description="Provider name") description: Optional[str] = Field(None,
+description="Model description") context_length: Optional[int] = Field(None,
+description="Maximum context length") capabilities: List[str] =
+Field(default_factory=list, description="Model capabilities") available: bool =
+Field(True, description="Whether the model is currently available") class
+ProviderStatus(BaseModel): """Status of an AI provider""" name: str = Field(...,
+description="Provider name") status: Literal["healthy", "unhealthy", "unknown"]
+= Field(..., description="Provider health status") models: List[str] =
+Field(default_factory=list, description="Available models") default_model:
+Optional[str] = Field(None, description="Default model for this provider")
+metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional
+provider info") class HealthCheckResponse(BaseModel): """Response from health
+check endpoint""" providers: Dict[str, ProviderStatus] = Field(...,
+description="Status of all providers") default_provider: str = Field(...,
+description="Currently configured default provider") timestamp: datetime =
+Field(default_factory=datetime.utcnow, description="Health check timestamp")
+class LoadModelRequest(BaseModel): """Request to load a model""" provider: str =
+Field(..., description="Provider to load the model on") model: str = Field(...,
+description="Model name to load") class ModelListResponse(BaseModel):
+"""Response containing list of models""" models: List[ModelInfo] = Field(...,
+description="Available models") providers: List[str] = Field(...,
+description="Available providers") class ConversationSummaryRequest(BaseModel):
+"""Request to generate a conversation summary""" conversation_id: str =
+Field(..., description="Conversation to summarize") max_length: int = Field(200,
+ge=50, le=1000, description="Maximum summary length") provider: Optional[str] =
+Field(None, description="AI provider to use for summarization") class
+ConversationSummaryResponse(BaseModel): """Response containing conversation
+summary""" conversation_id: str = Field(..., description="Conversation ID")
+summary: str = Field(..., description="Generated summary") provider: str =
+Field(..., description="Provider used for summarization") model: str =
+Field(..., description="Model used for summarization") class
+AISettings(BaseModel): """AI settings for a conversation or user"""
+preferred_provider: Optional[str] = Field(None, description="Preferred AI
+provider") preferred_model: Optional[str] = Field(None, description="Preferred
+AI model") default_temperature: float = Field(0.7, ge=0.0, le=2.0,
+description="Default temperature") default_max_tokens: int = Field(1000, ge=1,
+le=4000, description="Default max tokens") system_prompt: Optional[str] =
+Field(None, description="Default system prompt") class ErrorResponse(BaseModel):
+"""Standard error response""" error: str = Field(..., description="Error
+message") error_code: Optional[str] = Field(None, description="Error code")
+details: Optional[Dict[str, Any]] = Field(None, description="Additional error
+details") timestamp: datetime = Field(default_factory=datetime.utcnow,
+description="Error timestamp")

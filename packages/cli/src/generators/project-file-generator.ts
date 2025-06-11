@@ -1,16 +1,55 @@
-// packages/cli/src/generators/file-generator.ts
+// packages/cli/src/generators/project-file-generator.ts
 import { join, dirname } from "path";
 import { mkdir, writeFile } from "fs/promises";
-import { TemplateDefinition, TemplateFile } from "../template/types.js";
+import {
+  TemplateDefinition,
+  TemplateFile,
+  TemplateContext,
+} from "../template/types.js";
 import { ProjectStructureGenerator } from "./project-structure.js";
+import { registerHandlebarsHelpers } from "../template/helpers.js";
+import { moduleDirname } from "../utils/modulePath.js";
 import fs from "fs-extra";
 import path from "path";
-import { TemplateProcessor } from "../template/processor.js";
-import type { TemplateContext } from "../template/types.js";
+import Handlebars from "handlebars";
 import chalk from "chalk";
+import prettier from "prettier";
+
+const __dirname = moduleDirname(import.meta.url);
+
+export interface ProjectFileGeneratorHooks {
+  preGenerate?: (context: TemplateContext) => Promise<void> | void;
+  postGenerate?: (
+    context: TemplateContext,
+    generatedFiles: string[]
+  ) => Promise<void> | void;
+}
 
 export class ProjectFileGenerator {
   private structureGenerator = new ProjectStructureGenerator();
+  hooks?: ProjectFileGeneratorHooks = {
+    postGenerate: async (context, generatedFiles) => {
+      const prettierConfig = await prettier.resolveConfig(process.cwd());
+      const projectRoot = context.projectPath || process.cwd();
+      for (const file of generatedFiles) {
+        const absPath = path.resolve(projectRoot, file);
+        try {
+          const content = await fs.readFile(absPath, "utf-8");
+          const info = await prettier.getFileInfo(absPath);
+          if (info.ignored || info.inferredParser == null) continue;
+          // prettier.format is now async in Prettier 3.x, so we must await it
+          const formatted = await prettier.format(content, {
+            ...prettierConfig,
+            filepath: absPath,
+          });
+          await fs.writeFile(absPath, formatted);
+          console.log(chalk.green(`✨ Formatted: ${file}`));
+        } catch (err) {
+          console.warn(chalk.yellow(`⚠️ Could not format ${file}: ${err}`));
+        }
+      }
+    },
+  };
 
   async generateFromTemplate(
     projectPath: string,
@@ -18,6 +57,11 @@ export class ProjectFileGenerator {
     template: TemplateDefinition
   ): Promise<string[]> {
     const generatedFiles: string[] = [];
+
+    // Pre-generation hook
+    if (this.hooks?.preGenerate) {
+      await this.hooks.preGenerate(context);
+    }
 
     // Generate project directory structure FIRST
     const createdDirectories =
@@ -31,6 +75,7 @@ export class ProjectFileGenerator {
 
     // Generate files based on template and context instead of template.files
     const filesToGenerate = this.generateFileList(context);
+    this.validateTemplateFiles(filesToGenerate, context);
     console.log(
       chalk.blue(`ℹ️  Generating ${filesToGenerate.length} files...`)
     );
@@ -56,265 +101,98 @@ export class ProjectFileGenerator {
       }
     }
 
+    // Post-generation hook
+    if (this.hooks?.postGenerate) {
+      await this.hooks.postGenerate(context, generatedFiles);
+    }
+
     return generatedFiles;
   }
 
   // Generate the list of files to create based on context
   private generateFileList(context: TemplateContext): TemplateFile[] {
-    const files: TemplateFile[] = [
-      // Base project files
-      {
-        dest: "package.json",
-        src: `${context.template}/package.json.hbs`,
-      },
-      {
-        dest: "farm.config.ts",
-        src: `${context.template}/farm.config.ts.hbs`,
-      },
-      {
-        dest: "README.md",
-        src: `${context.template}/README.md.hbs`,
-      },
-      { dest: ".gitignore", src: "base/.gitignore.hbs" },
-      {
-        dest: "docker-compose.yml",
-        src: `${context.template}/docker-compose.yml.hbs`,
-      },
+    const fs = require("fs");
+    const path = require("path");
+    const templateRoot = path.resolve(
+      __dirname,
+      "../../../templates",
+      context.template
+    );
 
-      // API files (always present)
-      {
-        dest: "apps/api/requirements.txt",
-        src: `${context.template}/requirements.txt.hbs`,
-      },
-      {
-        dest: "apps/api/pyproject.toml",
-        src: `${context.template}/pyproject.toml.hbs`,
-      },
-      {
-        dest: "apps/api/src/main.py",
-        src: `${context.template}/src/main.py.hbs`,
-      },
-      {
-        dest: "apps/api/src/routes/__init__.py",
-        src: "backend/basic/src/routes/__init__.py.hbs",
-      },
-      {
-        dest: "apps/api/src/routes/health.py",
-        src: `${context.template}/src/routes/health.py.hbs`,
-      },
-      {
-        dest: "apps/api/src/routes/api.py",
-        src: `${context.template}/src/routes/api.py.hbs`,
-      },
-      {
-        dest: "apps/api/src/__init__.py",
-        src: "backend/basic/src/__init__.py.hbs",
-      },
-      {
-        dest: "apps/api/src/core/__init__.py",
-        src: "backend/basic/src/core/__init__.py.hbs",
-      },
-      {
-        dest: "apps/api/src/core/config.py",
-        src: `${context.template}/src/core/config.py.hbs`,
-      },
-      {
-        dest: "apps/api/src/models/__init__.py",
-        src: "backend/basic/src/models/__init__.py.hbs",
-      },
-      {
-        dest: "apps/api/src/models/user.py",
-        src: `${context.template}/src/models/user.py.hbs`,
-      },
-      {
-        dest: "apps/api/src/database/__init__.py",
-        src: "backend/basic/src/database/__init__.py.hbs",
-      },
-      {
-        dest: "apps/api/src/database/connection.py",
-        src: `${context.template}/src/database/connection.py.hbs`,
-      },
-    ];
-
-    // Add frontend files if not API-only
-    if (context.template !== "api-only") {
-      files.push(
-        {
-          dest: "apps/web/package.json",
-          src: `${context.template}/apps/web/package.json.hbs`,
-        },
-        {
-          dest: "apps/web/index.html",
-          src: `${context.template}/apps/web/index.html.hbs`,
-        },
-        {
-          dest: "apps/web/vite.config.ts",
-          src: `${context.template}/apps/web/vite.config.ts.hbs`,
-        },
-        {
-          dest: "apps/web/src/App.tsx",
-          src: `${context.template}/apps/web/src/App.tsx.hbs`,
-        },
-        {
-          dest: "apps/web/src/main.tsx",
-          src: `${context.template}/apps/web/src/main.tsx.hbs`,
-        },
-        {
-          dest: "apps/web/src/index.css",
-          src: "frontend/basic/src/index.css",
-        },
-        {
-          dest: "apps/web/src/App.css",
-          src: "frontend/basic/src/App.css",
-        },
-        {
-          dest: "apps/web/src/components/layout/Layout.tsx",
-          src: `${context.template}/apps/web/src/components/layout/Layout.tsx.hbs`,
-        },
-        {
-          dest: "apps/web/src/pages/Home.tsx",
-          src: `${context.template}/apps/web/src/pages/Home.tsx.hbs`,
-        },
-        {
-          dest: "apps/web/src/pages/About.tsx",
-          src: `${context.template}/apps/web/src/pages/About.tsx.hbs`,
+    // 1. Recursively grab every *.hbs under the template directory
+    function walk(dir: string): string[] {
+      let results: string[] = [];
+      const list = fs.readdirSync(dir);
+      list.forEach((file: string) => {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat && stat.isDirectory()) {
+          results = results.concat(walk(filePath));
+        } else if (file.endsWith(".hbs")) {
+          results.push(filePath);
         }
-      );
+      });
+      return results;
     }
+    const hbsFiles = walk(templateRoot);
 
-    // Add AI-specific files
-    if (context.features.includes("ai")) {
-      files.push(
-        {
-          dest: "apps/api/src/ai/__init__.py",
-          src: "ai-chat/apps/api/src/ai/__init__.py.hbs",
-        },
-        {
-          dest: "apps/api/src/ai/providers/__init__.py",
-          src: "ai-chat/apps/api/src/ai/providers/__init__.py.hbs",
-        },
-        {
-          dest: "apps/api/src/ai/providers/base.py",
-          src: "ai-chat/apps/api/src/ai/providers/base.py.hbs",
-        },
-        {
-          dest: "apps/api/src/ai/providers/ollama.py",
-          src: "ai-chat/apps/api/src/ai/providers/ollama.py.hbs",
-        },
-        {
-          dest: "apps/api/src/ai/providers/openai.py",
-          src: "ai-chat/apps/api/src/ai/providers/openai.py.hbs",
-        },
-        {
-          dest: "apps/api/src/ai/router.py",
-          src: "ai-chat/apps/api/src/ai/router.py.hbs",
-        },
-        {
-          dest: "apps/api/src/models/ai.py",
-          src: "ai-chat/apps/api/src/models/ai.py.hbs",
-        },
-        {
-          dest: "apps/api/src/routes/ai.py",
-          src: "ai-chat/apps/api/src/routes/chat.py.hbs",
-        }
-      );
+    // 2. Convert to TemplateFile objects
+    const files: TemplateFile[] = hbsFiles.map((srcPath: string) => {
+      const relative = path.relative(templateRoot, srcPath);
+      return {
+        src: `${context.template}/${relative.replace(/\\/g, "/")}`,
+        dest: relative.replace(/\\/g, "/").replace(/\.hbs$/, ""),
+        // Advanced: You can add a condition property here if you want to support per-file conditions
+      };
+    });
 
-      // Add AI frontend components if not API-only
-      if (context.template !== "api-only") {
-        files.push(
-          {
-            dest: "apps/web/src/hooks/useAIModels.ts",
-            src: "ai-chat/apps/web/src/hooks/useAIModels.ts.hbs",
-          },
-          {
-            dest: "apps/web/src/hooks/useStreamingChat.ts",
-            src: "ai-chat/apps/web/src/hooks/useStreamingChat.ts.hbs",
-          },
-          {
-            dest: "apps/web/src/components/ai/ModelSelector.tsx",
-            src: "ai-chat/apps/web/src/components/ai/ModelSelector.tsx.hbs",
-          }
-        );
-      }
-
-      // Add AI-specific template files for ai-chat template
-      if (context.template === "ai-chat") {
-        files.push(
-          {
-            dest: "apps/api/src/models/conversation.py",
-            src: "ai-chat/apps/api/src/models/conversation.py.hbs",
-          },
-          {
-            dest: "apps/api/src/models/message.py",
-            src: "ai-chat/apps/api/src/models/message.py.hbs",
-          },
-          {
-            dest: "apps/api/src/routes/websocket.py",
-            src: "ai-chat/apps/api/src/routes/websocket.py.hbs",
-          },
-          {
-            dest: "apps/api/src/websocket/__init__.py",
-            src: "ai-chat/apps/api/src/websocket/__init__.py.hbs",
-          },
-          {
-            dest: "apps/web/src/components/chat/ChatWindow.tsx",
-            src: "ai-chat/apps/web/src/components/chat/ChatWindow.tsx.hbs",
-          },
-          {
-            dest: "apps/web/src/components/chat/MessageInput.tsx",
-            src: "ai-chat/apps/web/src/components/chat/MessageInput.tsx.hbs",
-          },
-          {
-            dest: "apps/web/src/components/chat/MessageList.tsx",
-            src: "ai-chat/apps/web/src/components/chat/MessageList.tsx.hbs",
-          },
-          {
-            dest: "apps/web/src/components/chat/TypingIndicator.tsx",
-            src: "ai-chat/apps/web/src/components/chat/TypingIndicator.tsx.hbs",
-          }
-        );
-      }
-    }
-
-    // Add authentication files
-    if (context.features.includes("auth")) {
-      files.push(
-        {
-          dest: "apps/api/src/auth/__init__.py",
-          src: "base/auth/__init__.py.hbs",
-        },
-        {
-          dest: "apps/api/src/auth/jwt.py",
-          src: "base/auth/jwt.py.hbs",
-        },
-        {
-          dest: "apps/api/src/routes/auth.py",
-          src: "base/routes/auth.py.hbs",
-        }
-      );
-
-      if (context.template !== "api-only") {
-        files.push(
-          {
-            dest: "apps/web/src/components/auth/LoginForm.tsx",
-            src: "base/components/auth/LoginForm.tsx.hbs",
-          },
-          {
-            dest: "apps/web/src/hooks/useAuth.ts",
-            src: "base/hooks/useAuth.ts.hbs",
-          }
-        );
-      }
-    }
+    // 3. Optionally, add virtual files here if needed
+    // files.push({ src: ..., dest: ... });
 
     return files;
   }
 
+  // Advanced conditional file inclusion
   private shouldIncludeFile(
     fileConfig: TemplateFile,
     context: TemplateContext
   ): boolean {
-    return !fileConfig.condition || fileConfig.condition(context);
+    if (typeof fileConfig.condition === "function") {
+      try {
+        return fileConfig.condition(context);
+      } catch (e) {
+        console.warn(
+          `⚠️ Condition function failed for ${fileConfig.dest}: ${e}`
+        );
+        return false;
+      }
+    }
+    return !fileConfig.condition || !!fileConfig.condition;
+  }
+
+  // Error reporting & validation for missing/malformed template files
+  private validateTemplateFiles(
+    files: TemplateFile[],
+    context: TemplateContext
+  ) {
+    const templateRoot = path.resolve(
+      __dirname,
+      "../../../templates",
+      context.template
+    );
+    let hasError = false;
+    files.forEach((file) => {
+      const filePath = path.join(templateRoot, file.dest + ".hbs");
+      if (!fs.existsSync(filePath)) {
+        console.error(chalk.red(`❌ Template file missing: ${filePath}`));
+        hasError = true;
+      }
+    });
+    if (hasError) {
+      throw new Error(
+        "One or more template files are missing. See errors above."
+      );
+    }
   }
 
   private async generateFileContent(
@@ -322,6 +200,36 @@ export class ProjectFileGenerator {
     context: TemplateContext,
     template: TemplateDefinition
   ): Promise<string> {
+    // First try to use actual template files from the templates directory
+    if (fileConfig.src) {
+      const templatePath = path.resolve(
+        __dirname,
+        "../../../templates",
+        fileConfig.src
+      );
+
+      if (await fs.pathExists(templatePath)) {
+        try {
+          const templateContent = await fs.readFile(templatePath, "utf-8");
+
+          // Create handlebars instance with registered helpers
+          const handlebars = Handlebars.create();
+          registerHandlebarsHelpers(handlebars);
+
+          const compiledTemplate = handlebars.compile(templateContent);
+          return compiledTemplate(context);
+        } catch (error) {
+          console.warn(
+            `⚠️ Failed to process template ${fileConfig.src}: ${error}`
+          );
+          // Fall back to generated content
+        }
+      } else {
+        console.warn(`⚠️ No generator for: ${fileConfig.dest}`);
+      }
+    }
+
+    // Fall back to hardcoded generators
     return this.generateContentFromScratch(fileConfig, context, template);
   }
 

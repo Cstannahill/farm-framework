@@ -1,0 +1,123 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { ModelSelector } from './ModelSelector'
+import { ProviderSelector } from './ProviderSelector'
+import { Slider } from '../ui/slider'
+import { Switch } from '../ui/switch'
+import { Label } from '../ui/label'
+import { Button } from '../ui/button'
+import { useAIStore } from '../../stores/aiStore'
+import { useSettingsStore } from '../../stores/settingsStore'
+
+interface AISettingsProps {
+  onClose?: () => void
+}
+
+export function AISettings({ onClose }: AISettingsProps) {
+  const {
+    selectedProvider,
+    selectedModel,
+    temperature,
+    maxTokens,
+    setTemperature,
+    setMaxTokens,
+  } = useAIStore()
+  
+  const {
+    streamResponses,
+    setStreamResponses,
+    enterToSend,
+    setEnterToSend,
+  } = useSettingsStore()
+
+  return (
+    <Tabs defaultValue="model" className="w-full">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="model">Model</TabsTrigger>
+        <TabsTrigger value="parameters">Parameters</TabsTrigger>
+        <TabsTrigger value="preferences">Preferences</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="model" className="space-y-4">
+        <div>
+          <Label>AI Provider</Label>
+          <ProviderSelector />
+        </div>
+        
+        <div>
+          <Label>Model</Label>
+          <ModelSelector provider={selectedProvider} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="parameters" className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label>Temperature</Label>
+            <span className="text-sm text-muted-foreground">{temperature}</span>
+          </div>
+          <Slider
+            value={[temperature]}
+            onValueChange={([value]) => setTemperature(value)}
+            min={0}
+            max={2}
+            step={0.1}
+          />
+          <p className="text-xs text-muted-foreground">
+            Higher values make output more random, lower values more deterministic
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label>Max Tokens</Label>
+            <span className="text-sm text-muted-foreground">{maxTokens}</span>
+          </div>
+          <Slider
+            value={[maxTokens]}
+            onValueChange={([value]) => setMaxTokens(value)}
+            min={100}
+            max={4000}
+            step={100}
+          />
+          <p className="text-xs text-muted-foreground">
+            Maximum length of the response
+          </p>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="preferences" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Stream Responses</Label>
+            <p className="text-xs text-muted-foreground">
+              Show AI responses as they're generated
+            </p>
+          </div>
+          <Switch
+            checked={streamResponses}
+            onCheckedChange={setStreamResponses}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Enter to Send</Label>
+            <p className="text-xs text-muted-foreground">
+              Use Enter key to send messages
+            </p>
+          </div>
+          <Switch
+            checked={enterToSend}
+            onCheckedChange={setEnterToSend}
+          />
+        </div>
+      </TabsContent>
+
+      {onClose && (
+        <div className="mt-6 flex justify-end">
+          <Button onClick={onClose}>Done</Button>
+        </div>
+      )}
+    </Tabs>
+  )
+}

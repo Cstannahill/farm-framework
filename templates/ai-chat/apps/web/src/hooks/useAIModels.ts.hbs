@@ -1,18 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-
-export interface ModelInfo {
-  name: string;
-  provider: string;
-}
-
-export function useAIModels(provider: string) {
-  return useQuery<ModelInfo[]>({
-    queryKey: ['ai-models', provider],
-    enabled: !!provider,
-    queryFn: async () => {
-      const res = await fetch(`/api/ai/models?provider=${provider}`);
-      if (!res.ok) throw new Error('Failed to load models');
-      return res.json();
-    },
-  });
-}
+import { useQuery } from '@tanstack/react-query' import { apiClient } from
+'../services/api' export function useAIModels(provider?: string) { const { data,
+isLoading, error } = useQuery({ queryKey: ['ai-models', provider], queryFn: ()
+=> apiClient.ai.listModels(provider), staleTime: 5 * 60 * 1000, // Cache for 5
+minutes }) return { models: data?.models || [], providers: data?.providers ||
+[], isLoading, error: error?.message, } }

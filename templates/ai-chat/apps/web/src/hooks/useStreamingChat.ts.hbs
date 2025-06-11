@@ -1,170 +1,150 @@
-// templates/ai-chat/apps/web/src/hooks/useStreamingChat.ts.hbs
-import { useState, useCallback, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { chatApi } from '../services/api';
-import type { ChatMessage, StreamingChatOptions } from '../types';
+import { useState, useCallback, useRef } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '../services/api'
+import { Message, ChatCompletionRequest } from '../types'
+import { useChatStore } from '../stores/chatStore'
+import { useAIStore } from '../stores/aiStore'
+import { useSettingsStore } from '../stores/settingsStore'
 
-interface UseStreamingChatOptions {
-  conversationId?: string;
-  provider?: '{{ai.routing.development}}' | '{{ai.routing.production}}';
-  model?: string;
-  onMessage?: (message: ChatMessage) => void;
-  onError?: (error: string) => void;
-}
-
-export function useStreamingChat(options: UseStreamingChatOptions = {}) {
-  const {
-    conversationId,
-    provider = '{{ai.routing.development}}',
-    model = '{{ai.ollama.defaultModel}}',
-    onMessage,
-    onError
-  } = options;
-
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentStreamingMessage, setCurrentStreamingMessage] = useState('');
-  const [error, setError] = useState<string | null>(null);
+export function useStreamingChat(conversationId: string | null) {
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const queryClient = useQueryClient()
   
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const queryClient = useQueryClient();
+  const { 
+    setStreamingMessage, 
+    clearStreamingMessage,
+    setCurrentConversationId 
+  } = useChatStore()
+  
+  const { selectedProvider, selectedModel, temperature, maxTokens } = useAIStore()
+  const { streamResponses } = useSettingsStore()
+
+  // Fetch messages for current conversation
+  const { data: messages = [] } = useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: () => conversationId ? apiClient.chat.getMessages(conversationId) : Promise.resolve([]),
+    enabled: !!conversationId,
+  })
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const request: ChatCompletionRequest = {
+        message: content,
+        conversation_id: conversationId || undefined,
+        provider: selectedProvider,
+        model: selectedModel,
+        stream: streamResponses,
+        temperature,
+        max_tokens: maxTokens,
+      }
+
+      if (streamResponses) {
+        // Handle streaming response
+        setIsStreaming(true)
+        clearStreamingMessage()
+        
+        const messageId = `temp-${Date.now()}`
+        let accumulatedContent = ''
+        
+        abortControllerRef.current = new AbortController()
+        
+        try {
+          await apiClient.chat.sendMessageStream(
+            request,
+            (chunk) => {
+              if (chunk.error) {
+                throw new Error(chunk.error)
+              }
+              
+              accumulatedContent += chunk.content
+              setStreamingMessage({
+                id: messageId,
+                content: accumulatedContent,
+                isStreaming: !chunk.done,
+                role: 'assistant',
+              })
+              
+              if (chunk.done && chunk.message_id) {
+                // Update conversation if new
+                if (!conversationId && chunk.message_id) {
+                  const newConversationId = chunk.message_id.split('-')[0] // Extract conversation ID
+                  setCurrentConversationId(newConversationId)
+                }
+              }
+            },
+            { signal: abortControllerRef.current.signal }
+          )
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            throw err
+          }
+        }
+      } else {
+        // Handle non-streaming response
+        const response = await apiClient.chat.sendMessage(request)
+        
+        if (!conversationId && response.conversation_id) {
+          setCurrentConversationId(response.conversation_id)
+        }
+        
+        return response
+      }
+    },
+    onSuccess: () => {
+      setError(null)
+      clearStreamingMessage()
+      // Refresh messages and conversations
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    },
+    onError: (err: Error) => {
+      setError(err.message)
+      clearStreamingMessage()
+    },
+    onSettled: () => {
+      setIsStreaming(false)
+      abortControllerRef.current = null
+    },
+  })
 
   const sendMessage = useCallback(async (content: string) => {
-    if (isStreaming) return;
-
-    setError(null);
+    if (!content.trim()) return
     
-    // Add user message immediately
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+    // Add user message immediately for better UX
+    const userMessage: Message = {
+      id: `temp-user-${Date.now()}`,
+      conversation_id: conversationId || '',
       role: 'user',
       content,
       timestamp: new Date().toISOString(),
-      conversationId
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    onMessage?.(userMessage);
-
-    setIsStreaming(true);
-    setCurrentStreamingMessage('');
-
-    try {
-      // Create EventSource for streaming response
-      const streamUrl = new URL('/api/chat/stream', window.location.origin);
-      streamUrl.searchParams.set('provider', provider);
-      streamUrl.searchParams.set('model', model);
-      if (conversationId) {
-        streamUrl.searchParams.set('conversation_id', conversationId);
-      }
-
-      eventSourceRef.current = new EventSource(streamUrl.toString());
-      
-      // Send the message via POST request
-      await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          {{#if features.includes 'auth'}}
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          {{/if}}
-        },
-        body: JSON.stringify({
-          message: content,
-          conversation_id: conversationId,
-          provider,
-          model,
-          stream: true
-        })
-      });
-
-      eventSourceRef.current.onmessage = (event) => {
-        if (event.data === '[DONE]') {
-          // Streaming complete
-          const assistantMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: currentStreamingMessage,
-            timestamp: new Date().toISOString(),
-            conversationId,
-            provider,
-            model
-          };
-          
-          setMessages(prev => [...prev, assistantMessage]);
-          onMessage?.(assistantMessage);
-          
-          setCurrentStreamingMessage('');
-          setIsStreaming(false);
-          eventSourceRef.current?.close();
-          
-          // Invalidate conversations query to refresh sidebar
-          queryClient.invalidateQueries({ queryKey: ['conversations'] });
-          
-          return;
-        }
-
-        try {
-          const data = JSON.parse(event.data);
-          if (data.content) {
-            setCurrentStreamingMessage(prev => prev + data.content);
-          }
-        } catch (e) {
-          console.error('Failed to parse streaming data:', e);
-        }
-      };
-
-      eventSourceRef.current.onerror = (event) => {
-        console.error('EventSource error:', event);
-        setError('Connection to AI provider lost. Please try again.');
-        setIsStreaming(false);
-        setCurrentStreamingMessage('');
-        eventSourceRef.current?.close();
-        onError?.('Streaming connection failed');
-      };
-
-    } catch (error) {
-      setError('Failed to send message. Please try again.');
-      setIsStreaming(false);
-      setCurrentStreamingMessage('');
-      onError?.(error instanceof Error ? error.message : 'Unknown error');
+      metadata: {},
+      edited: false,
     }
-  }, [
-    isStreaming,
-    conversationId,
-    provider,
-    model,
-    currentStreamingMessage,
-    onMessage,
-    onError,
-    queryClient
-  ]);
-
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    setCurrentStreamingMessage('');
-    setError(null);
     
-    // Close any active streaming connection
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      setIsStreaming(false);
-    }
-  }, []);
+    queryClient.setQueryData(['messages', conversationId], (old: Message[] = []) => [
+      ...old,
+      userMessage,
+    ])
+    
+    await sendMessageMutation.mutateAsync(content)
+  }, [conversationId, sendMessageMutation, queryClient])
 
-  // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
-      eventSourceRef.current?.close();
-    };
-  }, []);
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      setIsStreaming(false)
+      clearStreamingMessage()
+    }
+  }, [clearStreamingMessage])
 
   return {
     messages,
-    sendMessage,
     isStreaming,
-    currentStreamingMessage,
-    clearMessages,
-    error
-  };
+    error,
+    sendMessage,
+    stopStreaming,
+  }
 }
