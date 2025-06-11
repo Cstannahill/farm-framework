@@ -91,73 +91,61 @@ export class TemplateProcessor {
     logger.debug(
       `✅ TemplateProcessor initialized with templates at: ${this.templatesDir}`
     );
-  } /**
+  }
+
+  /**
    * Resolve the templates directory based on the current execution context
    */
   private resolveTemplatesDirectory(): string {
-    // Get the current file's directory (__dirname points to dist/template when built)
+    // Get the current file's directory
     const currentDir = __dirname;
 
-    // Priority 1: Built mode - templates bundled in CLI dist directory
-    // When built: __dirname = packages/cli/dist/template, templates at packages/cli/dist/templates
-    let templatesPath = path.resolve(currentDir, "../templates");
+    // Option 1: Try relative to the current file (development)
+    let templatesPath = path.resolve(currentDir, "../../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (dev): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Option 2: Try relative to the package root (when installed)
+    // Go up from cli/dist/template/ to find the package root
+    templatesPath = path.resolve(currentDir, "../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (installed): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Option 3: Try from the npm global location
+    // When installed globally, look for templates in the package directory
+    const packageRoot = this.findPackageRoot(currentDir);
+    if (packageRoot) {
+      templatesPath = path.join(packageRoot, "templates");
+      if (fs.existsSync(templatesPath)) {
+        logger.debug(`Found templates (global): ${templatesPath}`);
+        return templatesPath;
+      }
+    }
+
+    // Option 4: Check if templates are bundled with the CLI
+    templatesPath = path.resolve(currentDir, "../templates");
     if (fs.existsSync(templatesPath)) {
       logger.debug(`Found templates (bundled): ${templatesPath}`);
       return templatesPath;
     }
 
-    // Priority 2: Development mode - templates in CLI package directory
-    // When in dev: __dirname = packages/cli/src/template, templates at packages/cli/templates
-    templatesPath = path.resolve(currentDir, "../../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (dev CLI package): ${templatesPath}`);
-      return templatesPath;
-    }
-
-    // Priority 3: Development mode - templates in workspace root
-    // Go up from src/template/ to packages/cli/, then to workspace root, then to templates/
-    templatesPath = path.resolve(currentDir, "../../../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (dev workspace): ${templatesPath}`);
-      return templatesPath;
-    }
-
-    // Priority 4: Try to find package root and look for templates there
-    const packageRoot = this.findPackageRoot(currentDir);
-    if (packageRoot) {
-      // Try templates in package root
-      templatesPath = path.join(packageRoot, "templates");
-      if (fs.existsSync(templatesPath)) {
-        logger.debug(`Found templates (package root): ${templatesPath}`);
-        return templatesPath;
-      }
-
-      // Try templates in workspace root relative to package
-      templatesPath = path.resolve(packageRoot, "../../templates");
-      if (fs.existsSync(templatesPath)) {
-        logger.debug(
-          `Found templates (workspace from package): ${templatesPath}`
-        );
-        return templatesPath;
-      }
-    }
-
     // Fallback: Create a more informative error
     const searchedPaths = [
-      path.resolve(currentDir, "../templates"),
-      path.resolve(currentDir, "../../templates"),
       path.resolve(currentDir, "../../../templates"),
+      path.resolve(currentDir, "../../templates"),
       packageRoot ? path.join(packageRoot, "templates") : "N/A",
-      packageRoot ? path.resolve(packageRoot, "../../templates") : "N/A",
+      path.resolve(currentDir, "../templates"),
     ];
 
     throw new Error(
       `Templates directory not found. Searched in:\n${searchedPaths
         .filter((p) => p !== "N/A")
         .map((p) => `  - ${p}`)
-        .join(
-          "\n"
-        )}\n\nCurrent directory: ${currentDir}\nExpected: Templates should be in workspace root at ../../templates relative to CLI package`
+        .join("\n")}\n\nCurrent directory: ${currentDir}`
     );
   }
 
