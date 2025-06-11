@@ -9,18 +9,24 @@ declare module "@farm/type-sync" {
   }
   export interface SyncOptions {
     apiUrl: string;
-    outputDir: string;
+    outputDir?: string;
     features: {
-      client?: boolean;
-      hooks?: boolean;
-      streaming?: boolean;
-      aiHooks?: boolean;
+      client: boolean;
+      hooks: boolean;
+      streaming: boolean;
+      aiHooks: boolean;
     };
     performance?: {
-      enableMonitoring?: boolean;
-      enableIncrementalGeneration?: boolean;
-      maxConcurrency?: number;
-      cacheTimeout?: number;
+      enableMonitoring: boolean;
+      enableIncrementalGeneration: boolean;
+      maxConcurrency: number;
+      cacheTimeout: number;
+    };
+    generators?: {
+      typescript?: any;
+      apiClient?: any;
+      reactHooks?: any;
+      aiHooks?: any;
     };
   }
   export interface SyncResult {

@@ -7,6 +7,9 @@
     "rootDir": "../../",
     "outDir": "./dist"
   },
-  "include": ["**/*.ts"],
+  "include": [
+    "**/*.ts",
+    "../../packages/type-sync/__tests__/e2e.type-sync.spec.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }
