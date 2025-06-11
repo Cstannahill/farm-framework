@@ -87,7 +87,6 @@ export class ProjectFileGenerator {
     },
   };
   private currentProjectPath?: string;
-
   /**
    * Resolve the templates directory for different installation scenarios
    */
@@ -96,8 +95,15 @@ export class ProjectFileGenerator {
       // Method 1: Use require.resolve to find the package location
       const packagePath = require.resolve("farm-framework/package.json");
       const packageDir = path.dirname(packagePath);
-      const templateRoot = path.resolve(packageDir, "templates");
 
+      // First try dist/templates (bundled templates)
+      let templateRoot = path.resolve(packageDir, "dist/templates");
+      if (fsExtra.existsSync(templateRoot)) {
+        return templateRoot;
+      }
+
+      // Fallback to templates directory at package root
+      templateRoot = path.resolve(packageDir, "templates");
       if (fsExtra.existsSync(templateRoot)) {
         return templateRoot;
       }
@@ -106,9 +112,14 @@ export class ProjectFileGenerator {
     }
 
     try {
-      // Method 2: Try relative to __dirname (published package)
-      const templateRoot = path.resolve(__dirname, "../../templates");
+      // Method 2: Try relative to __dirname (bundled templates)
+      let templateRoot = path.resolve(__dirname, "../templates");
+      if (fsExtra.existsSync(templateRoot)) {
+        return templateRoot;
+      }
 
+      // Fallback to original relative path
+      templateRoot = path.resolve(__dirname, "../../templates");
       if (fsExtra.existsSync(templateRoot)) {
         return templateRoot;
       }

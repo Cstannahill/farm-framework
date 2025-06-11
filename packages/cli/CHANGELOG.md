@@ -1,5 +1,16 @@
 # farm-framework
 
+## 1.4.0
+
+### Minor Changes
+
+- Fix critical template path resolution for globally installed CLI
+
+  - Fixed project-file-generator to look for templates in dist/templates directory first
+  - Resolves "Template directory not found" errors when using globally installed CLI
+  - Ensures templates are found correctly in both bundled and development scenarios
+  - Critical fix for CLI reliability and user experience
+
 ## 1.3.0
 
 ### Minor Changes
