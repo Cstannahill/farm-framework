@@ -1,15 +1,44 @@
-{ "name": "{{projectName}}-web", "version": "0.1.0", "type": "module",
-"scripts": { "dev": "vite", "build": "tsc && vite build", "preview": "vite
-preview", "lint": "eslint . --ext ts,tsx --report-unused-disable-directives
---max-warnings 0", "type-check": "tsc --noEmit" }, "dependencies": { "react":
-"^18.2.0", "react-dom": "^18.2.0", "@tanstack/react-query": "^5.0.0", "zustand":
-"^4.4.0", "react-router-dom": "^6.0.0"{{#if_feature "ai"}}, "marked": "^5.0.0",
-  "eventsource-parser": "^1.0.0"{{/if_feature}}
-}, "devDependencies": { "@types/react": "^18.2.0", "@types/react-dom":
-"^18.2.0", "@vitejs/plugin-react": "^4.0.0", "vite": "^5.0.0", "typescript":
-"^5.0.0", "tailwindcss": "^3.0.0", "autoprefixer": "^10.0.0", "postcss":
-"^8.0.0", "eslint": "^8.0.0", "@typescript-eslint/eslint-plugin": "^6.0.0",
-"@typescript-eslint/parser": "^6.0.0", "eslint-plugin-react-hooks": "^4.6.0",
-"eslint-plugin-react-refresh": "^0.4.0"{{#if_feature "ai"}}, "@types/marked":
-  "^5.0.0"{{/if_feature}}
-} }
+{
+  "name": "{{projectName}}-web",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
+    "@tanstack/react-query": "^5.80.7",
+    "zustand": "^5.0.5",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4",
+    "lucide-react": "^0.470.0"{{#if_feature "ai"}},
+    "marked": "^15.0.5",
+    "eventsource-parser": "^3.1.0"{{/if_feature}}
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.18.0",
+    "@eslint/js": "^9.18.0",
+    "globals": "^15.14.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "@tsconfig/node20": "^20.1.6"{{#if_feature "ai"}},
+    "@types/marked": "^6.0.0"{{/if_feature}}
+  }
+}

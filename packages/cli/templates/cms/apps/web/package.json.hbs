@@ -1,7 +1,7 @@
 {
   "name": "{{projectName}}-web",
   "version": "0.1.0",
-  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -19,15 +19,16 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4",
     "lucide-react": "^0.470.0",
-    "@stripe/stripe-js": "^4.10.0",
-    "@stripe/react-stripe-js": "^2.10.0",
-    "react-hook-form": "^7.57.0",
-    "yup": "^1.6.1",
-    "@hookform/resolvers": "^3.10.0"
+    "@tiptap/react": "^2.14.0",
+    "@tiptap/starter-kit": "^2.14.0",
+    "@tiptap/extension-placeholder": "^2.14.0",
+    "@tiptap/extension-character-count": "^2.14.0",
+    "react-beautiful-dnd": "^13.1.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@types/react-beautiful-dnd": "^13.1.8",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
     "@vitejs/plugin-react": "^4.3.4",

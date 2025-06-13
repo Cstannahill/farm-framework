@@ -1,0 +1,54 @@
+export function About() {
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-foreground mb-4">
+          About {{projectName}}
+        </h1>
+        <p className="text-xl text-muted-foreground mb-8">
+          Built with the FARM stack for modern web development
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-8 mt-12">
+          <div className="bg-card rounded-lg shadow-md p-6 border border-border">
+            <h2 className="text-2xl font-semibold mb-4 text-foreground">Frontend</h2>
+            <ul className="text-left space-y-2 text-muted-foreground">
+              <li>⚛️ React 19</li>
+              <li>📦 Vite 6</li>
+              <li>🎨 Tailwind CSS 4</li>
+              <li>🔍 TypeScript 5.8</li>
+              <li>🌐 React Router 7</li>
+              <li>🔄 TanStack Query</li>
+            </ul>
+          </div>
+
+          <div className="bg-card rounded-lg shadow-md p-6 border border-border">
+            <h2 className="text-2xl font-semibold mb-4 text-foreground">Backend</h2>
+            <ul className="text-left space-y-2 text-muted-foreground">
+              <li>⚡ FastAPI</li>
+              <li>🐍 Python 3.11+</li>
+              <li>🗄️ MongoDB/PostgreSQL</li>
+              <li>🔒 JWT Authentication</li>
+              <li>📝 Auto-generated API docs</li>
+              <li>🧪 Pytest testing</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold mb-4 text-foreground">Features</h2>
+          <div className="bg-card rounded-lg shadow-md p-6 border border-border">
+            <div className="grid md:grid-cols-3 gap-4 text-muted-foreground">
+              <div>🚀 Fast development</div>
+              <div>📱 Responsive design</div>
+              <div>🔧 Hot reload</div>
+              <div>🛠️ TypeScript support</div>
+              <div>🎯 Modern tooling</div>
+              <div>📊 Built-in monitoring</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
