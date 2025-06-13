@@ -28,6 +28,33 @@ packages/
 
 Python sources live under `packages/code-intelligence/src` so they can be imported by the API service in `apps/api`.
 
+### Configuration
+
+Projects may opt into code intelligence with sensible defaults.  The feature is
+enabled automatically when `farm dev` detects `codeIntelligence` settings in
+`farm.config.ts`:
+
+```ts
+export default defineConfig({
+  codeIntelligence: {
+    indexing: {
+      include: ["src/**/*", "packages/**/*"],
+      exclude: ["**/test/**", "**/*.test.*"],
+      watch: true,
+      incremental: true,
+    },
+    privacy: {
+      sanitizeSecrets: true,
+      excludeSensitive: true,
+    },
+    vectorPath: ".farm/intel",
+  },
+});
+```
+
+To skip indexing in CI environments set `FARM_INTEL_DISABLE_WATCH=1` or
+`codeIntelligence.indexing.watch = false`.
+
 ## 2. Integration with Existing Framework
 
 ### File Watching & Indexing
@@ -37,6 +64,7 @@ The design plan describes a `File System Watcher` that incrementally indexes the
 1. Extend `FarmFileWatcher` with events for `code-intel` updates.
 2. On file change, trigger Python indexing via a small Node bridge (spawn a Python process that runs the incremental parser).
 3. Store parsed entities and embeddings in a local ChromaDB instance under `.farm/intel`.
+4. Honour `FARM_INTEL_DISABLE_WATCH` so indexing can be skipped during CI runs.
 
 ### API Service
 
@@ -45,6 +73,15 @@ The design plan describes a `File System Watcher` that incrementally indexes the
 ### CLI Command
 
 A command file `packages/cli/src/commands/intelligence.ts` will register `farm intel`.  It will call the API through a new client package `@farm/code-intelligence-client` (similar to `@farm/api-client`).  Output and options mirror the examples in the design plan but rely on the existing logger and spinner utilities from the CLI package.
+
+Planned subcommands:
+
+* `search <query>` – semantic search across the codebase.
+* `explain <entity>` – detailed explanation with examples.
+* `ask` – interactive assistant mode.
+* `index` – manage the local index.  `--watch` starts the watcher, `--force` triggers a full rebuild, and `--stats` prints current index metrics.
+* `visualize` – generates an architecture graph.  Passing `--open` opens the HTML output.
+* `review` – run AI-driven code review on staged changes.
 
 ### IDE Extension
 
@@ -83,15 +120,19 @@ export interface QueryResponse {
 
 * **Local‑first** – the parser and embedding engine run locally using the existing Python environment in `apps/api`.  Optional remote vector stores can be configured via `farm.config.ts`.
 * **Incremental Updates** – the watcher sends changed file paths to the Python indexer which updates the vector store without full reindexing.
-* **Security** – the API router sanitises paths and strips secrets before returning code snippets as suggested in the design plan.
+* **Privacy** – a Python `PrivacyManager` filters gitignored or sensitive files and sanitises content before embedding.
+* **Caching** – the query engine uses an LRU cache to speed up repeated searches.
+* **Security** – the API router sanitises paths and strips secrets before returning code snippets.
 * **Testing** – unit tests for the CLI and API live beside their packages.  End‑to‑end tests can reuse `tools/testing` infrastructure.
 
 ## 4. Implementation Phases
 
 1. **Bootstrap Package** – create module skeletons in `packages/code-intelligence`.  Add shared types and update barrel exports.
 2. **Indexer & Storage** – implement the Python ingestion pipeline and hybrid vector store.  Integrate with `FarmFileWatcher`.
+   * Respect `FARM_INTEL_DISABLE_WATCH` during watcher setup.
 3. **Query Engine** – build query planner/executor and expose API endpoints.
 4. **CLI/IDE Clients** – generate TypeScript client, add CLI command and VSCode integration.
+   * Add `intel index --stats` and `visualize --open` options.
 5. **Observability Hooks** – use `@farm/observability` to track indexing performance and query metrics.
 
 This staged approach allows incremental adoption while reusing much of the existing FARM infrastructure.
