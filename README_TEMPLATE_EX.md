@@ -62,7 +62,7 @@ The FARM Development Server Foundation provides a unified development experience
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
 │  │   Process   │  │   Health    │  │   Logger    │  │ Config  │ │
-│  │  Manager    │  │  Checker    │  │  System     │ │Manager  │ │
+│  │   Manager   │  │   Checker   │  │   System    │  │ Manager │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```

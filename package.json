@@ -38,8 +38,10 @@
     "pre-release": "pnpm test:run && pnpm build",
     "pre-release:check": "bash ./scripts/pre-release-check.sh",
     "npm:setup": "bash ./scripts/npm-setup.sh",
-    "deps:check": "pnpm outdated -r",
-    "deps:update": "pnpm update -r --latest",
+    "deps:check": "node scripts/check-and-update-deps.js",
+    "deps:update": "node scripts/check-and-update-deps.js --update",
+    "deps:update-interactive": "node scripts/check-and-update-deps.js --update --interactive",
+    "deps:update-pnpm": "pnpm update -r --latest",
     "workspace:graph": "pnpm list -r --depth=0",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -52,7 +54,7 @@
     "test:manual-dev": "bash ./scripts/test-dev-setup.sh",
     "test:manual-prod": "bash ./scripts/test-prod-build.sh",
     "test:all-docker": "pnpm test:docker && pnpm test:integration && pnpm test:templates",
-    "tree": "npx tree-node-cli -I `node_modules|dist|build|coverage|.turbo|.git|venv|.farm|__pycache__|.changeset|.git|.idea|.vscode|.cache|.pnpm-store`"
+    "tree": "npx tree-node-cli -I 'node_modules|dist|build|coverage|.turbo|.git|venv|.farm|__pycache__|.changeset|.git|.idea|.vscode|.cache|.pnpm-store'"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

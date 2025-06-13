@@ -246,7 +246,7 @@ export interface ExporterConfig {
   config: Record<string, any>;
 }
 
-export type ExportFormat = "csv" | "json" | "grafana" | "datadog";
+export type ExportFormat = "csv" | "json" | "grafana" | "datadog" | "pdf";
 
 // Dashboard Types
 export interface DashboardConfig {
@@ -339,4 +339,47 @@ export interface TelemetryConfig {
   provider?: string;
   endpoint?: string;
   sampling?: number;
+}
+
+// PDF Export Types
+export interface PDFExportOptions extends ExportOptions {
+  paperFormat?: "A4" | "A3" | "Letter";
+  orientation?: "portrait" | "landscape";
+  margins?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  includeLogo?: boolean;
+  includeCharts?: boolean;
+  includeOptimizations?: boolean;
+  includeAlerts?: boolean;
+  theme?: "professional" | "modern" | "classic";
+}
+
+export interface ExportedPDF {
+  buffer: Buffer;
+  metadata: {
+    title: string;
+    author: string;
+    subject: string;
+    creator: string;
+    createdAt: Date;
+    pages: number;
+    fileSize: number;
+  };
+  filename: string;
+}
+
+// Alert Summary for PDF exports
+export interface AlertSummary {
+  id: string;
+  type: string;
+  severity: AlertSeverity;
+  timestamp: Date;
+  title: string;
+  description: string;
+  count?: number;
+  status?: "active" | "resolved" | "acknowledged";
 }

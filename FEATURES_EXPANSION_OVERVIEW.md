@@ -9,19 +9,23 @@ Smart optimization engine that suggests concrete cost-saving measures
 Beautiful, responsive dashboard accessible from CLI or web
 Export-ready business reports for stakeholder communication
 Architecture Overview
+
+```plaintext
 ┌─────────────────────────────────────────────────────────────────┐
-│ FARM Observability Platform │
+│ FARM Observability Platform                                     │
 ├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
-│ │ Auto │ │ Telemetry │ │ Cost │ │ Smart │ │
-│ │Instrumentor │ │ Collector │ │ Analyzer │ │Optimizer│ │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐     │
+│ │ Auto        │ │ Telemetry   │ │ Cost        │ │ Smart   │     │
+│ │Instrumentor │ │ Collector   │ │ Analyzer    │ │Optimizer│     │
+│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘     │
 ├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
-│ │ Real-time │ │ Predictive │ │ Alert │ │ Export │ │
-│ │ Dashboard │ │ Analytics │ │ Engine │ │ Reports │ │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐     │
+│ │ Real-time   │ │ Predictive  │ │ Alert       │ │ Export  │     │
+│ │ Dashboard   │ │ Analytics   │ │ Engine      │ │ Reports │     │
+│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘     │
 └─────────────────────────────────────────────────────────────────┘
+```
+
 Directory Structure & Rationale
 packages/
 ├── observability/ # New package for all observability features

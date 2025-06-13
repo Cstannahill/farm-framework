@@ -183,8 +183,8 @@ function setupDevServerEventHandlers(
 
   devServer.on(
     "service-exit",
-    (name: string, code: number, signal: string | null) => {
-      if (code !== 0) {
+    (name: string, code: number | null, signal: string | null) => {
+      if (code !== null && code !== 0) {
         logger.warn(
           `⚠️ ${name} exited with code ${code}${signal ? ` (${signal})` : ""}`
         );
