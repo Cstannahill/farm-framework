@@ -1,0 +1,30 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "../lib/api-client";
+
+export interface HealthStatus {
+  status: "healthy" | "unhealthy";
+  timestamp: string;
+  version?: string;
+  database?: {
+    status: "connected" | "disconnected";
+    type: string;
+  };
+}
+
+export function useHealthCheck() {
+  return useQuery<HealthStatus>({
+    queryKey: ["health"],
+    queryFn: () => apiClient.get<HealthStatus>("/health"),
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3,
+    staleTime: 10000, // 10 seconds
+  });
+}
+
+export function useVersion() {
+  return useQuery<{ version: string }>({
+    queryKey: ["version"],
+    queryFn: () => apiClient.get<{ version: string }>("/version"),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
