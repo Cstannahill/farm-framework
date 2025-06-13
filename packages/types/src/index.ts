@@ -5,6 +5,7 @@ export * from "./ai.js";
 export * from "./database.js";
 export * from "./errors.js";
 export * from "./auth.js";
+export * from "./deployment.js";
 
 // Observability Types
 export * from "./telemetry.js";
