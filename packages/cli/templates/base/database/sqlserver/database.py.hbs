@@ -1,0 +1,37 @@
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from contextlib import asynccontextmanager
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL", "{{database.connectionUrl}}")
+
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,  # SQL Server connections should be recycled hourly
+    # SQL Server specific settings
+    connect_args={
+        "TrustServerCertificate": "yes",  # For development
+        "driver": "ODBC Driver 18 for SQL Server",
+    },
+)
+
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+class DatabaseManager:
+    async def create_tables(self) -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+    @asynccontextmanager
+    async def get_session(self) -> AsyncSession:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+db = DatabaseManager()

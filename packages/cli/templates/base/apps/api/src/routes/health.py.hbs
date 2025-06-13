@@ -1,0 +1,440 @@
+# packages/cli/templates/base/apps/api/src/routes/health.py.hbs
+"""
+Health check endpoints
+Database and service health monitoring for {{name}}
+"""
+from datetime import datetime
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
+{{#if_feature "ai"}}
+{{#if_template "ai-chat" "ai-dashboard"}}
+from ..ai.manager import get_ai_manager
+{{/if_template}}
+{{/if_feature}}
+import logging
+
+router = APIRouter(prefix="/health", tags=["Health"])
+logger = logging.getLogger(__name__)
+
+@router.get("/", response_model=Dict[str, Any])
+async def health_check():
+    """
+    Comprehensive health check for all services
+    Returns status of database, AI providers (if enabled), and application
+    """
+    try:
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "1.0.0",
+            "environment": "{{#switch environment}}{{#case 'production'}}production{{/case}}{{#case 'staging'}}staging{{/case}}{{#default}}development{{/default}}{{/switch}}",
+            "services": {}
+        }
+        
+        overall_healthy = True
+        
+        # Database Health Check
+        db_healthy = await check_database_health()
+        health_status["services"]["database"] = {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "type": "{{database}}",
+            "details": await get_database_details()
+        }
+        
+        if not db_healthy:
+            overall_healthy = False
+        
+        {{#if_feature "ai"}}
+        {{#if_template "ai-chat" "ai-dashboard"}}
+        # AI Providers Health Check
+        try:
+            ai_manager = await get_ai_manager()
+            ai_health = await ai_manager.health_check_all()
+            
+            healthy_providers = sum(1 for status in ai_health.values() if status)
+            total_providers = len(ai_health)
+            
+            health_status["services"]["ai_providers"] = {
+                "status": "healthy" if healthy_providers > 0 else "unhealthy",
+                "healthy": healthy_providers,
+                "total": total_providers,
+                "providers": ai_health,
+                "default_provider": ai_manager.get_default_provider()
+            }
+            
+            if healthy_providers == 0:
+                overall_healthy = False
+                
+        except Exception as e:
+            logger.error(f"AI health check failed: {str(e)}")
+            health_status["services"]["ai_providers"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+            overall_healthy = False
+        {{else}}
+        # Basic AI health check for other templates
+        health_status["services"]["ai"] = {
+            "status": "enabled",
+            "note": "AI features available but not actively monitored in this template"
+        }
+        {{/if_template}}
+        {{/if_feature}}
+        
+        {{#if_feature "storage"}}
+        # Storage Health Check
+        storage_healthy = await check_storage_health()
+        health_status["services"]["storage"] = {
+            "status": "healthy" if storage_healthy else "unhealthy"
+        }
+        if not storage_healthy:
+            overall_healthy = False
+        {{/if_feature}}
+        
+        {{#if_feature "email"}}
+        # Email Service Health Check
+        email_healthy = await check_email_health()
+        health_status["services"]["email"] = {
+            "status": "healthy" if email_healthy else "unhealthy"
+        }
+        if not email_healthy:
+            overall_healthy = False
+        {{/if_feature}}
+        
+        # Update overall status
+        health_status["status"] = "healthy" if overall_healthy else "unhealthy"
+        
+        if overall_healthy:
+            return health_status
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content=health_status
+            )
+            
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+
+@router.get("/database")
+async def database_health():
+    """Database-specific health check"""
+    try:
+        db_healthy = await check_database_health()
+        details = await get_database_details()
+        
+        return {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "type": "{{database}}",
+            "timestamp": datetime.utcnow().isoformat(),
+            **details
+        }
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database health check failed: {str(e)}"
+        )
+
+{{#if_feature "ai"}}
+{{#if_template "ai-chat" "ai-dashboard"}}
+@router.get("/ai")
+async def ai_health():
+    """AI providers health check"""
+    try:
+        ai_manager = await get_ai_manager()
+        ai_health = await ai_manager.health_check_all()
+        
+        providers_status = {}
+        for name, is_healthy in ai_health.items():
+            provider_instance = ai_manager.get_provider(name)
+            
+            if provider_instance:
+                try:
+                    models = await provider_instance.list_models()
+                    default_model = await provider_instance.get_default_model()
+                except Exception:
+                    models = []
+                    default_model = None
+                
+                providers_status[name] = {
+                    "status": "healthy" if is_healthy else "unhealthy",
+                    "models": models,
+                    "default_model": default_model,
+                    "is_default": name == ai_manager.get_default_provider()
+                }
+            else:
+                providers_status[name] = {
+                    "status": "unknown",
+                    "models": [],
+                    "default_model": None,
+                    "error": "Provider instance not found"
+                }
+        
+        healthy_count = sum(1 for status in ai_health.values() if status)
+        
+        return {
+            "status": "healthy" if healthy_count > 0 else "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "providers": providers_status,
+            "summary": {
+                "healthy": healthy_count,
+                "total": len(ai_health),
+                "default_provider": ai_manager.get_default_provider()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"AI health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI health check failed: {str(e)}"
+        )
+{{/if_template}}
+{{/if_feature}}
+
+@router.get("/liveness")
+async def liveness_probe():
+    """
+    Kubernetes liveness probe endpoint
+    Returns 200 if the application is running
+    """
+    return {
+        "status": "alive",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.get("/readiness")
+async def readiness_probe():
+    """
+    Kubernetes readiness probe endpoint
+    Returns 200 if the application is ready to serve traffic
+    """
+    try:
+        # Check critical services only
+        db_healthy = await check_database_health()
+        
+        if db_healthy:
+            return {
+                "status": "ready",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Application not ready - database unhealthy"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Application not ready: {str(e)}"
+        )
+
+# Database-specific health check implementations
+async def check_database_health() -> bool:
+    """Check database connectivity"""
+    try:
+        {{#switch database}}
+        {{#case "mongodb"}}
+        from motor.motor_asyncio import AsyncIOMotorClient
+        from ..core.config import settings
+        
+        client = AsyncIOMotorClient(settings.DATABASE_URL)
+        # Test connection with ping
+        await client.admin.command('ping')
+        client.close()
+        return True
+        {{/case}}
+        {{#case "postgresql"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from ..core.config import settings
+        
+        engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        await engine.dispose()
+        return True
+        {{/case}}
+        {{#case "mysql"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from ..core.config import settings
+        
+        engine = create_async_engine(
+            settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://"),
+            pool_pre_ping=True
+        )
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        await engine.dispose()
+        return True
+        {{/case}}
+        {{#case "sqlite"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from ..core.config import settings
+        
+        engine = create_async_engine(
+            settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://"),
+            pool_pre_ping=True
+        )
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        await engine.dispose()
+        return True
+        {{/case}}
+        {{#case "sqlserver"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from ..core.config import settings
+        
+        engine = create_async_engine(
+            settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://"),
+            pool_pre_ping=True
+        )
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        await engine.dispose()
+        return True
+        {{/case}}
+        {{/switch}}
+        
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        return False
+
+async def get_database_details() -> Dict[str, Any]:
+    """Get database-specific details"""
+    try:
+        {{#switch database}}
+        {{#case "mongodb"}}
+        from motor.motor_asyncio import AsyncIOMotorClient
+        from ..core.config import settings
+        
+        client = AsyncIOMotorClient(settings.DATABASE_URL)
+        server_info = await client.server_info()
+        db_stats = await client[settings.DATABASE_NAME].command("dbStats")
+        client.close()
+        
+        return {
+            "version": server_info.get("version", "unknown"),
+            "collections": db_stats.get("collections", 0),
+            "data_size": db_stats.get("dataSize", 0),
+            "storage_size": db_stats.get("storageSize", 0)
+        }
+        {{/case}}
+        {{#case "postgresql" "mysql" "sqlite" "sqlserver"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from ..core.config import settings
+        
+        {{#if_database "mysql"}}
+        database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+        {{else if_database "sqlite"}}
+        database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+        {{else if_database "sqlserver"}}
+        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
+        {{else}}
+        database_url = settings.DATABASE_URL
+        {{/if_database}}
+        
+        engine = create_async_engine(database_url)
+        async with engine.connect() as conn:
+            {{#if_database "postgresql"}}
+            result = await conn.execute("SELECT version()")
+            version = result.scalar()
+            
+            result = await conn.execute("""
+                SELECT schemaname, tablename 
+                FROM pg_tables 
+                WHERE schemaname = 'public'
+            """)
+            tables = result.fetchall()
+            {{else if_database "mysql"}}
+            result = await conn.execute("SELECT VERSION()")
+            version = result.scalar()
+            
+            result = await conn.execute("SHOW TABLES")
+            tables = result.fetchall()
+            {{else if_database "sqlite"}}
+            result = await conn.execute("SELECT sqlite_version()")
+            version = result.scalar()
+            
+            result = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = result.fetchall()
+            {{else if_database "sqlserver"}}
+            result = await conn.execute("SELECT @@VERSION")
+            version = result.scalar()
+            
+            result = await conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
+            tables = result.fetchall()
+            {{/if_database}}
+            
+        await engine.dispose()
+        
+        return {
+            "version": version or "unknown",
+            "tables": len(tables),
+            "table_names": [table[0] for table in tables]
+        }
+        {{/case}}
+        {{/switch}}
+        
+    except Exception as e:
+        logger.error(f"Failed to get database details: {str(e)}")
+        return {"error": str(e)}
+
+{{#if_feature "storage"}}
+async def check_storage_health() -> bool:
+    """Check storage service health"""
+    try:
+        from ..core.config import settings
+        
+        if settings.STORAGE_TYPE == "local":
+            import os
+            return os.path.exists(settings.UPLOAD_DIRECTORY)
+        elif settings.STORAGE_TYPE == "s3":
+            # Add S3 health check
+            return True
+        elif settings.STORAGE_TYPE == "gcs":
+            # Add GCS health check
+            return True
+        elif settings.STORAGE_TYPE == "azure":
+            # Add Azure storage health check
+            return True
+        else:
+            return False
+            
+    except Exception as e:
+        logger.error(f"Storage health check failed: {str(e)}")
+        return False
+{{/if_feature}}
+
+{{#if_feature "email"}}
+async def check_email_health() -> bool:
+    """Check email service health"""
+    try:
+        from ..core.config import settings
+        import smtplib
+        
+        if not settings.SMTP_HOST:
+            return False
+            
+        # Test SMTP connection
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+            if settings.SMTP_USE_TLS:
+                server.starttls()
+            if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Email health check failed: {str(e)}")
+        return False
+{{/if_feature}}

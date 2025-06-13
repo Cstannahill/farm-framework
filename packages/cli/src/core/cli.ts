@@ -110,7 +110,7 @@ export function addFeaturesOption(command: Command): Command {
 export function addDatabaseOption(command: Command): Command {
   return command.addOption(
     new Option("-d, --database <database>", "Database to use")
-      .choices(["mongodb", "postgresql", "mysql", "sqlite"])
+      .choices(["mongodb", "postgresql", "mysql", "sqlite", "sqlserver"])
       .default("mongodb")
   );
 }

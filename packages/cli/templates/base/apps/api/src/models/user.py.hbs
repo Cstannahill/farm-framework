@@ -1,0 +1,383 @@
+# packages/cli/templates/base/apps/api/src/models/user.py.hbs
+"""
+User model
+{{#switch database}}
+{{#case "mongodb"}}User document model using Beanie for MongoDB{{/case}}
+{{#default}}User model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
+
+{{#if_feature "auth"}}
+{{#if_database "mongodb"}}
+from datetime import datetime
+from typing import Optional, Dict, Any
+from beanie import Document, Indexed
+from pydantic import Field, EmailStr, validator
+from ..core.security import hash_password
+
+class User(Document):
+    """User document for authentication and user management"""
+    
+    # Basic user information
+    email: Indexed(EmailStr, unique=True) = Field(..., description="User email address")
+    username: Indexed(str, unique=True) = Field(None, description="Username (optional)")
+    full_name: Optional[str] = Field(None, description="User's full name")
+    
+    # Authentication
+    hashed_password: str = Field(..., description="Hashed password")
+    is_active: bool = Field(True, description="Whether the user account is active")
+    is_superuser: bool = Field(False, description="Whether the user has admin privileges")
+    is_verified: bool = Field(False, description="Whether the user's email is verified")
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Account creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    last_login: Optional[datetime] = Field(None, description="Last login timestamp")
+    
+    # User preferences
+    preferences: Dict[str, Any] = Field(default_factory=dict, description="User preferences and settings")
+    
+    {{#if_feature "ai"}}
+    {{#if_template "ai-chat" "ai-dashboard"}}
+    # AI-specific preferences for chat/dashboard templates
+    ai_preferences: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "preferred_provider": None,
+            "preferred_model": None,
+            "default_temperature": 0.7,
+            "default_max_tokens": 1000,
+            "default_system_prompt": None,
+            "streaming_enabled": True
+        }, 
+        description="AI-related user preferences"
+    )
+    {{else}}
+    # Basic AI preferences for other templates
+    ai_preferences: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "ai_enabled": True,
+            "preferred_provider": "ollama"
+        }, 
+        description="Basic AI preferences"
+    )
+    {{/if_template}}
+    {{/if_feature}}
+    
+    # Profile information
+    avatar_url: Optional[str] = Field(None, description="URL to user's avatar image")
+    bio: Optional[str] = Field(None, description="User bio/description")
+    timezone: Optional[str] = Field("UTC", description="User's timezone")
+    
+    @validator('email')
+    def validate_email(cls, v):
+        """Validate email format"""
+        return v.lower().strip()
+    
+    @validator('username')
+    def validate_username(cls, v):
+        """Validate username format"""
+        if v is not None:
+            v = v.strip()
+            if len(v) < 3:
+                raise ValueError('Username must be at least 3 characters long')
+            if not v.replace('_', '').replace('-', '').isalnum():
+                raise ValueError('Username can only contain letters, numbers, hyphens, and underscores')
+        return v
+    
+    @validator('hashed_password')
+    def validate_password_hash(cls, v):
+        """Ensure password is hashed"""
+        if not v.startswith('$2b$'):  # bcrypt hash prefix
+            raise ValueError('Password must be properly hashed')
+        return v
+    
+    # Utility methods
+    async def set_password(self, password: str):
+        """Set user password (hashed)"""
+        self.hashed_password = hash_password(password)
+        self.updated_at = datetime.utcnow()
+        await self.save()
+    
+    async def update_last_login(self):
+        """Update last login timestamp"""
+        self.last_login = datetime.utcnow()
+        await self.save()
+    
+    async def update_preferences(self, new_preferences: Dict[str, Any]):
+        """Update user preferences"""
+        self.preferences.update(new_preferences)
+        self.updated_at = datetime.utcnow()
+        await self.save()
+    
+    {{#if_feature "ai"}}
+    async def update_ai_preferences(self, new_ai_preferences: Dict[str, Any]):
+        """Update AI preferences"""
+        self.ai_preferences.update(new_ai_preferences)
+        self.updated_at = datetime.utcnow()
+        await self.save()
+    {{/if_feature}}
+    
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
+        """Convert user to dictionary"""
+        data = {
+            "id": str(self.id),
+            "email": self.email,
+            "username": self.username,
+            "full_name": self.full_name,
+            "is_active": self.is_active,
+            "is_verified": self.is_verified,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "last_login": self.last_login,
+            "preferences": self.preferences,
+            {{#if_feature "ai"}}
+            "ai_preferences": self.ai_preferences,
+            {{/if_feature}}
+            "avatar_url": self.avatar_url,
+            "bio": self.bio,
+            "timezone": self.timezone
+        }
+        
+        if include_sensitive:
+            data.update({
+                "is_superuser": self.is_superuser,
+                "hashed_password": self.hashed_password
+            })
+        
+        return data
+    
+    class Settings:
+        name = "users"
+        indexes = [
+            "email",
+            "username", 
+            "is_active",
+            "is_superuser",
+            "created_at",
+            "last_login"
+        ]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "user@example.com",
+                "username": "johndoe",
+                "full_name": "John Doe",
+                "is_active": True,
+                "is_verified": True,
+                "preferences": {
+                    "theme": "dark",
+                    "notifications": True
+                },
+                {{#if_feature "ai"}}
+                {{#if_template "ai-chat" "ai-dashboard"}}
+                "ai_preferences": {
+                    "preferred_provider": "ollama",
+                    "preferred_model": "llama3.1",
+                    "default_temperature": 0.7
+                },
+                {{else}}
+                "ai_preferences": {
+                    "ai_enabled": True,
+                    "preferred_provider": "ollama"
+                },
+                {{/if_template}}
+                {{/if_feature}}
+                "bio": "{{#if_template 'ai-chat'}}AI enthusiast and developer{{else}}Software developer{{/if_template}}",
+                "timezone": "America/New_York"
+            }
+        }
+
+    def __str__(self) -> str:
+        return f"User({self.email})"
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+from ..core.security import hash_password
+
+Base = declarative_base()
+
+class User(Base):
+    """User model for SQL databases"""
+    __tablename__ = "users"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Basic user information
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    username = Column(String(50), unique=True, index=True, nullable=True)
+    full_name = Column(String(100), nullable=True)
+    
+    # Authentication
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    
+    # User preferences - Use JSON for PostgreSQL/MySQL, Text for SQLite/SQL Server
+    {{#if_database "postgresql" "mysql"}}
+    preferences = Column(JSON, nullable=True, default=dict)
+    {{#if_feature "ai"}}
+    ai_preferences = Column(JSON, nullable=True, default={{#if_template "ai-chat" "ai-dashboard"}}lambda: {
+        "preferred_provider": None,
+        "preferred_model": None,
+        "default_temperature": 0.7,
+        "default_max_tokens": 1000,
+        "streaming_enabled": True
+    }{{else}}lambda: {
+        "ai_enabled": True,
+        "preferred_provider": "ollama"
+    }{{/if_template}})
+    {{/if_feature}}
+    {{else}}
+    preferences = Column(Text, nullable=True)  # JSON string for SQLite/SQL Server
+    {{#if_feature "ai"}}
+    ai_preferences = Column(Text, nullable=True)  # JSON string
+    {{/if_feature}}
+    {{/if_database}}
+    
+    # Profile information
+    avatar_url = Column(String(500), nullable=True)
+    bio = Column(Text, nullable=True)
+    timezone = Column(String(50), nullable=True, default="UTC")
+    
+    def set_password(self, password: str):
+        """Set user password (hashed)"""
+        self.hashed_password = hash_password(password)
+        self.updated_at = datetime.utcnow()
+    
+    def update_last_login(self):
+        """Update last login timestamp"""
+        self.last_login = datetime.utcnow()
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_preferences(self) -> Dict[str, Any]:
+        """Get preferences as dictionary (for SQLite/SQL Server)"""
+        if self.preferences:
+            import json
+            return json.loads(self.preferences)
+        return {}
+    
+    def set_preferences(self, preferences: Dict[str, Any]):
+        """Set preferences from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.preferences = json.dumps(preferences)
+        self.updated_at = datetime.utcnow()
+    
+    {{#if_feature "ai"}}
+    def get_ai_preferences(self) -> Dict[str, Any]:
+        """Get AI preferences as dictionary (for SQLite/SQL Server)"""
+        if self.ai_preferences:
+            import json
+            return json.loads(self.ai_preferences)
+        return {{#if_template "ai-chat" "ai-dashboard"}}{
+            "preferred_provider": None,
+            "preferred_model": None,
+            "default_temperature": 0.7,
+            "default_max_tokens": 1000,
+            "streaming_enabled": True
+        }{{else}}{
+            "ai_enabled": True,
+            "preferred_provider": "ollama"
+        }{{/if_template}}
+    
+    def set_ai_preferences(self, ai_preferences: Dict[str, Any]):
+        """Set AI preferences from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.ai_preferences = json.dumps(ai_preferences)
+        self.updated_at = datetime.utcnow()
+    {{/if_feature}}
+    {{/if_database}}
+    
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
+        """Convert user to dictionary"""
+        data = {
+            "id": self.id,
+            "email": self.email,
+            "username": self.username,
+            "full_name": self.full_name,
+            "is_active": self.is_active,
+            "is_verified": self.is_verified,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "last_login": self.last_login,
+            {{#if_database "postgresql" "mysql"}}
+            "preferences": self.preferences or {},
+            {{#if_feature "ai"}}
+            "ai_preferences": self.ai_preferences or {},
+            {{/if_feature}}
+            {{else}}
+            "preferences": self.get_preferences(),
+            {{#if_feature "ai"}}
+            "ai_preferences": self.get_ai_preferences(),
+            {{/if_feature}}
+            {{/if_database}}
+            "avatar_url": self.avatar_url,
+            "bio": self.bio,
+            "timezone": self.timezone
+        }
+        
+        if include_sensitive:
+            data.update({
+                "is_superuser": self.is_superuser,
+                "hashed_password": self.hashed_password
+            })
+        
+        return data
+
+    def __str__(self) -> str:
+        return f"User({self.email})"
+
+{{/if_database}}
+
+{{else}}
+# Auth feature not enabled - provide stub User class
+
+class User:
+    """Stub User class when auth is disabled"""
+    
+    def __init__(self, **kwargs):
+        self.id = "anonymous"
+        self.email = "anonymous@example.com"
+        self.username = "anonymous"
+        self.full_name = "Anonymous User"
+        self.is_active = True
+        self.is_superuser = False
+        self.is_verified = True
+        {{#if_feature "ai"}}
+        self.ai_preferences = {{#if_template "ai-chat" "ai-dashboard"}}{
+            "preferred_provider": "ollama",
+            "preferred_model": "llama3.1",
+            "default_temperature": 0.7
+        }{{else}}{
+            "ai_enabled": True,
+            "preferred_provider": "ollama"
+        }{{/if_template}}
+        {{/if_feature}}
+    
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
+        """Convert anonymous user to dictionary"""
+        return {
+            "id": self.id,
+            "email": self.email,
+            "username": self.username,
+            "full_name": self.full_name,
+            "is_active": self.is_active,
+            "is_verified": self.is_verified,
+            {{#if_feature "ai"}}
+            "ai_preferences": self.ai_preferences
+            {{/if_feature}}
+        }
+
+{{/if_feature}}

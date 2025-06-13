@@ -7,7 +7,12 @@
 // FARM CONFIGURATION TYPES
 // =============================================================================
 
-export type DatabaseType = "mongodb" | "postgresql" | "mysql" | "sqlite";
+export type DatabaseType =
+  | "mongodb"
+  | "postgresql"
+  | "mysql"
+  | "sqlite"
+  | "sqlserver";
 export type FeatureName =
   | "auth"
   | "ai"
@@ -273,7 +278,7 @@ export class ConfigurationValidationError extends Error {
 export function isDatabaseType(value: any): value is DatabaseType {
   return (
     typeof value === "string" &&
-    ["mongodb", "postgresql", "mysql", "sqlite"].includes(value)
+    ["mongodb", "postgresql", "mysql", "sqlite", "sqlserver"].includes(value)
   );
 }
 

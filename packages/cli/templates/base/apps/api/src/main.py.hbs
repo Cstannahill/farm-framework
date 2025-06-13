@@ -1,0 +1,394 @@
+# packages/cli/templates/base/apps/api/src/main.py.hbs
+"""
+{{name}} API
+
+{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application with streaming responses{{/case}}{{#case "ai-dashboard"}}AI analytics and insights dashboard{{/case}}{{#case "api-only"}}RESTful API service{{/case}}{{#default}}Full-stack web application{{/default}}{{/switch}}{{/if}}
+
+Built with FARM Stack Framework
+"""
+import os
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+{{#if_feature "ai"}}
+from fastapi.middleware.gzip import GZipMiddleware
+{{/if_feature}}
+{{#if_feature "realtime"}}
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+{{/if_feature}}
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from .core.config import settings
+from .core.logging import setup_logging
+{{#if_database "mongodb"}}
+from .database.mongodb import init_database, close_database
+{{else}}
+from .database.connection import init_database, close_database
+{{/if_database}}
+
+# Import routes
+from .routes import health
+{{#if_feature "auth"}}
+from .routes import auth, users
+{{/if_feature}}
+{{#if_feature "ai"}}
+{{#if_template "ai-chat" "ai-dashboard"}}
+from .ai.manager import initialize_ai_manager
+from .routes import chat{{#if_template "ai-chat"}}, websocket{{/if_template}}
+from .ai import router as ai_router
+{{else}}
+from .routes import ai
+{{/if_template}}
+{{/if_feature}}
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager
+    Handles startup and shutdown events
+    """
+    # Startup
+    logger.info("Starting {{name}} API...")
+    
+    try:
+        # Setup logging
+        setup_logging()
+        logger.info("Logging configured")
+        
+        # Initialize database
+        logger.info("Initializing database...")
+        await init_database()
+        logger.info("Database initialized successfully")
+        
+        {{#if_feature "ai"}}
+        {{#if_template "ai-chat" "ai-dashboard"}}
+        # Initialize AI providers
+        logger.info("Initializing AI providers...")
+        await initialize_ai_manager()
+        logger.info("AI providers initialized successfully")
+        {{/if_template}}
+        {{/if_feature}}
+        
+        {{#if_feature "storage"}}
+        # Initialize storage
+        logger.info("Initializing storage...")
+        await init_storage()
+        logger.info("Storage initialized successfully")
+        {{/if_feature}}
+        
+        logger.info("{{name}} API started successfully!")
+        
+    except Exception as e:
+        logger.error(f"Failed to start application: {str(e)}")
+        raise e
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down {{name}} API...")
+    
+    try:
+        # Close database connection
+        await close_database()
+        logger.info("Database connection closed")
+        
+        {{#if_feature "storage"}}
+        # Close storage connections
+        await close_storage()
+        logger.info("Storage connections closed")
+        {{/if_feature}}
+        
+        logger.info("{{name}} API shutdown complete")
+        
+    except Exception as e:
+        logger.error(f"Error during shutdown: {str(e)}")
+
+# Create FastAPI application
+app = FastAPI(
+    title="{{pascalCase name}} API",
+    description="{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application with multi-provider support, streaming responses, and conversation management{{/case}}{{#case "ai-dashboard"}}AI analytics dashboard with data insights, model metrics, and intelligent visualizations{{/case}}{{#case "api-only"}}RESTful API service with authentication, database integration, and comprehensive health monitoring{{/case}}{{#default}}Full-stack web application with modern UI, secure authentication, and scalable backend architecture{{/default}}{{/switch}}{{/if}}",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.is_development else None,
+    redoc_url="/redoc" if settings.is_development else None,
+    openapi_url="/openapi.json" if not settings.is_production else None,
+)
+
+# Add middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+)
+
+{{#if_feature "ai"}}
+# Add gzip compression for AI responses
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+{{/if_feature}}
+
+{{#if_feature "realtime"}}
+# Add trusted host middleware for WebSocket security
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=settings.ALLOWED_HOSTS
+)
+{{/if_feature}}
+
+# Global exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Handle HTTP exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": "{{now}}"
+        }
+    )
+
+@app.exception_handler(StarletteHTTPException)
+async def starlette_exception_handler(request, exc):
+    """Handle Starlette HTTP exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": "{{now}}"
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """Handle request validation errors"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "details": exc.errors(),
+            "status_code": 422,
+            "timestamp": "{{now}}"
+        }
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle general exceptions"""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    
+    if settings.is_development:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Internal server error: {str(exc)}",
+                "status_code": 500,
+                "timestamp": "{{now}}"
+            }
+        )
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal server error",
+                "status_code": 500,
+                "timestamp": "{{now}}"
+            }
+        )
+
+# Include routers
+app.include_router(health.router, prefix="/api")
+
+{{#if_feature "auth"}}
+app.include_router(auth.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+{{/if_feature}}
+
+{{#if_feature "ai"}}
+{{#if_template "ai-chat" "ai-dashboard"}}
+app.include_router(ai_router.router, prefix="/api")
+{{#if_template "ai-chat"}}
+app.include_router(chat.router, prefix="/api")
+app.include_router(websocket.router, prefix="/api")
+{{/if_template}}
+{{else}}
+app.include_router(ai.router, prefix="/api")
+{{/if_template}}
+{{/if_feature}}
+
+# Health check endpoints (also at root level for load balancers)
+@app.get("/health")
+async def root_health_check():
+    """Root level health check"""
+    try:
+        # Quick database check
+        {{#switch database}}
+        {{#case "mongodb"}}
+        from motor.motor_asyncio import AsyncIOMotorClient
+        client = AsyncIOMotorClient(settings.DATABASE_URL)
+        await client.admin.command('ping')
+        client.close()
+        {{/case}}
+        {{#case "postgresql" "mysql" "sqlite" "sqlserver"}}
+        from sqlalchemy.ext.asyncio import create_async_engine
+        {{#if_database "mysql"}}
+        database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+        {{else if_database "sqlite"}}
+        database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+        {{else if_database "sqlserver"}}
+        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
+        {{else}}
+        database_url = settings.DATABASE_URL
+        {{/if_database}}
+        engine = create_async_engine(database_url)
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        await engine.dispose()
+        {{/case}}
+        {{/switch}}
+        
+        db_healthy = True
+    except Exception:
+        db_healthy = False
+    
+    {{#if_feature "ai"}}
+    {{#if_template "ai-chat" "ai-dashboard"}}
+    # Quick AI check
+    try:
+        from .ai.manager import get_ai_manager
+        ai_manager = await get_ai_manager()
+        ai_health = await ai_manager.health_check_all()
+        
+        healthy_providers = sum(1 for status in ai_health.values() if status)
+        ai_healthy = healthy_providers > 0
+        
+    except Exception:
+        ai_healthy = False
+        healthy_providers = 0
+        ai_health = {}
+    
+    overall_healthy = db_healthy and ai_healthy
+    
+    return {
+        "status": "healthy" if overall_healthy else "unhealthy",
+        "timestamp": "{{now}}",
+        "version": "1.0.0",
+        "database": {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "type": "{{database}}"
+        },
+        "ai_providers": {
+            "healthy": healthy_providers,
+            "total": len(ai_health),
+            "providers": ai_health
+        },
+        "environment": settings.ENVIRONMENT
+    }
+    {{else}}
+    overall_healthy = db_healthy
+    
+    return {
+        "status": "healthy" if overall_healthy else "unhealthy",
+        "timestamp": "{{now}}",
+        "version": "1.0.0",
+        "database": {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "type": "{{database}}"
+        },
+        "ai": {
+            "status": "enabled"
+        },
+        "environment": settings.ENVIRONMENT
+    }
+    {{/if_template}}
+    {{else}}
+    overall_healthy = db_healthy
+    
+    return {
+        "status": "healthy" if overall_healthy else "unhealthy",
+        "timestamp": "{{now}}",
+        "version": "1.0.0",
+        "database": {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "type": "{{database}}"
+        },
+        "environment": settings.ENVIRONMENT
+    }
+    {{/if_feature}}
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "name": "{{pascalCase name}} API",
+        "version": "1.0.0",
+        "description": "{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application{{/case}}{{#case "ai-dashboard"}}AI analytics dashboard{{/case}}{{#case "api-only"}}RESTful API service{{/case}}{{#default}}Full-stack web application{{/default}}{{/switch}}{{/if}}",
+        "template": "{{template}}",
+        "database": "{{database}}",
+        "features": [
+            {{#each features}}
+            "{{this}}"{{#unless @last}},{{/unless}}
+            {{/each}}
+        ],
+        "environment": settings.ENVIRONMENT,
+        "docs_url": "/docs" if settings.is_development else None,
+        "health_url": "/health",
+        "api_prefix": "/api"
+    }
+
+{{#if_feature "storage"}}
+async def init_storage():
+    """Initialize storage service"""
+    try:
+        from .core.config import settings
+        
+        if settings.STORAGE_TYPE == "local":
+            import os
+            os.makedirs(settings.UPLOAD_DIRECTORY, exist_ok=True)
+            logger.info(f"Local storage initialized at {settings.UPLOAD_DIRECTORY}")
+        elif settings.STORAGE_TYPE == "s3":
+            # Initialize S3 client
+            logger.info("S3 storage initialized")
+        elif settings.STORAGE_TYPE == "gcs":
+            # Initialize GCS client
+            logger.info("GCS storage initialized")
+        elif settings.STORAGE_TYPE == "azure":
+            # Initialize Azure storage client
+            logger.info("Azure storage initialized")
+        else:
+            raise ValueError(f"Unsupported storage type: {settings.STORAGE_TYPE}")
+            
+    except Exception as e:
+        logger.error(f"Failed to initialize storage: {str(e)}")
+        raise
+
+async def close_storage():
+    """Close storage connections"""
+    try:
+        # Close any storage connections if needed
+        logger.info("Storage connections closed")
+    except Exception as e:
+        logger.error(f"Error closing storage: {str(e)}")
+{{/if_feature}}
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.is_development,
+        workers=settings.WORKERS if settings.is_production else 1,
+        log_level=settings.LOG_LEVEL.lower(),
+        access_log=settings.is_development
+    )

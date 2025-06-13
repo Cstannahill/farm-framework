@@ -1,4 +1,13 @@
 # templates/ai-chat/apps/api/src/models/message.py.hbs
+"""
+Message model
+{{#switch database}}
+{{#case "mongodb"}}Message document model using Beanie for MongoDB{{/case}}
+{{#default}}Message model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
+
+{{#if_database "mongodb"}}
 from datetime import datetime
 from typing import Optional, Dict, Any
 from beanie import Document, Indexed
@@ -57,3 +66,62 @@ class Message(Document):
 
     def __str__(self) -> str:
         return f"Message({self.role}: {self.content[:50]}{'...' if len(self.content) > 50 else ''})"
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, {{#if_database "postgresql" "mysql"}}JSON{{else}}Text{{/if_database}}
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Message(Base):
+    """Message table for storing individual chat messages"""
+    
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(String(50), nullable=False, index=True)
+    role = Column(String(20), nullable=False, index=True)  # 'user', 'assistant', 'system'
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    # AI provider information
+    provider = Column(String(50), nullable=True, index=True)
+    model = Column(String(100), nullable=True)
+    
+    # Token usage tracking
+    tokens_used = Column(Integer, nullable=True)
+    
+    # Message metadata
+    {{#if_database "postgresql" "mysql"}}
+    metadata = Column(JSON, nullable=True, default={})
+    {{else}}
+    metadata = Column(Text, nullable=True)  # JSON stored as string for SQLite/SQL Server
+    {{/if_database}}
+    
+    # Optional fields for advanced features
+    edited = Column(Boolean, nullable=False, default=False)
+    edited_at = Column(DateTime, nullable=True)
+    parent_message_id = Column(String(50), nullable=True)
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_metadata(self) -> Dict[str, Any]:
+        """Get metadata as dictionary (for SQLite/SQL Server)"""
+        if self.metadata:
+            import json
+            return json.loads(self.metadata)
+        return {}
+    
+    def set_metadata(self, metadata: Dict[str, Any]):
+        """Set metadata from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.metadata = json.dumps(metadata)
+    {{/if_database}}
+    
+    def __str__(self) -> str:
+        return f"Message({self.role}: {self.content[:50]}{'...' if len(self.content) > 50 else ''})"
+
+{{/if_database}}

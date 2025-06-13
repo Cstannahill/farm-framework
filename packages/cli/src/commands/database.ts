@@ -16,11 +16,13 @@ export function createDatabaseCommands(): Command {
   const database = new Command("database");
   database.alias("db");
   database.description("Database management commands");
-
   database
     .command("add")
     .description("Add database support to existing project")
-    .option("-t, --type <type>", "Database type (mongodb, postgresql)")
+    .option(
+      "-t, --type <type>",
+      "Database type (mongodb, postgresql, mysql, sqlite, sqlserver)"
+    )
     .action(async (opts) => {
       await addDatabase(opts.type);
     });
@@ -102,8 +104,12 @@ async function showDatabaseInfo(): Promise<void> {
 
 async function handleMigrate(options: MigrateOptions): Promise<void> {
   const config = await configLoader.loadConfig();
-  if (config?.database?.type !== "postgresql") {
-    logger.error("Migrations supported only for PostgreSQL");
+  const sqlDatabases = ["postgresql", "mysql", "sqlite", "sqlserver"];
+
+  if (!config?.database?.type || !sqlDatabases.includes(config.database.type)) {
+    logger.error(
+      `Migrations are supported for SQL databases: ${sqlDatabases.join(", ")}`
+    );
     return;
   }
 

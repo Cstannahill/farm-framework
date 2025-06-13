@@ -1,12 +1,201 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional, List
+from datetime import datetime
+{{#if (eq database "mongodb")}}
+from beanie import PydanticObjectId
+{{else}}
+from sqlalchemy.orm import Session
+from ..database import get_db
+from fastapi import Depends
+{{/if}}
 from ..models.insight import Insight
+from ..ai.insights_generator import generate_insights, generate_automated_insights
+from ..ai.trend_analysis import analyze_metric_trends
+from ..ml.data_processor import process_dashboard_data
 
 router = APIRouter(prefix="/ai-insights", tags=["ai"])
 
-@router.get("/", response_model=list[Insight])
-async def get_insights():
-    """Return AI generated insights."""
-    return [
-        Insight(title="Trend", detail="Sales are increasing"),
-        Insight(title="Warning", detail="Churn rate rising"),
-    ]
+@router.get("/", response_model=List[Insight])
+async def get_insights(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    category: Optional[str] = Query(None, description="Filter by insight category"),
+    severity: Optional[str] = Query(None, description="Filter by severity level"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum insights to return")
+):
+    """
+    Get AI-generated insights with optional filtering.
+    
+    Returns a list of insights categorized by type and severity,
+    including automated analysis of metrics and trends.
+    """
+    try:
+        {{#if (eq database "mongodb")}}
+        # Build MongoDB query
+        query_filter = {}
+        if category:
+            query_filter["category"] = category
+        if severity:
+            query_filter["severity"] = severity
+        
+        insights = await Insight.find(query_filter).limit(limit).to_list()
+        
+        # Generate fresh insights if none exist
+        if not insights:
+            insights = await generate_automated_insights()
+            # Save to database
+            for insight in insights:
+                await insight.insert()
+        
+        {{else}}
+        # Build SQL query
+        query = db.query(Insight)
+        if category:
+            query = query.filter(Insight.category == category)
+        if severity:
+            query = query.filter(Insight.severity == severity)
+        
+        insights = query.limit(limit).all()
+        
+        # Generate fresh insights if none exist
+        if not insights:
+            generated_insights = await generate_automated_insights()
+            for insight_data in generated_insights:
+                insight = Insight(**insight_data.dict())
+                db.add(insight)
+            db.commit()
+            insights = query.limit(limit).all()
+        
+        {{/if}}
+        return insights
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve insights: {str(e)}")
+
+@router.get("/generate", response_model=List[Insight])
+async def generate_fresh_insights(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    data_source: Optional[str] = Query("metrics", description="Data source for insight generation"),
+    lookback_days: int = Query(30, ge=1, le=365, description="Days of historical data to analyze")
+):
+    """
+    Generate fresh AI insights based on current data.
+    
+    Analyzes recent metrics and trends to produce actionable insights
+    with confidence scores and recommendations.
+    """
+    try:
+        # Process dashboard data for analysis
+        processed_data = await process_dashboard_data(
+            source=data_source,
+            days=lookback_days
+        )
+        
+        # Generate insights from processed data
+        insights = await generate_insights(processed_data)
+        
+        {{#if (eq database "mongodb")}}
+        # Save new insights to database
+        saved_insights = []
+        for insight in insights:
+            saved_insight = await insight.insert()
+            saved_insights.append(saved_insight)
+        
+        return saved_insights
+        
+        {{else}}
+        # Save new insights to database
+        saved_insights = []
+        for insight_data in insights:
+            insight = Insight(**insight_data.dict())
+            db.add(insight)
+            saved_insights.append(insight)
+        
+        db.commit()
+        
+        # Refresh instances to get IDs
+        for insight in saved_insights:
+            db.refresh(insight)
+        
+        return saved_insights
+        
+        {{/if}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
+
+@router.get("/trends", response_model=dict)
+async def get_trend_insights(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    metric_name: Optional[str] = Query(None, description="Specific metric to analyze"),
+    period: str = Query("week", regex="^(day|week|month|quarter)$", description="Analysis period")
+):
+    """
+    Get trend analysis insights for metrics.
+    
+    Provides statistical trend analysis with change detection,
+    seasonality patterns, and anomaly identification.
+    """
+    try:
+        trends = await analyze_metric_trends(
+            {{#unless (eq database "mongodb")}}
+            db=db,
+            {{/unless}}
+            metric_name=metric_name,
+            period=period
+        )
+        
+        return {
+            "period": period,
+            "metric": metric_name or "all",
+            "trends": trends,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze trends: {str(e)}")
+
+{{#if (eq database "mongodb")}}
+@router.get("/{insight_id}", response_model=Insight)
+async def get_insight_by_id(insight_id: PydanticObjectId):
+    """Get a specific insight by ID."""
+    insight = await Insight.get(insight_id)
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    return insight
+
+@router.delete("/{insight_id}")
+async def delete_insight(insight_id: PydanticObjectId):
+    """Delete a specific insight."""
+    insight = await Insight.get(insight_id)
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    
+    await insight.delete()
+    return {"message": "Insight deleted successfully"}
+
+{{else}}
+@router.get("/{insight_id}", response_model=Insight)
+async def get_insight_by_id(insight_id: int, db: Session = Depends(get_db)):
+    """Get a specific insight by ID."""
+    insight = db.query(Insight).filter(Insight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    return insight
+
+@router.delete("/{insight_id}")
+async def delete_insight(insight_id: int, db: Session = Depends(get_db)):
+    """Delete a specific insight."""
+    insight = db.query(Insight).filter(Insight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    
+    db.delete(insight)
+    db.commit()
+    return {"message": "Insight deleted successfully"}
+
+{{/if}}

@@ -2,7 +2,12 @@
  * Database Integration Types
  */
 
-export type DatabaseType = "mongodb" | "postgresql" | "mysql" | "sqlite";
+export type DatabaseType =
+  | "mongodb"
+  | "postgresql"
+  | "mysql"
+  | "sqlite"
+  | "sqlserver";
 
 export interface DatabaseOptions {
   poolSize?: number;

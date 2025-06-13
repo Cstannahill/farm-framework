@@ -1218,7 +1218,6 @@ class AIProviderManager:
 export {};
 `;
   }
-
   private getDefaultDatabaseUrl(database: string, projectName: string): string {
     const dbName = projectName.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -1231,6 +1230,8 @@ export {};
         return `mysql://user:password@localhost:3306/${dbName}`;
       case "sqlite":
         return `sqlite://./database.db`;
+      case "sqlserver":
+        return `mssql+pyodbc://user:password@localhost:1433/${dbName}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes`;
       default:
         return `mongodb://localhost:27017/${dbName}`;
     }

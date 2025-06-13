@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+__pycache__/
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+
+# Generated files
+coverage/
+*.tsbuildinfo
+
+# Package files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Logs
+*.log
+
+{{#if_feature "ai"}}
+# AI model files
+models/
+*.bin
+*.safetensors
+{{/if_feature}}
+
+{{#if_feature "storage"}}
+# Uploads
+uploads/
+{{/if_feature}}
+
+# Environment files
+.env*
+!.env.example

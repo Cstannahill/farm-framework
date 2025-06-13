@@ -1,11 +1,505 @@
-"""Basic ML model manager placeholder."""
+"""Advanced ML model manager for training, storing, and serving models."""
+
+import pickle
+import joblib
+import json
+from typing import Dict, Any, Optional, List, Union, Callable
+from datetime import datetime
+from pathlib import Path
+import logging
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score, classification_report
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+
+logger = logging.getLogger(__name__)
 
 class ModelManager:
-    def __init__(self):
-        self.models: dict[str, object] = {}
+    """
+    Comprehensive ML model management system.
+    
+    Handles model registration, training, evaluation, persistence,
+    and serving for various machine learning workflows.
+    """
+    
+    def __init__(self, models_dir: str = "models"):
+        """Initialize model manager with storage directory."""
+        self.models: Dict[str, Dict[str, Any]] = {}
+        self.models_dir = Path(models_dir)
+        self.models_dir.mkdir(exist_ok=True)
+        
+        # Model metadata storage
+        self.metadata_file = self.models_dir / "models_metadata.json"
+        self._load_metadata()
+        
+        # Supported model types
+        self.supported_models = {
+            "classification": {
+                "random_forest": RandomForestClassifier,
+                "logistic_regression": LogisticRegression
+            },
+            "regression": {
+                "random_forest": RandomForestRegressor,
+                "linear_regression": LinearRegression
+            }
+        }
+    
+    def register(self, name: str, model: Union[BaseEstimator, object], metadata: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Register a model with optional metadata.
+        
+        Stores the model in memory and persists to disk with
+        comprehensive metadata tracking.
+        """
+        try:
+            model_info = {
+                "model": model,
+                "created_at": datetime.utcnow().isoformat(),
+                "model_type": type(model).__name__,
+                "metadata": metadata or {},
+                "training_history": [],
+                "evaluation_metrics": {},
+                "version": 1
+            }
+            
+            # Update version if model already exists
+            if name in self.models:
+                model_info["version"] = self.models[name]["version"] + 1
+            
+            self.models[name] = model_info
+            
+            # Persist model to disk
+            self._save_model_to_disk(name, model, model_info)
+            self._save_metadata()
+            
+            logger.info(f"Model '{name}' registered successfully (version {model_info['version']})")
+            
+        except Exception as e:
+            logger.error(f"Error registering model '{name}': {str(e)}")
+            raise
+    
+    def get(self, name: str) -> Optional[object]:
+        """Retrieve a registered model by name."""
+        try:
+            if name in self.models:
+                return self.models[name]["model"]
+            
+            # Try to load from disk if not in memory
+            return self._load_model_from_disk(name)
+            
+        except Exception as e:
+            logger.error(f"Error retrieving model '{name}': {str(e)}")
+            return None
+    
+    def get_metadata(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get model metadata without loading the actual model."""
+        try:
+            if name in self.models:
+                return {k: v for k, v in self.models[name].items() if k != "model"}
+            
+            # Load from metadata file
+            if self.metadata_file.exists():
+                with open(self.metadata_file, 'r') as f:
+                    all_metadata = json.load(f)
+                    return all_metadata.get(name)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting metadata for '{name}': {str(e)}")
+            return None
+    
+    def list_models(self) -> List[Dict[str, Any]]:
+        """List all registered models with their metadata."""
+        try:
+            models_list = []
+            
+            # Include in-memory models
+            for name, info in self.models.items():
+                model_summary = {
+                    "name": name,
+                    "type": info["model_type"],
+                    "created_at": info["created_at"],
+                    "version": info["version"],
+                    "has_metadata": bool(info["metadata"]),
+                    "trained": bool(info["training_history"]),
+                    "evaluated": bool(info["evaluation_metrics"])
+                }
+                models_list.append(model_summary)
+            
+            # Include disk-only models
+            if self.metadata_file.exists():
+                with open(self.metadata_file, 'r') as f:
+                    disk_metadata = json.load(f)
+                    
+                for name, info in disk_metadata.items():
+                    if name not in self.models:
+                        model_summary = {
+                            "name": name,
+                            "type": info.get("model_type", "Unknown"),
+                            "created_at": info.get("created_at", "Unknown"),
+                            "version": info.get("version", 1),
+                            "has_metadata": bool(info.get("metadata", {})),
+                            "trained": bool(info.get("training_history", [])),
+                            "evaluated": bool(info.get("evaluation_metrics", {})),
+                            "stored_on_disk": True
+                        }
+                        models_list.append(model_summary)
+            
+            return models_list
+            
+        except Exception as e:
+            logger.error(f"Error listing models: {str(e)}")
+            return []
+    
+    def train_model(
+        self,
+        name: str,
+        model_type: str,
+        task_type: str,
+        X: Union[pd.DataFrame, np.ndarray],
+        y: Union[pd.Series, np.ndarray],
+        test_size: float = 0.2,
+        **model_params
+    ) -> Dict[str, Any]:
+        """
+        Train a new model with the specified parameters.
+        
+        Supports classification and regression tasks with
+        automatic data splitting and evaluation.
+        """
+        try:
+            if task_type not in self.supported_models:
+                raise ValueError(f"Unsupported task type: {task_type}")
+            
+            if model_type not in self.supported_models[task_type]:
+                raise ValueError(f"Unsupported model type for {task_type}: {model_type}")
+            
+            # Initialize model
+            ModelClass = self.supported_models[task_type][model_type]
+            model = ModelClass(**model_params)
+            
+            # Prepare data
+            X_processed, y_processed, preprocessors = self._preprocess_data(X, y, task_type)
+            
+            # Split data
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_processed, y_processed, test_size=test_size, random_state=42
+            )
+            
+            # Train model
+            training_start = datetime.utcnow()
+            model.fit(X_train, y_train)
+            training_end = datetime.utcnow()
+            
+            # Evaluate model
+            evaluation_results = self._evaluate_model(model, X_test, y_test, task_type)
+            
+            # Create training history entry
+            training_history = {
+                "timestamp": training_start.isoformat(),
+                "duration_seconds": (training_end - training_start).total_seconds(),
+                "data_shape": X_processed.shape,
+                "test_size": test_size,
+                "model_params": model_params,
+                "evaluation_results": evaluation_results
+            }
+            
+            # Register the trained model
+            metadata = {
+                "task_type": task_type,
+                "model_type": model_type,
+                "feature_names": list(X.columns) if hasattr(X, 'columns') else None,
+                "preprocessors": preprocessors,
+                "training_params": {
+                    "test_size": test_size,
+                    "model_params": model_params
+                }
+            }
+            
+            self.register(name, model, metadata)
+            
+            # Update training history
+            if name in self.models:
+                self.models[name]["training_history"].append(training_history)
+                self.models[name]["evaluation_metrics"] = evaluation_results
+                self._save_metadata()
+            
+            logger.info(f"Model '{name}' trained successfully")
+            
+            return {
+                "success": True,
+                "model_name": name,
+                "training_history": training_history,
+                "evaluation_results": evaluation_results
+            }
+            
+        except Exception as e:
+            logger.error(f"Error training model '{name}': {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def predict(
+        self,
+        name: str,
+        X: Union[pd.DataFrame, np.ndarray, Dict[str, Any], List[Dict[str, Any]]]
+    ) -> Dict[str, Any]:
+        """
+        Make predictions using a registered model.
+        
+        Supports various input formats and handles preprocessing
+        automatically based on model metadata.
+        """
+        try:
+            model = self.get(name)
+            if model is None:
+                return {"error": f"Model '{name}' not found"}
+            
+            metadata = self.get_metadata(name)
+            if not metadata:
+                return {"error": f"No metadata found for model '{name}'"}
+            
+            # Prepare input data
+            X_processed = self._prepare_prediction_data(X, metadata)
+            
+            # Make predictions
+            predictions = model.predict(X_processed)
+            
+            # Get prediction probabilities if available (classification)
+            probabilities = None
+            if hasattr(model, 'predict_proba'):
+                try:
+                    probabilities = model.predict_proba(X_processed)
+                except:
+                    pass  # Not all models support probabilities
+            
+            # Format results
+            results = {
+                "predictions": predictions.tolist() if hasattr(predictions, 'tolist') else predictions,
+                "model_name": name,
+                "prediction_timestamp": datetime.utcnow().isoformat(),
+                "input_shape": X_processed.shape if hasattr(X_processed, 'shape') else len(X_processed)
+            }
+            
+            if probabilities is not None:
+                results["probabilities"] = probabilities.tolist()
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error making predictions with model '{name}': {str(e)}")
+            return {"error": str(e)}
+    
+    def evaluate_model(self, name: str, X_test: Union[pd.DataFrame, np.ndarray], y_test: Union[pd.Series, np.ndarray]) -> Dict[str, Any]:
+        """Evaluate a registered model on test data."""
+        try:
+            model = self.get(name)
+            if model is None:
+                return {"error": f"Model '{name}' not found"}
+            
+            metadata = self.get_metadata(name)
+            task_type = metadata.get("metadata", {}).get("task_type", "classification")
+            
+            # Preprocess test data
+            X_processed = self._prepare_prediction_data(X_test, metadata)
+            
+            # Evaluate
+            evaluation_results = self._evaluate_model(model, X_processed, y_test, task_type)
+            
+            # Update stored evaluation metrics
+            if name in self.models:
+                self.models[name]["evaluation_metrics"] = evaluation_results
+                self._save_metadata()
+            
+            return evaluation_results
+            
+        except Exception as e:
+            logger.error(f"Error evaluating model '{name}': {str(e)}")
+            return {"error": str(e)}
+    
+    def delete_model(self, name: str) -> bool:
+        """Delete a model from memory and disk."""
+        try:
+            # Remove from memory
+            if name in self.models:
+                del self.models[name]
+            
+            # Remove from disk
+            model_file = self.models_dir / f"{name}.pkl"
+            if model_file.exists():
+                model_file.unlink()
+            
+            # Update metadata
+            self._save_metadata()
+            
+            logger.info(f"Model '{name}' deleted successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting model '{name}': {str(e)}")
+            return False
+    
+    # Private helper methods
+    
+    def _preprocess_data(self, X: Union[pd.DataFrame, np.ndarray], y: Union[pd.Series, np.ndarray], task_type: str) -> tuple:
+        """Preprocess training data."""
+        preprocessors = {}
+        
+        # Convert to DataFrame if needed
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        
+        # Handle missing values
+        X_processed = X.fillna(X.mean() if X.select_dtypes(include=[np.number]).shape[1] > 0 else X.mode().iloc[0])
+        
+        # Encode categorical variables
+        categorical_cols = X_processed.select_dtypes(include=['object', 'category']).columns
+        if len(categorical_cols) > 0:
+            for col in categorical_cols:
+                le = LabelEncoder()
+                X_processed[col] = le.fit_transform(X_processed[col].astype(str))
+                preprocessors[f"{col}_encoder"] = le
+        
+        # Scale features for certain algorithms
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_processed)
+        preprocessors["scaler"] = scaler
+        
+        # Process target variable
+        y_processed = y
+        if task_type == "classification" and not isinstance(y, np.ndarray):
+            if y.dtype == 'object':
+                target_encoder = LabelEncoder()
+                y_processed = target_encoder.fit_transform(y)
+                preprocessors["target_encoder"] = target_encoder
+        
+        return X_scaled, y_processed, preprocessors
+    
+    def _prepare_prediction_data(self, X: Union[pd.DataFrame, np.ndarray, Dict, List], metadata: Dict[str, Any]) -> np.ndarray:
+        """Prepare data for prediction using stored preprocessors."""
+        # Convert input to DataFrame
+        if isinstance(X, dict):
+            X = pd.DataFrame([X])
+        elif isinstance(X, list):
+            X = pd.DataFrame(X)
+        elif not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        
+        # Apply preprocessing steps from metadata
+        preprocessors = metadata.get("metadata", {}).get("preprocessors", {})
+        
+        # Handle missing values
+        X_processed = X.fillna(X.mean() if X.select_dtypes(include=[np.number]).shape[1] > 0 else X.mode().iloc[0] if not X.empty else 0)
+        
+        # Apply encoders
+        for key, encoder in preprocessors.items():
+            if key.endswith("_encoder") and not key.startswith("target_"):
+                col_name = key.replace("_encoder", "")
+                if col_name in X_processed.columns:
+                    try:
+                        X_processed[col_name] = encoder.transform(X_processed[col_name].astype(str))
+                    except ValueError:
+                        # Handle unseen categories
+                        X_processed[col_name] = 0
+        
+        # Apply scaler
+        if "scaler" in preprocessors:
+            X_scaled = preprocessors["scaler"].transform(X_processed)
+            return X_scaled
+        
+        return X_processed.values
+    
+    def _evaluate_model(self, model, X_test: np.ndarray, y_test: Union[pd.Series, np.ndarray], task_type: str) -> Dict[str, Any]:
+        """Evaluate model performance."""
+        try:
+            predictions = model.predict(X_test)
+            
+            if task_type == "classification":
+                accuracy = accuracy_score(y_test, predictions)
+                results = {
+                    "accuracy": float(accuracy),
+                    "task_type": task_type
+                }
+                
+                # Add classification report if possible
+                try:
+                    report = classification_report(y_test, predictions, output_dict=True)
+                    results["classification_report"] = report
+                except:
+                    pass
+                
+            else:  # regression
+                mse = mean_squared_error(y_test, predictions)
+                r2 = r2_score(y_test, predictions)
+                results = {
+                    "mse": float(mse),
+                    "rmse": float(np.sqrt(mse)),
+                    "r2_score": float(r2),
+                    "task_type": task_type
+                }
+            
+            results["evaluation_timestamp"] = datetime.utcnow().isoformat()
+            return results
+            
+        except Exception as e:
+            return {"error": f"Evaluation failed: {str(e)}"}
+    
+    def _save_model_to_disk(self, name: str, model: object, model_info: Dict[str, Any]) -> None:
+        """Save model to disk using joblib."""
+        try:
+            model_file = self.models_dir / f"{name}.pkl"
+            joblib.dump(model, model_file)
+            logger.info(f"Model '{name}' saved to disk")
+        except Exception as e:
+            logger.error(f"Error saving model '{name}' to disk: {str(e)}")
+    
+    def _load_model_from_disk(self, name: str) -> Optional[object]:
+        """Load model from disk."""
+        try:
+            model_file = self.models_dir / f"{name}.pkl"
+            if model_file.exists():
+                model = joblib.load(model_file)
+                logger.info(f"Model '{name}' loaded from disk")
+                return model
+            return None
+        except Exception as e:
+            logger.error(f"Error loading model '{name}' from disk: {str(e)}")
+            return None
+    
+    def _save_metadata(self) -> None:
+        """Save all model metadata to disk."""
+        try:
+            metadata = {}
+            for name, info in self.models.items():
+                metadata[name] = {k: v for k, v in info.items() if k != "model"}
+            
+            with open(self.metadata_file, 'w') as f:
+                json.dump(metadata, f, indent=2, default=str)
+                
+        except Exception as e:
+            logger.error(f"Error saving metadata: {str(e)}")
+    
+    def _load_metadata(self) -> None:
+        """Load model metadata from disk."""
+        try:
+            if self.metadata_file.exists():
+                with open(self.metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    
+                # Don't load models into memory, just metadata
+                for name, info in metadata.items():
+                    if name not in self.models:
+                        # Create placeholder entry
+                        self.models[name] = {**info, "model": None}
+                        
+        except Exception as e:
+            logger.error(f"Error loading metadata: {str(e)}")
 
-    def register(self, name: str, model: object) -> None:
-        self.models[name] = model
-
-    def get(self, name: str) -> object | None:
-        return self.models.get(name)
+# Global instance for easy access
+model_manager = ModelManager()

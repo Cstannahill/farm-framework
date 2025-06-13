@@ -1,5 +1,249 @@
-from pydantic import BaseModel
+# packages/cli/templates/ai-dashboard/apps/api/src/models/insight.py.hbs
+"""
+Insight model
+{{#switch database}}
+{{#case "mongodb"}}Insight document model using Beanie for MongoDB{{/case}}
+{{#default}}Insight model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
 
-class Insight(BaseModel):
-    title: str
-    detail: str
+{{#if_database "mongodb"}}
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from beanie import Document, Indexed
+from pydantic import Field
+from enum import Enum
+
+class InsightType(str, Enum):
+    """Types of insights"""
+    TREND = "trend"
+    ANOMALY = "anomaly"
+    PATTERN = "pattern"
+    CORRELATION = "correlation"
+    PREDICTION = "prediction"
+    SUMMARY = "summary"
+
+class InsightSeverity(str, Enum):
+    """Insight severity levels"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class Insight(Document):
+    """Insight document for storing AI-generated insights"""
+    
+    # Basic insight information
+    title: str = Field(..., description="Insight title")
+    detail: str = Field(..., description="Detailed insight description")
+    summary: Optional[str] = Field(None, description="Brief insight summary")
+    
+    # Classification
+    type: InsightType = Field(..., description="Type of insight")
+    severity: InsightSeverity = Field(default=InsightSeverity.MEDIUM, description="Insight severity")
+    category: Optional[str] = Field(None, description="Insight category")
+    
+    # Metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    
+    # Data source information
+    dataset_id: Optional[str] = Field(None, description="Associated dataset ID")
+    model_id: Optional[str] = Field(None, description="AI model that generated insight")
+    
+    # Insight metrics
+    confidence: float = Field(default=0.0, description="Confidence score (0-1)")
+    accuracy: Optional[float] = Field(None, description="Accuracy if applicable")
+    impact_score: Optional[float] = Field(None, description="Business impact score")
+    
+    # Supporting data
+    data: Dict[str, Any] = Field(default_factory=dict, description="Supporting data and metrics")
+    visualizations: List[Dict[str, Any]] = Field(default_factory=list, description="Chart/graph data")
+    
+    # Actions and recommendations
+    recommendations: List[str] = Field(default_factory=list, description="Recommended actions")
+    tags: List[str] = Field(default_factory=list, description="Insight tags")
+    
+    # Status tracking
+    is_active: bool = Field(default=True, description="Whether insight is currently relevant")
+    is_archived: bool = Field(default=False, description="Whether insight is archived")
+    reviewed_by: Optional[str] = Field(None, description="User who reviewed the insight")
+    
+    class Settings:
+        name = "insights"
+        indexes = [
+            "type",
+            "severity", 
+            "category",
+            "created_at",
+            "confidence",
+            "is_active",
+            "tags"
+        ]
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Boolean, Float
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+from enum import Enum
+
+Base = declarative_base()
+
+class InsightType(str, Enum):
+    """Types of insights"""
+    TREND = "trend"
+    ANOMALY = "anomaly"
+    PATTERN = "pattern"
+    CORRELATION = "correlation"
+    PREDICTION = "prediction"
+    SUMMARY = "summary"
+
+class InsightSeverity(str, Enum):
+    """Insight severity levels"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class Insight(Base):
+    """Insight model for SQL databases"""
+    __tablename__ = "insights"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Basic insight information
+    title = Column(String(255), nullable=False)
+    detail = Column(Text, nullable=False)
+    summary = Column(Text, nullable=True)
+    
+    # Classification
+    type = Column(String(50), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, default="medium", index=True)
+    category = Column(String(100), nullable=True, index=True)
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
+    # Data source information
+    dataset_id = Column(String(100), nullable=True)
+    model_id = Column(String(100), nullable=True)
+    
+    # Insight metrics
+    confidence = Column(Float, default=0.0, nullable=False)
+    accuracy = Column(Float, nullable=True)
+    impact_score = Column(Float, nullable=True)
+    
+    # Supporting data - Use JSON for PostgreSQL/MySQL, Text for SQLite/SQL Server
+    {{#if_database "postgresql" "mysql"}}
+    data = Column(JSON, nullable=True, default=dict)
+    visualizations = Column(JSON, nullable=True, default=list)
+    recommendations = Column(JSON, nullable=True, default=list)
+    tags = Column(JSON, nullable=True, default=list)
+    {{else}}
+    data = Column(Text, nullable=True)  # JSON string for SQLite/SQL Server
+    visualizations = Column(Text, nullable=True)  # JSON string
+    recommendations = Column(Text, nullable=True)  # JSON string
+    tags = Column(Text, nullable=True)  # JSON string
+    {{/if_database}}
+    
+    # Status tracking
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_archived = Column(Boolean, default=False, nullable=False)
+    reviewed_by = Column(String(100), nullable=True)
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_data(self) -> Dict[str, Any]:
+        """Get data as dictionary (for SQLite/SQL Server)"""
+        if self.data:
+            import json
+            return json.loads(self.data)
+        return {}
+    
+    def set_data(self, data: Dict[str, Any]):
+        """Set data from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.data = json.dumps(data)
+        self.updated_at = datetime.utcnow()
+    
+    def get_visualizations(self) -> List[Dict[str, Any]]:
+        """Get visualizations as list (for SQLite/SQL Server)"""
+        if self.visualizations:
+            import json
+            return json.loads(self.visualizations)
+        return []
+    
+    def set_visualizations(self, visualizations: List[Dict[str, Any]]):
+        """Set visualizations from list (for SQLite/SQL Server)"""
+        import json
+        self.visualizations = json.dumps(visualizations)
+        self.updated_at = datetime.utcnow()
+    
+    def get_recommendations(self) -> List[str]:
+        """Get recommendations as list (for SQLite/SQL Server)"""
+        if self.recommendations:
+            import json
+            return json.loads(self.recommendations)
+        return []
+    
+    def set_recommendations(self, recommendations: List[str]):
+        """Set recommendations from list (for SQLite/SQL Server)"""
+        import json
+        self.recommendations = json.dumps(recommendations)
+        self.updated_at = datetime.utcnow()
+    
+    def get_tags(self) -> List[str]:
+        """Get tags as list (for SQLite/SQL Server)"""
+        if self.tags:
+            import json
+            return json.loads(self.tags)
+        return []
+    
+    def set_tags(self, tags: List[str]):
+        """Set tags from list (for SQLite/SQL Server)"""
+        import json
+        self.tags = json.dumps(tags)
+        self.updated_at = datetime.utcnow()
+    {{/if_database}}
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert insight to dictionary"""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "detail": self.detail,
+            "summary": self.summary,
+            "type": self.type,
+            "severity": self.severity,
+            "category": self.category,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "dataset_id": self.dataset_id,
+            "model_id": self.model_id,
+            "confidence": self.confidence,
+            "accuracy": self.accuracy,
+            "impact_score": self.impact_score,
+            {{#if_database "postgresql" "mysql"}}
+            "data": self.data or {},
+            "visualizations": self.visualizations or [],
+            "recommendations": self.recommendations or [],
+            "tags": self.tags or [],
+            {{else}}
+            "data": self.get_data(),
+            "visualizations": self.get_visualizations(),
+            "recommendations": self.get_recommendations(),
+            "tags": self.get_tags(),
+            {{/if_database}}
+            "is_active": self.is_active,
+            "is_archived": self.is_archived,
+            "reviewed_by": self.reviewed_by
+        }
+
+    def __str__(self) -> str:
+        return f"Insight({self.title})"
+
+{{/if_database}}

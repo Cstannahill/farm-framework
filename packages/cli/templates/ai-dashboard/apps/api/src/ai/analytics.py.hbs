@@ -1,9 +1,386 @@
-"""Utility functions for analytics calculations."""
+"""Utility functions for analytics calculations and data pattern analysis."""
 
 import pandas as pd
+import numpy as np
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime, timedelta
+import logging
 
-async def compute_metrics(df: pd.DataFrame) -> dict:
-    return {
-        "Users": int(df['user_id'].nunique()),
-        "Sessions": int(df['session_id'].nunique()),
-    }
+logger = logging.getLogger(__name__)
+
+async def compute_metrics(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Compute comprehensive metrics from a DataFrame.
+    
+    Analyzes data volume, quality, patterns, and key statistics
+    to provide actionable insights.
+    """
+    try:
+        if df.empty:
+            return {"error": "Empty dataset", "metrics": {}}
+        
+        metrics = {}
+        
+        # Basic data metrics
+        metrics["row_count"] = len(df)
+        metrics["column_count"] = len(df.columns)
+        metrics["memory_usage_mb"] = df.memory_usage(deep=True).sum() / (1024 * 1024)
+        
+        # Data quality metrics
+        metrics["missing_values"] = df.isnull().sum().sum()
+        metrics["missing_percentage"] = (metrics["missing_values"] / df.size) * 100
+        metrics["duplicate_rows"] = df.duplicated().sum()
+        
+        # Numeric column analysis
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if numeric_cols:
+            numeric_metrics = {}
+            for col in numeric_cols:
+                col_data = df[col].dropna()
+                if len(col_data) > 0:
+                    numeric_metrics[col] = {
+                        "mean": float(col_data.mean()),
+                        "median": float(col_data.median()),
+                        "std": float(col_data.std()) if len(col_data) > 1 else 0.0,
+                        "min": float(col_data.min()),
+                        "max": float(col_data.max()),
+                        "unique_values": int(col_data.nunique()),
+                        "null_count": int(df[col].isnull().sum())
+                    }
+            metrics["numeric_analysis"] = numeric_metrics
+        
+        # Categorical column analysis
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        if categorical_cols:
+            categorical_metrics = {}
+            for col in categorical_cols:
+                col_data = df[col].dropna()
+                if len(col_data) > 0:
+                    categorical_metrics[col] = {
+                        "unique_values": int(col_data.nunique()),
+                        "most_common": col_data.value_counts().head(5).to_dict(),
+                        "null_count": int(df[col].isnull().sum())
+                    }
+            metrics["categorical_analysis"] = categorical_metrics
+        
+        # Time-based analysis if datetime columns exist
+        datetime_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+        if datetime_cols:
+            time_metrics = {}
+            for col in datetime_cols:
+                col_data = df[col].dropna()
+                if len(col_data) > 0:
+                    time_metrics[col] = {
+                        "earliest": col_data.min().isoformat(),
+                        "latest": col_data.max().isoformat(),
+                        "time_span_days": (col_data.max() - col_data.min()).days,
+                        "null_count": int(df[col].isnull().sum())
+                    }
+            metrics["temporal_analysis"] = time_metrics
+        
+        # Common business metrics (if standard columns exist)
+        metrics.update(await _compute_business_metrics(df))
+        
+        return metrics
+        
+    except Exception as e:
+        logger.error(f"Error computing metrics: {str(e)}")
+        return {"error": str(e), "metrics": {}}
+
+async def analyze_data_patterns(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """
+    Analyze data for patterns, trends, and anomalies.
+    
+    Identifies correlations, seasonal patterns, outliers,
+    and other significant data characteristics.
+    """
+    patterns = []
+    
+    try:
+        if df.empty:
+            return patterns
+        
+        # Correlation analysis
+        correlation_patterns = await _find_correlations(df)
+        patterns.extend(correlation_patterns)
+        
+        # Outlier detection
+        outlier_patterns = await _detect_outliers(df)
+        patterns.extend(outlier_patterns)
+        
+        # Seasonal pattern detection
+        seasonal_patterns = await _detect_seasonal_patterns(df)
+        patterns.extend(seasonal_patterns)
+        
+        # Distribution analysis
+        distribution_patterns = await _analyze_distributions(df)
+        patterns.extend(distribution_patterns)
+        
+        # Growth/decline pattern detection
+        trend_patterns = await _detect_trend_patterns(df)
+        patterns.extend(trend_patterns)
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error analyzing patterns: {str(e)}")
+        return [{"type": "error", "description": f"Pattern analysis failed: {str(e)}"}]
+
+async def _compute_business_metrics(df: pd.DataFrame) -> Dict[str, Any]:
+    """Compute common business metrics if relevant columns exist."""
+    business_metrics = {}
+    
+    # User metrics
+    user_cols = [col for col in df.columns if any(term in col.lower() for term in ['user', 'customer', 'client'])]
+    if user_cols:
+        user_col = user_cols[0]  # Use first found user column
+        business_metrics["Users"] = int(df[user_col].nunique())
+        business_metrics["Total_Records"] = len(df)
+        business_metrics["Avg_Records_Per_User"] = len(df) / df[user_col].nunique()
+    
+    # Session metrics
+    session_cols = [col for col in df.columns if 'session' in col.lower()]
+    if session_cols:
+        session_col = session_cols[0]
+        business_metrics["Sessions"] = int(df[session_col].nunique())
+    
+    # Revenue/Sales metrics
+    revenue_cols = [col for col in df.columns if any(term in col.lower() for term in ['revenue', 'sales', 'amount', 'price', 'cost'])]
+    if revenue_cols:
+        revenue_col = revenue_cols[0]
+        revenue_data = pd.to_numeric(df[revenue_col], errors='coerce').dropna()
+        if len(revenue_data) > 0:
+            business_metrics["Total_Revenue"] = float(revenue_data.sum())
+            business_metrics["Avg_Revenue"] = float(revenue_data.mean())
+            business_metrics["Revenue_Records"] = len(revenue_data)
+    
+    # Time-based metrics
+    date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+    if not date_cols:
+        # Try to find date-like string columns
+        date_cols = [col for col in df.columns if any(term in col.lower() for term in ['date', 'time', 'created', 'updated'])]
+    
+    if date_cols:
+        date_col = date_cols[0]
+        try:
+            if df[date_col].dtype != 'datetime64[ns]':
+                df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            
+            date_data = df[date_col].dropna()
+            if len(date_data) > 0:
+                business_metrics["Date_Range_Days"] = (date_data.max() - date_data.min()).days
+                business_metrics["Records_Per_Day"] = len(df) / max(1, business_metrics["Date_Range_Days"])
+        except Exception:
+            pass  # Skip if date parsing fails
+    
+    return business_metrics
+
+async def _find_correlations(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Find significant correlations between numeric columns."""
+    patterns = []
+    
+    try:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_cols) < 2:
+            return patterns
+        
+        correlation_matrix = df[numeric_cols].corr()
+        
+        # Find strong correlations (> 0.7 or < -0.7)
+        for i in range(len(correlation_matrix.columns)):
+            for j in range(i+1, len(correlation_matrix.columns)):
+                corr_value = correlation_matrix.iloc[i, j]
+                
+                if abs(corr_value) > 0.7:
+                    col1 = correlation_matrix.columns[i]
+                    col2 = correlation_matrix.columns[j]
+                    
+                    patterns.append({
+                        "type": "correlation",
+                        "description": f"Strong {'positive' if corr_value > 0 else 'negative'} correlation between {col1} and {col2}",
+                        "correlation_value": float(corr_value),
+                        "columns": [col1, col2],
+                        "confidence": min(0.95, abs(corr_value)),
+                        "recommendations": [
+                            "Investigate causal relationship",
+                            "Consider using for predictive modeling"
+                        ]
+                    })
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error finding correlations: {str(e)}")
+        return []
+
+async def _detect_outliers(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Detect outliers in numeric columns using IQR method."""
+    patterns = []
+    
+    try:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in numeric_cols:
+            col_data = df[col].dropna()
+            if len(col_data) < 4:  # Need at least 4 points for IQR
+                continue
+            
+            Q1 = col_data.quantile(0.25)
+            Q3 = col_data.quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outliers = col_data[(col_data < lower_bound) | (col_data > upper_bound)]
+            
+            if len(outliers) > 0:
+                outlier_percentage = (len(outliers) / len(col_data)) * 100
+                
+                patterns.append({
+                    "type": "outliers",
+                    "description": f"Found {len(outliers)} outliers in {col} ({outlier_percentage:.1f}% of data)",
+                    "column": col,
+                    "outlier_count": len(outliers),
+                    "outlier_percentage": float(outlier_percentage),
+                    "confidence": 0.8 if outlier_percentage > 5 else 0.6,
+                    "recommendations": [
+                        "Review data collection process",
+                        "Consider outlier treatment strategies"
+                    ]
+                })
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error detecting outliers: {str(e)}")
+        return []
+
+async def _detect_seasonal_patterns(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Detect seasonal patterns in time-series data."""
+    patterns = []
+    
+    try:
+        datetime_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if not datetime_cols or not numeric_cols:
+            return patterns
+        
+        # For each datetime and numeric column combination
+        for date_col in datetime_cols:
+            for num_col in numeric_cols:
+                # Group by month/day of week to detect patterns
+                df_copy = df[[date_col, num_col]].dropna()
+                
+                if len(df_copy) < 12:  # Need at least 12 data points
+                    continue
+                
+                df_copy['month'] = df_copy[date_col].dt.month
+                monthly_avg = df_copy.groupby('month')[num_col].mean()
+                
+                # Simple seasonality check: high variance across months
+                if monthly_avg.std() > monthly_avg.mean() * 0.3:
+                    patterns.append({
+                        "type": "seasonality",
+                        "description": f"Seasonal pattern detected in {num_col} by month",
+                        "date_column": date_col,
+                        "value_column": num_col,
+                        "pattern_strength": float(monthly_avg.std() / monthly_avg.mean()),
+                        "confidence": 0.7,
+                        "recommendations": [
+                            "Consider seasonal forecasting models",
+                            "Plan for seasonal variations"
+                        ]
+                    })
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error detecting seasonal patterns: {str(e)}")
+        return []
+
+async def _analyze_distributions(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Analyze distribution characteristics of numeric columns."""
+    patterns = []
+    
+    try:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in numeric_cols:
+            col_data = df[col].dropna()
+            if len(col_data) < 10:
+                continue
+            
+            # Skewness analysis
+            skewness = col_data.skew()
+            
+            if abs(skewness) > 1:
+                skew_type = "right-skewed" if skewness > 0 else "left-skewed"
+                patterns.append({
+                    "type": "distribution",
+                    "description": f"{col} shows {skew_type} distribution (skewness: {skewness:.2f})",
+                    "column": col,
+                    "skewness": float(skewness),
+                    "distribution_type": skew_type,
+                    "confidence": min(0.9, abs(skewness) / 3),
+                    "recommendations": [
+                        "Consider data transformation for modeling",
+                        "Use appropriate statistical methods for skewed data"
+                    ]
+                })
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error analyzing distributions: {str(e)}")
+        return []
+
+async def _detect_trend_patterns(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Detect growth/decline trends in time-series data."""
+    patterns = []
+    
+    try:
+        datetime_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if not datetime_cols or not numeric_cols:
+            return patterns
+        
+        for date_col in datetime_cols:
+            for num_col in numeric_cols:
+                # Sort by date and calculate trend
+                df_sorted = df[[date_col, num_col]].dropna().sort_values(date_col)
+                
+                if len(df_sorted) < 5:
+                    continue
+                
+                # Simple trend calculation using first and last values
+                first_val = df_sorted[num_col].iloc[0]
+                last_val = df_sorted[num_col].iloc[-1]
+                
+                if first_val != 0:
+                    trend_pct = ((last_val - first_val) / abs(first_val)) * 100
+                    
+                    if abs(trend_pct) > 20:  # Significant trend (>20% change)
+                        trend_type = "growth" if trend_pct > 0 else "decline"
+                        
+                        patterns.append({
+                            "type": "trend",
+                            "description": f"{num_col} shows {trend_type} trend of {abs(trend_pct):.1f}% over time",
+                            "date_column": date_col,
+                            "value_column": num_col,
+                            "trend_percentage": float(trend_pct),
+                            "trend_direction": trend_type,
+                            "confidence": min(0.9, abs(trend_pct) / 100),
+                            "recommendations": [
+                                f"Monitor {trend_type} trajectory",
+                                "Consider forecasting future values"
+                            ]
+                        })
+        
+        return patterns
+        
+    except Exception as e:
+        logger.error(f"Error detecting trend patterns: {str(e)}")
+        return []
