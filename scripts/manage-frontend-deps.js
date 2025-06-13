@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 /**
- * Automated Frontend Dependency Management Tool
+ * Automated Frontend Dependency Management Tool with Inheritance Support
  *
  * This script helps maintain and update frontend dependencies across all templates
  * following the inheritance architecture where base template contains core deps
  * and individual templates only add their specific dependencies.
+ *
+ * Key Features:
+ * - Validates inheritance compliance (no core deps in templates)
+ * - Updates base template with latest core dependency versions
+ * - Updates template-specific dependencies only
+ * - Detects and removes inheritance violations
+ * - Generates dependency reports
  */
 
 import fs from "fs";
@@ -21,7 +28,7 @@ const BASE_TEMPLATE_PKG = path.join(
   "base/apps/web/package.json.hbs"
 );
 
-// Core dependencies that should be in base template and inherited by all
+// Core dependencies that should ONLY be in base template and inherited by all
 const CORE_DEPENDENCIES = [
   "react",
   "react-dom",
@@ -110,23 +117,72 @@ function getLatestVersion(packageName) {
  * Read and parse a package.json.hbs file
  */
 function readPackageJson(filePath) {
+  console.log(`🔍 [readPackageJson] Starting to parse: ${filePath}`);
+
   try {
+    console.log(`📖 [readPackageJson] Reading file content...`);
     const content = fs.readFileSync(filePath, "utf8");
+    console.log(
+      `📖 [readPackageJson] File read successfully. Content length: ${content.length} characters`
+    );
+    console.log(
+      `📖 [readPackageJson] First 200 chars: ${content.substring(0, 200)}...`
+    );
+
     // Remove handlebars comments and replace template variables with placeholders
+    console.log(`🧹 [readPackageJson] Starting cleanup...`);
     let cleanContent = content
       .replace(/{{!.*?}}/g, "") // Remove comments
-      .replace(/{{.*?}}/g, '"PLACEHOLDER"') // Replace handlebars variables
+      .replace(/{{projectName}}/g, "template-project")
+      .replace(/{{projectNameKebab}}/g, "template-project")
+      .replace(/{{name}}/g, "template-project") // Handle {{name}} variant
+      .replace(/{{version}}/g, "0.1.0")
+      .replace(/{{description}}/g, "Template description")
+      // Handle feature conditionals - remove everything between the tags
+      .replace(/{{#if_feature\s+"[^"]*"}}[^{]*?{{\/if_feature}}/gs, "")
+      .replace(/{{#if\s+[^}]+}}[^{]*?{{\/if}}/gs, "") // Remove other conditionals
+      .replace(/{{#unless\s+[^}]+}}[^{]*?{{\/unless}}/gs, "")
+      .replace(/{{.*?}}/g, '"template-var"') // Replace remaining variables
+      .replace(/,(\s*[}\]])/g, "$1") // Clean up trailing commas before } or ]
+      .replace(/,\s*,/g, ",") // Remove duplicate commas
       .trim();
+    console.log(
+      `🧹 [readPackageJson] After cleanup, length: ${cleanContent.length}`
+    );
+    console.log(
+      `🧹 [readPackageJson] Cleaned content preview: ${cleanContent.substring(0, 300)}...`
+    );
 
+    console.log(`🔍 [readPackageJson] Attempting JSON parse...`);
     const parsed = JSON.parse(cleanContent);
+    console.log(`✅ [readPackageJson] JSON parsed successfully!`);
 
-    // Convert back placeholders to reasonable values for processing
-    if (parsed.name === "PLACEHOLDER") {
-      parsed.name = "template-web";
-    }
+    console.log(`✅ [readPackageJson] Package name: ${parsed.name}`);
+    console.log(
+      `✅ [readPackageJson] Dependencies count: ${Object.keys(parsed.dependencies || {}).length}`
+    );
+    console.log(
+      `✅ [readPackageJson] DevDependencies count: ${Object.keys(parsed.devDependencies || {}).length}`
+    );
 
     return parsed;
   } catch (error) {
+    console.error(`❌ [readPackageJson] Failed to parse ${filePath}`);
+    console.error(`❌ [readPackageJson] Error: ${error.message}`);
+    console.error(`❌ [readPackageJson] Error stack: ${error.stack}`);
+
+    // Try to show more debugging info
+    try {
+      const rawContent = fs.readFileSync(filePath, "utf8");
+      console.error(
+        `❌ [readPackageJson] Original content preview: ${rawContent.substring(0, 400)}...`
+      );
+    } catch (readError) {
+      console.error(
+        `❌ [readPackageJson] Could not re-read file: ${readError.message}`
+      );
+    }
+
     console.warn(`Warning: Could not read ${filePath}:`, error.message);
     return null;
   }
@@ -189,7 +245,7 @@ async function updateBaseTemplate() {
 }
 
 /**
- * Update a specific template's dependencies
+ * Update a specific template's dependencies following inheritance model
  */
 async function updateTemplateSpecificDeps(templateName) {
   const templatePkgPath = path.join(
@@ -213,21 +269,11 @@ async function updateTemplateSpecificDeps(templateName) {
 
   let updated = false;
 
-  // Ensure all core dependencies match base template
-  for (const dep of CORE_DEPENDENCIES) {
-    if (
-      basePkg.dependencies[dep] &&
-      templatePkg.dependencies[dep] !== basePkg.dependencies[dep]
-    ) {
-      console.log(`  🔄 Syncing ${dep} with base template`);
-      templatePkg.dependencies[dep] = basePkg.dependencies[dep];
-      updated = true;
-    }
-  }
-
-  // Update template-specific dependencies
+  // INHERITANCE MODEL: Only check template-specific dependencies
+  // Core dependencies should only exist in base template
   const specificDeps = TEMPLATE_SPECIFIC_DEPS[templateName];
   if (specificDeps) {
+    // Update template-specific dependencies
     for (const dep of specificDeps.dependencies) {
       const latestVersion = getLatestVersion(dep);
       if (latestVersion) {
@@ -240,18 +286,53 @@ async function updateTemplateSpecificDeps(templateName) {
         }
       }
     }
+
+    // Update template-specific dev dependencies
+    for (const dep of specificDeps.devDependencies) {
+      const latestVersion = getLatestVersion(dep);
+      if (latestVersion) {
+        const currentVersion = templatePkg.devDependencies?.[dep];
+        const newVersion = `^${latestVersion}`;
+        if (currentVersion !== newVersion) {
+          console.log(`  🛠️  ${dep}: ${currentVersion} → ${newVersion}`);
+          if (!templatePkg.devDependencies) templatePkg.devDependencies = {};
+          templatePkg.devDependencies[dep] = newVersion;
+          updated = true;
+        }
+      }
+    }
   }
 
-  // Sync all core dev dependencies with base
-  for (const dep of CORE_DEV_DEPENDENCIES) {
-    if (
-      basePkg.devDependencies[dep] &&
-      templatePkg.devDependencies[dep] !== basePkg.devDependencies[dep]
-    ) {
-      console.log(`  🔄 Syncing ${dep} with base template`);
-      templatePkg.devDependencies[dep] = basePkg.devDependencies[dep];
+  // Check for core dependencies that shouldn't be in template
+  const conflictingCoreDeps = CORE_DEPENDENCIES.filter(
+    (dep) => templatePkg.dependencies && templatePkg.dependencies[dep]
+  );
+
+  if (conflictingCoreDeps.length > 0) {
+    console.log(
+      `  ⚠️  Found core dependencies in template (should be inherited from base):`
+    );
+    conflictingCoreDeps.forEach((dep) => {
+      console.log(`    - ${dep}: ${templatePkg.dependencies[dep]}`);
+      delete templatePkg.dependencies[dep];
       updated = true;
-    }
+    });
+  }
+
+  // Check for core dev dependencies that shouldn't be in template
+  const conflictingCoreDevDeps = CORE_DEV_DEPENDENCIES.filter(
+    (dep) => templatePkg.devDependencies && templatePkg.devDependencies[dep]
+  );
+
+  if (conflictingCoreDevDeps.length > 0) {
+    console.log(
+      `  ⚠️  Found core dev dependencies in template (should be inherited from base):`
+    );
+    conflictingCoreDevDeps.forEach((dep) => {
+      console.log(`    - ${dep}: ${templatePkg.devDependencies[dep]}`);
+      delete templatePkg.devDependencies[dep];
+      updated = true;
+    });
   }
 
   if (updated) {
@@ -263,48 +344,131 @@ async function updateTemplateSpecificDeps(templateName) {
 }
 
 /**
- * Check for dependency conflicts across templates
+ * Check for dependency conflicts across templates using inheritance model
  */
 function checkConflicts() {
-  console.log("🔍 Checking for dependency conflicts...");
+  console.log("🔍 [checkConflicts] Starting dependency conflict check...");
 
   const conflicts = new Map();
   const templateDirs = fs
     .readdirSync(TEMPLATES_DIR)
-    .filter((dir) => fs.statSync(path.join(TEMPLATES_DIR, dir)).isDirectory());
+    .filter((dir) => {
+      const isDir = fs.statSync(path.join(TEMPLATES_DIR, dir)).isDirectory();
+      console.log(
+        `🔍 [checkConflicts] Found directory: ${dir}, isDirectory: ${isDir}`
+      );
+      return isDir;
+    })
+    .filter((dir) => {
+      const shouldInclude = dir !== "base" && dir !== "features";
+      console.log(
+        `🔍 [checkConflicts] Directory ${dir}, shouldInclude: ${shouldInclude}`
+      );
+      return shouldInclude;
+    });
 
+  console.log(
+    `🔍 [checkConflicts] Template directories to check: ${templateDirs.join(", ")}`
+  );
+
+  // Check base template first
+  console.log(
+    `🔍 [checkConflicts] Checking base template: ${BASE_TEMPLATE_PKG}`
+  );
+  const basePkg = readPackageJson(BASE_TEMPLATE_PKG);
+  if (basePkg) {
+    console.log(`✅ [checkConflicts] Base template loaded successfully`);
+    Object.entries(basePkg.dependencies || {}).forEach(([dep, version]) => {
+      if (!conflicts.has(dep)) conflicts.set(dep, new Map());
+      conflicts.get(dep).set("base", version);
+    });
+    console.log(
+      `✅ [checkConflicts] Base template has ${Object.keys(basePkg.dependencies || {}).length} dependencies`
+    );
+  } else {
+    console.error(`❌ [checkConflicts] Failed to load base template`);
+  }
+
+  // Check individual templates (should only have template-specific deps)
+  console.log(`🔍 [checkConflicts] Checking individual templates...`);
   for (const template of templateDirs) {
+    console.log(`🔍 [checkConflicts] Checking template: ${template}`);
     const pkgPath = path.join(
       TEMPLATES_DIR,
       template,
       "apps/web/package.json.hbs"
     );
+    console.log(`🔍 [checkConflicts] Template package path: ${pkgPath}`);
+    console.log(`🔍 [checkConflicts] File exists: ${fs.existsSync(pkgPath)}`);
+
     if (fs.existsSync(pkgPath)) {
       const pkg = readPackageJson(pkgPath);
       if (pkg) {
+        console.log(
+          `✅ [checkConflicts] Template ${template} loaded successfully`
+        );
+        console.log(
+          `✅ [checkConflicts] Template ${template} has ${Object.keys(pkg.dependencies || {}).length} dependencies`
+        );
+
         // Check dependencies
         Object.entries(pkg.dependencies || {}).forEach(([dep, version]) => {
           if (!conflicts.has(dep)) conflicts.set(dep, new Map());
           conflicts.get(dep).set(template, version);
+
+          // Flag if template has core dependency (inheritance violation)
+          if (CORE_DEPENDENCIES.includes(dep)) {
+            console.log(
+              `  ⚠️  [checkConflicts] Template ${template} has core dependency ${dep} (should inherit from base)`
+            );
+          }
         });
+      } else {
+        console.error(
+          `❌ [checkConflicts] Failed to load template ${template}`
+        );
       }
+    } else {
+      console.log(
+        `⚠️  [checkConflicts] No package.json found for template ${template}`
+      );
     }
   }
 
+  console.log(`🔍 [checkConflicts] Analyzing conflicts...`);
   let hasConflicts = false;
+  let hasInheritanceViolations = false;
+
   for (const [dep, templateVersions] of conflicts) {
     const versions = new Set(templateVersions.values());
     if (versions.size > 1) {
       hasConflicts = true;
-      console.log(`⚠️  Conflict in ${dep}:`);
+      console.log(`⚠️  [checkConflicts] Version conflict in ${dep}:`);
       for (const [template, version] of templateVersions) {
         console.log(`    ${template}: ${version}`);
       }
     }
+
+    // Check for inheritance violations
+    if (CORE_DEPENDENCIES.includes(dep)) {
+      const templatesWithCoreDep = Array.from(templateVersions.keys()).filter(
+        (t) => t !== "base"
+      );
+      if (templatesWithCoreDep.length > 0) {
+        hasInheritanceViolations = true;
+        console.log(
+          `  🚨 Core dependency ${dep} found in templates: ${templatesWithCoreDep.join(", ")}`
+        );
+      }
+    }
   }
 
-  if (!hasConflicts) {
-    console.log("✅ No dependency conflicts found");
+  if (!hasConflicts && !hasInheritanceViolations) {
+    console.log("✅ No dependency conflicts or inheritance violations found");
+  } else if (hasInheritanceViolations) {
+    console.log(
+      "🔧 Run 'npm run clean-template-deps' to fix inheritance violations"
+    );
   }
 }
 
@@ -364,10 +528,18 @@ function generateReport() {
  * Main function
  */
 async function main() {
+  console.log("🚀 [main] Starting Frontend Dependency Management Tool...");
+  console.log(`🚀 [main] Process arguments: ${JSON.stringify(process.argv)}`);
+  console.log(`🚀 [main] Working directory: ${process.cwd()}`);
+  console.log(`🚀 [main] Script file: ${process.argv[1]}`);
+  console.log(`🚀 [main] import.meta.url: ${import.meta.url}`);
+
   const command = process.argv[2];
+  console.log(`🚀 [main] Command received: "${command}"`);
 
   switch (command) {
     case "update":
+      console.log("🔄 [main] Executing UPDATE command...");
       await updateBaseTemplate();
       const templates = [
         "basic",
@@ -376,20 +548,28 @@ async function main() {
         "ecommerce",
         "cms",
       ];
+      console.log(`🔄 [main] Will update templates: ${templates.join(", ")}`);
       for (const template of templates) {
+        console.log(`🔄 [main] Updating template: ${template}`);
         await updateTemplateSpecificDeps(template);
       }
+      console.log("✅ [main] UPDATE command completed");
       break;
 
     case "check":
+      console.log("🔍 [main] Executing CHECK command...");
       checkConflicts();
+      console.log("✅ [main] CHECK command completed");
       break;
 
     case "report":
+      console.log("📊 [main] Executing REPORT command...");
       generateReport();
+      console.log("✅ [main] REPORT command completed");
       break;
 
     default:
+      console.log("❓ [main] No valid command provided, showing help...");
       console.log(`
 Frontend Dependency Management Tool
 
@@ -407,11 +587,38 @@ Examples:
   node scripts/manage-frontend-deps.js report
 `);
   }
+
+  console.log("🏁 [main] Main function execution completed");
 }
 
+// Enhanced entry point detection and logging
+console.log(
+  "🔍 [entry] Script loaded, checking if this is the main entry point..."
+);
+console.log(`🔍 [entry] import.meta.url: ${import.meta.url}`);
+console.log(`🔍 [entry] process.argv[1]: ${process.argv[1]}`);
+console.log(
+  `🔍 [entry] Resolved process.argv[1]: ${path.resolve(process.argv[1])}`
+);
+
+const scriptPath = fileURLToPath(import.meta.url);
+const executedPath = path.resolve(process.argv[1]);
+console.log(`🔍 [entry] Script path: ${scriptPath}`);
+console.log(`🔍 [entry] Executed path: ${executedPath}`);
+console.log(`🔍 [entry] Paths match: ${scriptPath === executedPath}`);
+
 // Only run main if this is the entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(console.error);
+if (scriptPath === executedPath) {
+  console.log("🚀 [entry] This IS the main entry point, starting main()...");
+  main().catch((error) => {
+    console.error("💥 [main] Error in main function:", error);
+    console.error("💥 [main] Error stack:", error.stack);
+    process.exit(1);
+  });
+} else {
+  console.log(
+    "📦 [entry] This is NOT the main entry point (imported as module)"
+  );
 }
 
 export {

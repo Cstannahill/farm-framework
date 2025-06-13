@@ -1,24 +1,9 @@
+{{! Ecommerce template - inherits from base template and adds ecommerce-specific dependencies }}
 {
   "name": "{{projectName}}-web",
-  "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext ts,tsx --fix",
-    "type-check": "tsc --noEmit"
-  },
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.2",
-    "@tanstack/react-query": "^5.80.7",
-    "zustand": "^5.0.5",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.4",
-    "lucide-react": "^0.470.0",
+    "stripe": "^15.8.0",
     "@stripe/stripe-js": "^4.10.0",
     "@stripe/react-stripe-js": "^2.10.0",
     "react-hook-form": "^7.57.0",
@@ -26,21 +11,6 @@
     "@hookform/resolvers": "^3.10.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "@typescript-eslint/eslint-plugin": "^8.17.0",
-    "@typescript-eslint/parser": "^8.17.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.28.0",
-    "@eslint/js": "^9.28.0",
-    "globals": "^15.13.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.14",
-    "postcss": "^8.5.1",
-    "tailwindcss": "^4.1.10",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "@tsconfig/node20": "^20.1.4"
+    "@types/stripe": "^8.0.417"
   }
 }

@@ -19,8 +19,15 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4",
     "lucide-react": "^0.470.0"{{#if_feature "ai"}},
-    "marked": "^15.0.2",
-    "eventsource-parser": "^2.0.1"{{/if_feature}}
+    "marked": "^15.0.3",
+    "eventsource-parser": "^3.0.1"{{/if_feature}}{{#if_feature "dashboard"}},
+    "recharts": "^2.15.0",
+    "date-fns": "^4.1.0"{{/if_feature}}{{#if_feature "ecommerce"}},
+    "@stripe/stripe-js": "^5.5.0",
+    "@stripe/react-stripe-js": "^3.1.0",
+    "react-hook-form": "^7.56.1"{{/if_feature}}{{#if_feature "cms"}},
+    "@tiptap/react": "^2.13.0",
+    "@tiptap/starter-kit": "^2.13.0"{{/if_feature}}
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
@@ -38,6 +45,8 @@
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
-    "@tsconfig/node20": "^20.1.4"
+    "@tsconfig/node20": "^20.1.4"{{#if_feature "ai"}},
+    "@types/marked": "^6.0.0"{{/if_feature}}{{#if_feature "ecommerce"}},
+    "@types/stripe": "^8.0.417"{{/if_feature}}
   }
 }

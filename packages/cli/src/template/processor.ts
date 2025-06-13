@@ -7,6 +7,17 @@ import { glob } from "glob";
 import { TemplateContext } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 import { registerHandlebarsHelpers } from "./helpers.js";
+import {
+  TemplateInheritanceResolver,
+  TemplateInheritanceConfig,
+  FileInheritanceStrategy,
+  TemplateFileInfo,
+} from "./inheritance.js";
+import {
+  DependencyValidator,
+  DependencyValidationConfig,
+  DependencyValidationResult,
+} from "./dependency-validator.js";
 import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,13 +35,24 @@ export interface TemplateProcessingOptions {
 }
 
 /**
+ * Enhanced template processing options
+ */
+export interface EnhancedTemplateProcessingOptions
+  extends TemplateProcessingOptions {
+  inheritanceConfig?: TemplateInheritanceConfig;
+  fileStrategy?: FileInheritanceStrategy;
+  validateInheritance?: boolean;
+  dependencyValidation?: DependencyValidationConfig;
+}
+
+/**
  * Progress information for template processing
  */
 export interface ProgressInfo {
   current: number;
   total: number;
   currentFile: string;
-  phase: "discovery" | "processing" | "writing";
+  phase: "discovery" | "inheritance" | "processing" | "writing";
 }
 
 /**
@@ -40,6 +62,20 @@ export interface TemplateProcessingResult {
   generatedFiles: string[];
   skippedFiles: string[];
   metrics: ProcessingMetrics;
+  templateData?: any;
+}
+
+/**
+ * Enhanced template processing result
+ */
+export interface EnhancedTemplateProcessingResult {
+  generatedFiles: string[];
+  skippedFiles: string[];
+  inheritedFiles: string[];
+  overriddenFiles: string[];
+  metrics: EnhancedProcessingMetrics;
+  inheritanceInfo: any;
+  dependencyValidation?: DependencyValidationResult;
   templateData?: any;
 }
 
@@ -56,11 +92,23 @@ export interface ProcessingMetrics {
 }
 
 /**
- * Enhanced TemplateProcessor with performance optimizations and caching
+ * Enhanced processing metrics
+ */
+export interface EnhancedProcessingMetrics extends ProcessingMetrics {
+  filesInherited: number;
+  filesOverridden: number;
+  inheritanceResolutionTime: number;
+}
+
+/**
+ * Enhanced Template Processor with comprehensive inheritance support
+ * Maintains full backward compatibility with the original TemplateProcessor
  */
 export class TemplateProcessor {
   private templatesDir: string;
   private handlebars: typeof Handlebars;
+  private inheritanceResolver: TemplateInheritanceResolver;
+  private dependencyValidator: DependencyValidator;
   private switch_value?: any;
   private switch_break?: boolean;
 
@@ -70,20 +118,31 @@ export class TemplateProcessor {
   private batchSize = 10;
   private templateDataCache = new Map<string, any>();
 
-  // Performance metrics
-  private metrics: ProcessingMetrics = {
+  // Enhanced metrics
+  private metrics: EnhancedProcessingMetrics = {
     filesProcessed: 0,
+    filesInherited: 0,
+    filesOverridden: 0,
     templatesCompiled: 0,
     cacheHits: 0,
     cacheMisses: 0,
     totalProcessingTime: 0,
+    inheritanceResolutionTime: 0,
     startTime: 0,
   };
 
   constructor() {
-    // Fix: Proper template directory resolution
+    // Proper template directory resolution
     this.templatesDir = this.resolveTemplatesDirectory();
     this.handlebars = Handlebars.create();
+    this.inheritanceResolver = new TemplateInheritanceResolver(
+      this.templatesDir
+    );
+    this.dependencyValidator = new DependencyValidator({
+      allowOverrides: false,
+      warnOnly: false,
+      skipValidation: false,
+    });
 
     registerHandlebarsHelpers(this.handlebars);
     this.registerProcessorHelpers();
@@ -94,94 +153,7 @@ export class TemplateProcessor {
   }
 
   /**
-   * Resolve the templates directory based on the current execution context
-   */
-  private resolveTemplatesDirectory(): string {
-    // Get the current file's directory
-    const currentDir = __dirname;
-
-    // Option 1: Try relative to the current file (development)
-    let templatesPath = path.resolve(currentDir, "../../../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (dev): ${templatesPath}`);
-      return templatesPath;
-    }
-
-    // Option 2: Try relative to the package root (when installed)
-    // Go up from cli/dist/template/ to find the package root
-    templatesPath = path.resolve(currentDir, "../../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (installed): ${templatesPath}`);
-      return templatesPath;
-    }
-
-    // Option 3: Try from the npm global location
-    // When installed globally, look for templates in the package directory
-    const packageRoot = this.findPackageRoot(currentDir);
-    if (packageRoot) {
-      templatesPath = path.join(packageRoot, "templates");
-      if (fs.existsSync(templatesPath)) {
-        logger.debug(`Found templates (global): ${templatesPath}`);
-        return templatesPath;
-      }
-    }
-
-    // Option 4: Check if templates are bundled with the CLI
-    templatesPath = path.resolve(currentDir, "../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (bundled): ${templatesPath}`);
-      return templatesPath;
-    }
-
-    // Fallback: Create a more informative error
-    const searchedPaths = [
-      path.resolve(currentDir, "../../../templates"),
-      path.resolve(currentDir, "../../templates"),
-      packageRoot ? path.join(packageRoot, "templates") : "N/A",
-      path.resolve(currentDir, "../templates"),
-    ];
-
-    throw new Error(
-      `Templates directory not found. Searched in:\n${searchedPaths
-        .filter((p) => p !== "N/A")
-        .map((p) => `  - ${p}`)
-        .join("\n")}\n\nCurrent directory: ${currentDir}`
-    );
-  }
-
-  /**
-   * Find the package root by looking for package.json
-   */
-  private findPackageRoot(startDir: string): string | null {
-    let dir = startDir;
-
-    while (dir !== path.dirname(dir)) {
-      const packageJsonPath = path.join(dir, "package.json");
-      if (fs.existsSync(packageJsonPath)) {
-        try {
-          const packageJson = JSON.parse(
-            fs.readFileSync(packageJsonPath, "utf-8")
-          );
-          // Check if this is our package by looking for a specific field
-          if (
-            packageJson.name === "@farm-framework/cli" ||
-            packageJson.name === "farm-framework" ||
-            packageJson.keywords?.includes("farm-stack")
-          ) {
-            return dir;
-          }
-        } catch {
-          // Ignore invalid package.json files
-        }
-      }
-      dir = path.dirname(dir);
-    }
-
-    return null;
-  }
-
-  /**
-   * Enhanced template processing with performance optimizations
+   * Main template processing method - now uses inheritance by default
    */
   async processTemplate(
     templateName: string,
@@ -189,34 +161,117 @@ export class TemplateProcessor {
     outputPath: string,
     options: TemplateProcessingOptions = {}
   ): Promise<TemplateProcessingResult> {
+    // Convert to enhanced options with inheritance enabled by default
+    const enhancedOptions: EnhancedTemplateProcessingOptions = {
+      ...options,
+      dependencyValidation: {
+        allowOverrides: false,
+        warnOnly: true, // Start with warnings to see what's happening
+        skipValidation: false,
+      },
+    };
+
+    // Use the enhanced processing with inheritance
+    const enhancedResult = await this.processTemplateEnhanced(
+      templateName,
+      context,
+      outputPath,
+      enhancedOptions
+    );
+
+    // Convert back to simple result for backward compatibility
+    return {
+      generatedFiles: enhancedResult.generatedFiles,
+      skippedFiles: enhancedResult.skippedFiles,
+      metrics: {
+        filesProcessed: enhancedResult.metrics.filesProcessed,
+        templatesCompiled: enhancedResult.metrics.templatesCompiled,
+        cacheHits: enhancedResult.metrics.cacheHits,
+        cacheMisses: enhancedResult.metrics.cacheMisses,
+        totalProcessingTime: enhancedResult.metrics.totalProcessingTime,
+        startTime: enhancedResult.metrics.startTime,
+      },
+      templateData: enhancedResult.templateData,
+    };
+  }
+
+  /**
+   * Enhanced template processing with full inheritance support
+   */
+  async processTemplateEnhanced(
+    templateName: string,
+    context: TemplateContext,
+    outputPath: string,
+    options: EnhancedTemplateProcessingOptions = {}
+  ): Promise<EnhancedTemplateProcessingResult> {
     this.resetMetrics();
     this.metrics.startTime = Date.now();
 
-    const templatePath = path.join(this.templatesDir, templateName);
+    logger.info(
+      `🏗️  Processing template with inheritance: ${templateName} ${options.dryRun ? "(dry run)" : ""}`
+    );
 
-    if (!(await fs.pathExists(templatePath))) {
-      throw new Error(
-        `Template directory not found: ${templatePath}\n` +
-          `Available templates: ${await this.listAvailableTemplates()}`
+    const inheritanceStartTime = Date.now();
+
+    // Resolve template inheritance
+    const inheritanceFiles =
+      await this.inheritanceResolver.resolveTemplateFiles(
+        templateName,
+        context
       );
-    }
+
+    this.metrics.inheritanceResolutionTime = Date.now() - inheritanceStartTime;
+
+    // Get inheritance info for metrics
+    const inheritanceInfo = await this.inheritanceResolver.getInheritanceInfo(
+      templateName,
+      context
+    );
 
     logger.info(
-      `📂 Processing template: ${templateName} ${options.dryRun ? "(dry run)" : ""}`
+      `📋 Resolved inheritance: ${inheritanceFiles.length} files (${inheritanceInfo.baseFiles} base, ${inheritanceInfo.templateFiles} template, ${inheritanceInfo.featureFiles} features)`
     );
+
+    // Validate and merge package.json dependencies
+    let dependencyValidationResult: DependencyValidationResult | undefined;
+    if (options.dependencyValidation?.skipValidation !== true) {
+      dependencyValidationResult = await this.validateAndMergeDependencies(
+        inheritanceFiles,
+        templateName,
+        options.dependencyValidation || {}
+      );
+
+      if (
+        !dependencyValidationResult.valid &&
+        !options.dependencyValidation?.warnOnly
+      ) {
+        throw new Error(
+          `Dependency validation failed. ${dependencyValidationResult.conflicts.length} conflicts found. ` +
+            `Use dependencyValidation.warnOnly=true to proceed with warnings.`
+        );
+      }
+
+      if (options.verbose && dependencyValidationResult.conflicts.length > 0) {
+        logger.info(
+          "\n" +
+            this.dependencyValidator.generateValidationReport(
+              dependencyValidationResult
+            )
+        );
+      }
+    }
 
     const generatedFiles: string[] = [];
     const skippedFiles: string[] = [];
-
-    // Get all template files with filtering
-    const templateFiles = await this.getTemplateFiles(templatePath, context);
+    const inheritedFiles: string[] = [];
+    const overriddenFiles: string[] = [];
 
     // Create template data once and cache it
     const templateData = this.getCachedTemplateData(context);
 
     // Process files in optimized batches
     const batches = this.createBatches(
-      templateFiles,
+      inheritanceFiles,
       options.batchSize || this.batchSize
     );
 
@@ -226,15 +281,14 @@ export class TemplateProcessor {
       if (options.onProgress) {
         options.onProgress({
           current: i * this.batchSize,
-          total: templateFiles.length,
-          currentFile: batch[0] || "",
+          total: inheritanceFiles.length,
+          currentFile: batch[0]?.relativePath || "",
           phase: "processing",
         });
       }
 
-      const batchResults = await this.processBatch(
+      const batchResults = await this.processInheritanceBatch(
         batch,
-        templatePath,
         outputPath,
         templateData,
         context,
@@ -243,6 +297,8 @@ export class TemplateProcessor {
 
       generatedFiles.push(...batchResults.generated);
       skippedFiles.push(...batchResults.skipped);
+      inheritedFiles.push(...batchResults.inherited);
+      overriddenFiles.push(...batchResults.overridden);
     }
 
     const processingTime = Date.now() - this.metrics.startTime;
@@ -251,14 +307,218 @@ export class TemplateProcessor {
     // Log performance metrics
     if (options.verbose) {
       this.logPerformanceMetrics();
+      this.logInheritanceMetrics(inheritanceInfo);
     }
 
     return {
       generatedFiles,
       skippedFiles,
+      inheritedFiles,
+      overriddenFiles,
       metrics: { ...this.metrics },
+      inheritanceInfo,
+      dependencyValidation: dependencyValidationResult,
       templateData: options.includeTemplateData ? templateData : undefined,
     };
+  }
+
+  /**
+   * Process a batch of inherited template files
+   */
+  private async processInheritanceBatch(
+    templateFiles: TemplateFileInfo[],
+    outputPath: string,
+    templateData: any,
+    context: TemplateContext,
+    options: EnhancedTemplateProcessingOptions
+  ): Promise<{
+    generated: string[];
+    skipped: string[];
+    inherited: string[];
+    overridden: string[];
+  }> {
+    const generated: string[] = [];
+    const skipped: string[] = [];
+    const inherited: string[] = [];
+    const overridden: string[] = [];
+
+    const promises = templateFiles.map(async (templateFile) => {
+      const sourcePath = templateFile.path;
+      const relativePath = templateFile.relativePath.replace(/\.hbs$/, "");
+      const targetPath = path.join(outputPath, relativePath);
+
+      if (!this.shouldProcessFile(templateFile.relativePath, context)) {
+        skipped.push(relativePath);
+        return;
+      }
+
+      try {
+        if (!options.dryRun) {
+          await fs.ensureDir(path.dirname(targetPath));
+        }
+
+        // Track inheritance information
+        if (templateFile.source === "base") {
+          inherited.push(relativePath);
+          this.metrics.filesInherited++;
+        } else if (
+          templateFile.source === "template" ||
+          templateFile.source === "feature"
+        ) {
+          // Check if this file overrides a base file
+          const hasBaseVersion = templateFiles.some(
+            (f) =>
+              f.relativePath === templateFile.relativePath &&
+              f.source === "base"
+          );
+          if (hasBaseVersion) {
+            overridden.push(relativePath);
+            this.metrics.filesOverridden++;
+          }
+        }
+
+        if (templateFile.isHandlebars) {
+          await this.processHandlebarsFile(
+            sourcePath,
+            targetPath,
+            templateData,
+            options
+          );
+        } else {
+          await this.copyBinaryFile(sourcePath, targetPath, options);
+        }
+
+        generated.push(relativePath);
+        this.metrics.filesProcessed++;
+
+        const sourceLabel =
+          templateFile.source === "base"
+            ? "📋"
+            : templateFile.source === "feature"
+              ? "📦"
+              : "📄";
+
+        logger.debug(
+          `✅ ${options.dryRun ? "Would generate" : "Generated"} ${sourceLabel}: ${relativePath}`
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Failed to process template file "${templateFile.relativePath}" from ${templateFile.source}: ${errorMessage}`
+        );
+      }
+    });
+
+    await Promise.all(promises);
+    return { generated, skipped, inherited, overridden };
+  }
+
+  /**
+   * Render & write a Handlebars template
+   */
+  private async processHandlebarsFile(
+    sourcePath: string,
+    targetPath: string,
+    templateData: any,
+    options: TemplateProcessingOptions | EnhancedTemplateProcessingOptions
+  ): Promise<void> {
+    const templateContent = await fs.readFile(sourcePath, "utf-8");
+
+    const cacheKey = sourcePath;
+    let compiledTemplate = this.templateCache.get(cacheKey);
+
+    if (!compiledTemplate) {
+      compiledTemplate = this.handlebars.compile(templateContent);
+      this.templateCache.set(cacheKey, compiledTemplate);
+      this.metrics.templatesCompiled++;
+    }
+
+    const output = compiledTemplate(templateData);
+
+    if (!options.dryRun) {
+      await fs.writeFile(targetPath, output);
+    }
+  }
+
+  /**
+   * Copy binary or static file
+   */
+  private async copyBinaryFile(
+    sourcePath: string,
+    targetPath: string,
+    options: TemplateProcessingOptions | EnhancedTemplateProcessingOptions
+  ): Promise<void> {
+    if (!options.dryRun) {
+      await fs.copy(sourcePath, targetPath, { overwrite: true });
+    }
+  }
+
+  /**
+   * Validate and merge package.json dependencies from inheritance
+   */
+  private async validateAndMergeDependencies(
+    inheritanceFiles: TemplateFileInfo[],
+    templateName: string,
+    config: DependencyValidationConfig
+  ): Promise<DependencyValidationResult> {
+    // Find all package.json files in the inheritance chain
+    const packageJsonFiles = inheritanceFiles.filter((file) =>
+      file.relativePath.endsWith("package.json.hbs")
+    );
+
+    if (packageJsonFiles.length === 0) {
+      logger.debug("No package.json files found in inheritance chain");
+      return {
+        valid: true,
+        conflicts: [],
+        warnings: [],
+        mergedDependencies: {},
+        mergedDevDependencies: {},
+      };
+    }
+
+    // Initialize dependency validator with base template
+    const baseTemplatePath = path.join(this.templatesDir, "base");
+    await this.dependencyValidator.loadBaseDependencies(baseTemplatePath);
+
+    // Create validation config with defaults
+    const validationConfig: DependencyValidationConfig = {
+      allowOverrides: false,
+      warnOnly: false,
+      skipValidation: false,
+      ...config,
+    };
+
+    // Update validator config
+    this.dependencyValidator = new DependencyValidator(validationConfig);
+    await this.dependencyValidator.loadBaseDependencies(baseTemplatePath);
+
+    // Read and collect package.json content from all files
+    const packageJsonContents = await Promise.all(
+      packageJsonFiles.map(async (file) => {
+        const content = await fs.readFile(file.path, "utf-8");
+        return {
+          content,
+          source: file.source,
+          filePath: file.path,
+        };
+      })
+    );
+
+    // Validate and merge dependencies
+    const result =
+      await this.dependencyValidator.validateAndMergeDependencies(
+        packageJsonContents
+      );
+
+    if (result.conflicts.length > 0) {
+      logger.info(
+        `🔍 Found ${result.conflicts.length} dependency conflicts in template ${templateName}`
+      );
+    }
+
+    return result;
   }
 
   /**
@@ -280,19 +540,45 @@ export class TemplateProcessor {
   }
 
   /**
-   * Legacy method for backward compatibility
+   * Check if file should be processed based on context
    */
-  async processTemplateLegacy(
-    templateName: string,
-    context: TemplateContext,
-    outputPath: string
-  ): Promise<string[]> {
-    const result = await this.processTemplate(
-      templateName,
-      context,
-      outputPath
-    );
-    return result.generatedFiles;
+  private shouldProcessFile(
+    filePath: string,
+    context: TemplateContext
+  ): boolean {
+    if (
+      (context.template || "basic") === "api-only" &&
+      filePath.includes("apps/web")
+    ) {
+      return false;
+    }
+
+    if (
+      !context.features.includes("ai") &&
+      (filePath.includes("/ai/") || filePath.includes("/chat/"))
+    ) {
+      return false;
+    }
+
+    if (!context.features.includes("auth") && filePath.includes("/auth/")) {
+      return false;
+    }
+
+    if (
+      !context.features.includes("payments") &&
+      filePath.includes("/payments/")
+    ) {
+      return false;
+    }
+
+    if (
+      !context.features.includes("realtime") &&
+      filePath.includes("/realtime/")
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -301,10 +587,13 @@ export class TemplateProcessor {
   private resetMetrics(): void {
     this.metrics = {
       filesProcessed: 0,
+      filesInherited: 0,
+      filesOverridden: 0,
       templatesCompiled: 0,
       cacheHits: 0,
       cacheMisses: 0,
       totalProcessingTime: 0,
+      inheritanceResolutionTime: 0,
       startTime: 0,
     };
   }
@@ -348,119 +637,6 @@ export class TemplateProcessor {
     return batches;
   }
 
-  private async processBatch(
-    templateFiles: string[],
-    templatePath: string,
-    outputPath: string,
-    templateData: any,
-    context: TemplateContext,
-    options: TemplateProcessingOptions
-  ): Promise<{ generated: string[]; skipped: string[] }> {
-    const generated: string[] = [];
-    const skipped: string[] = [];
-
-    const promises = templateFiles.map(async (templateFile) => {
-      const sourcePath = path.join(templatePath, templateFile);
-      const relativePath = templateFile.replace(/\.hbs$/, "");
-      const targetPath = path.join(outputPath, relativePath);
-
-      if (!this.shouldProcessFile(templateFile, context)) {
-        skipped.push(relativePath);
-        return;
-      }
-
-      try {
-        if (!options.dryRun) {
-          await fs.ensureDir(path.dirname(targetPath));
-        }
-
-        if (templateFile.endsWith(".hbs")) {
-          await this.processHandlebarsFile(
-            sourcePath,
-            targetPath,
-            templateData,
-            options
-          );
-        } else {
-          await this.copyBinaryFile(sourcePath, targetPath, options);
-        }
-
-        generated.push(relativePath);
-        this.metrics.filesProcessed++;
-
-        logger.debug(
-          `✅ ${options.dryRun ? "Would generate" : "Generated"}: ${relativePath}`
-        );
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        throw new Error(
-          `Failed to process template file "${templateFile}": ${errorMessage}`
-        );
-      }
-    });
-
-    await Promise.all(promises);
-    return { generated, skipped };
-  }
-
-  /**
-   * Render & write a Handlebars template
-   */
-  private async processHandlebarsFile(
-    sourcePath: string,
-    targetPath: string,
-    templateData: any,
-    options: TemplateProcessingOptions
-  ): Promise<void> {
-    const templateContent = await fs.readFile(sourcePath, "utf-8");
-
-    const cacheKey = sourcePath;
-    let compiledTemplate = this.templateCache.get(cacheKey);
-
-    if (!compiledTemplate) {
-      compiledTemplate = this.handlebars.compile(templateContent);
-      this.templateCache.set(cacheKey, compiledTemplate);
-      this.metrics.templatesCompiled++;
-    }
-
-    const output = compiledTemplate(templateData);
-
-    if (!options.dryRun) {
-      // writeFile overwrites by default – ensures later template passes win
-      await fs.writeFile(targetPath, output);
-    }
-  }
-
-  /**
-   * Copy binary or static file – **now always overwrites** existing dest
-   */
-  private async copyBinaryFile(
-    sourcePath: string,
-    targetPath: string,
-    options: TemplateProcessingOptions
-  ): Promise<void> {
-    if (!options.dryRun) {
-      await fs.copy(sourcePath, targetPath, { overwrite: true });
-    }
-  }
-
-  private logPerformanceMetrics(): void {
-    const { cacheHits, cacheMisses } = this.metrics;
-    const cacheHitRatio = (cacheHits / (cacheHits + cacheMisses || 1)) * 100;
-
-    logger.info("📊 Template Processing Performance:");
-    logger.info(`   Files processed: ${this.metrics.filesProcessed}`);
-    logger.info(`   Templates compiled: ${this.metrics.templatesCompiled}`);
-    logger.info(`   Cache hit ratio: ${cacheHitRatio.toFixed(1)}%`);
-    logger.info(`   Total time: ${this.metrics.totalProcessingTime}ms`);
-    logger.info(
-      `   Avg time per file: ${(
-        this.metrics.totalProcessingTime / this.metrics.filesProcessed
-      ).toFixed(2)}ms`
-    );
-  }
-
   private async getTemplateFiles(
     templatePath: string,
     context?: TemplateContext
@@ -489,111 +665,7 @@ export class TemplateProcessor {
       : relativeFiles;
   }
 
-  private shouldProcessFile(
-    filePath: string,
-    context: TemplateContext
-  ): boolean {
-    if (
-      (context.template || "basic") === "api-only" &&
-      filePath.includes("apps/web")
-    )
-      return false;
-
-    if (
-      !context.features.includes("ai") &&
-      (filePath.includes("/ai/") || filePath.includes("/chat/"))
-    )
-      return false;
-
-    if (!context.features.includes("auth") && filePath.includes("/auth/"))
-      return false;
-
-    if (
-      !context.features.includes("payments") &&
-      filePath.includes("/payments/")
-    )
-      return false;
-
-    if (
-      !context.features.includes("realtime") &&
-      filePath.includes("/realtime/")
-    )
-      return false;
-
-    return true;
-  }
-
-  /**
-   * Register processor-specific Handlebars helpers
-   */
-  private registerProcessorHelpers(): void {
-    // switch/case helpers
-    this.handlebars.registerHelper("switch", (value, options) => {
-      this.switch_value = value;
-      this.switch_break = false;
-      const result = options.fn(this);
-      delete this.switch_break;
-      delete this.switch_value;
-      return result;
-    });
-
-    this.handlebars.registerHelper("case", (value, options) => {
-      if (value === this.switch_value) {
-        this.switch_break = true;
-        return options.fn(this);
-      }
-      return "";
-    });
-
-    // indentation helper
-    this.handlebars.registerHelper(
-      "indent",
-      (str: string, spaces: number = 2) =>
-        String(str)
-          .split("\n")
-          .map((line) => " ".repeat(spaces) + line)
-          .join("\n")
-    );
-
-    // comment helper
-    this.handlebars.registerHelper(
-      "comment",
-      (str: string, style: "js" | "py" | "html" = "js") => {
-        const prefix =
-          style === "py" ? "# " : style === "html" ? "<!-- " : "// ";
-        const suffix = style === "html" ? " -->" : "";
-        return `${prefix}${str}${suffix}`;
-      }
-    );
-
-    // path helper
-    this.handlebars.registerHelper(
-      "import_path",
-      (moduleName: string, isRelative: boolean = false) =>
-        isRelative && !moduleName.startsWith(".")
-          ? `./${moduleName}`
-          : moduleName
-    );
-
-    // validation helper
-    this.handlebars.registerHelper("validate_name", (name: string) =>
-      /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)
-    ); // lazy helper
-    this.handlebars.registerHelper("lazy", (fn: () => string) =>
-      typeof fn === "function" ? fn() : fn
-    );
-
-    // Raw block helper - allows content to be passed through without Handlebars processing
-    this.handlebars.registerHelper("raw", (options: any) => {
-      return options.fn();
-    });
-  }
-
-  // ────────────────────────────────────────────────────────────
-  //  Template‑data helpers
-  // ────────────────────────────────────────────────────────────
-
-  private createTemplateData(context: TemplateContext) {
+  private createTemplateData(context: TemplateContext): any {
     const projectName = context?.projectName || "unnamed-project";
     const kebabName = this.toKebabCase(projectName);
     const template = context.template || "basic";
@@ -706,6 +778,193 @@ export class TemplateProcessor {
       hasAuth: context.features.includes("auth"),
       hasRealtime: context.features.includes("realtime"),
     };
+  }
+
+  private logPerformanceMetrics(): void {
+    const { cacheHits, cacheMisses } = this.metrics;
+    const cacheHitRatio = (cacheHits / (cacheHits + cacheMisses || 1)) * 100;
+
+    logger.info("📊 Template Processing Performance:");
+    logger.info(`   Files processed: ${this.metrics.filesProcessed}`);
+    logger.info(`   Templates compiled: ${this.metrics.templatesCompiled}`);
+    logger.info(`   Cache hit ratio: ${cacheHitRatio.toFixed(1)}%`);
+    logger.info(`   Total time: ${this.metrics.totalProcessingTime}ms`);
+    logger.info(
+      `   Avg time per file: ${(
+        this.metrics.totalProcessingTime / (this.metrics.filesProcessed || 1)
+      ).toFixed(2)}ms`
+    );
+  }
+
+  private logInheritanceMetrics(inheritanceInfo: any): void {
+    logger.info("🏗️  Template Inheritance Summary:");
+    logger.info(`   Base template: ${inheritanceInfo.baseTemplate || "none"}`);
+    logger.info(`   Template files: ${inheritanceInfo.templateFiles || 0}`);
+    logger.info(`   Base files: ${inheritanceInfo.baseFiles || 0}`);
+    logger.info(`   Feature files: ${inheritanceInfo.featureFiles || 0}`);
+    logger.info(
+      `   Conflicts resolved: ${inheritanceInfo.conflicts?.length || 0}`
+    );
+
+    if (inheritanceInfo.conflicts?.length > 0) {
+      logger.debug("🔀 Resolved conflicts:");
+      inheritanceInfo.conflicts.forEach((conflict: any) => {
+        logger.debug(
+          `     ${conflict.path} (sources: ${conflict.sources.join(", ")})`
+        );
+      });
+    }
+  }
+
+  /**
+   * Resolve the templates directory based on the current execution context
+   */
+  private resolveTemplatesDirectory(): string {
+    const currentDir = __dirname;
+
+    // Option 1: Try relative to the current file (development)
+    let templatesPath = path.resolve(currentDir, "../../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (dev): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Option 2: Try relative to the package root (when installed)
+    templatesPath = path.resolve(currentDir, "../../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (installed): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Option 3: Try from the npm global location
+    const packageRoot = this.findPackageRoot(currentDir);
+    if (packageRoot) {
+      templatesPath = path.join(packageRoot, "templates");
+      if (fs.existsSync(templatesPath)) {
+        logger.debug(`Found templates (global): ${templatesPath}`);
+        return templatesPath;
+      }
+    }
+
+    // Option 4: Check if templates are bundled with the CLI
+    templatesPath = path.resolve(currentDir, "../templates");
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`Found templates (bundled): ${templatesPath}`);
+      return templatesPath;
+    }
+
+    // Fallback: Create a more informative error
+    const searchedPaths = [
+      path.resolve(currentDir, "../../../templates"),
+      path.resolve(currentDir, "../../templates"),
+      packageRoot ? path.join(packageRoot, "templates") : "N/A",
+      path.resolve(currentDir, "../templates"),
+    ];
+
+    throw new Error(
+      `Templates directory not found. Searched in:\n${searchedPaths
+        .filter((p) => p !== "N/A")
+        .map((p) => `  - ${p}`)
+        .join("\n")}\n\nCurrent directory: ${currentDir}`
+    );
+  }
+
+  /**
+   * Find the package root by looking for package.json
+   */
+  private findPackageRoot(startDir: string): string | null {
+    let dir = startDir;
+
+    while (dir !== path.dirname(dir)) {
+      const packageJsonPath = path.join(dir, "package.json");
+      if (fs.existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(
+            fs.readFileSync(packageJsonPath, "utf-8")
+          );
+          if (
+            packageJson.name === "@farm-framework/cli" ||
+            packageJson.name === "farm-framework" ||
+            packageJson.keywords?.includes("farm-stack")
+          ) {
+            return dir;
+          }
+        } catch {
+          // Ignore invalid package.json files
+        }
+      }
+      dir = path.dirname(dir);
+    }
+
+    return null;
+  }
+
+  /**
+   * Register processor-specific Handlebars helpers
+   */
+  private registerProcessorHelpers(): void {
+    // switch/case helpers
+    this.handlebars.registerHelper("switch", (value, options) => {
+      this.switch_value = value;
+      this.switch_break = false;
+      const result = options.fn(this);
+      delete this.switch_break;
+      delete this.switch_value;
+      return result;
+    });
+
+    this.handlebars.registerHelper("case", (value, options) => {
+      if (value === this.switch_value) {
+        this.switch_break = true;
+        return options.fn(this);
+      }
+      return "";
+    });
+
+    // indentation helper
+    this.handlebars.registerHelper(
+      "indent",
+      (str: string, spaces: number = 2) =>
+        String(str)
+          .split("\n")
+          .map((line) => " ".repeat(spaces) + line)
+          .join("\n")
+    );
+
+    // comment helper
+    this.handlebars.registerHelper(
+      "comment",
+      (str: string, style: "js" | "py" | "html" = "js") => {
+        const prefix =
+          style === "py" ? "# " : style === "html" ? "<!-- " : "// ";
+        const suffix = style === "html" ? " -->" : "";
+        return `${prefix}${str}${suffix}`;
+      }
+    );
+
+    // path helper
+    this.handlebars.registerHelper(
+      "import_path",
+      (moduleName: string, isRelative: boolean = false) =>
+        isRelative && !moduleName.startsWith(".")
+          ? `./${moduleName}`
+          : moduleName
+    );
+
+    // validation helper
+    this.handlebars.registerHelper("validate_name", (name: string) =>
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)
+    );
+
+    // lazy helper
+    this.handlebars.registerHelper("lazy", (fn: () => string) =>
+      typeof fn === "function" ? fn() : fn
+    );
+
+    // Raw block helper
+    this.handlebars.registerHelper("raw", (options: any) => {
+      return options.fn();
+    });
   }
 
   private getDatabaseUrl(database: string, projectName: string): string {
