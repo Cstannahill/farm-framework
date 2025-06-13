@@ -9,20 +9,23 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "type-check": "tsc --noEmit"
-  },  "dependencies": {
+  },
+  "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
     "@tanstack/react-query": "^5.80.7",
     "zustand": "^5.0.5",
-    "react-router-dom": "^7.6.2",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.4"{{#if_feature "ai"}},
+    "tailwind-merge": "^2.5.4",
+    "lucide-react": "^0.470.0"{{#if_feature "ai"}},
     "marked": "^15.0.2",
     "eventsource-parser": "^2.0.1"{{/if_feature}}{{#if_feature "auth"}},
     "js-cookie": "^3.0.5"{{/if_feature}}{{#if_feature "realtime"}},
     "socket.io-client": "^4.8.1"{{/if_feature}}{{#if_feature "storage"}},
     "react-dropzone": "^14.3.5"{{/if_feature}}
-  },  "devDependencies": {
+  },
+  "devDependencies": {
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
@@ -37,6 +40,12 @@
     "postcss": "^8.5.1",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "@tsconfig/node20": "^20.1.4"{{#if_feature "ai"}},
+    "@types/marked": "^6.0.0"{{/if_feature}}{{#if_feature "auth"}},
+    "@types/js-cookie": "^3.0.6"{{/if_feature}}
+  }
+}
     "vite": "^6.3.5"{{#if_feature "ai"}},
     "@types/marked": "^6.0.0"{{/if_feature}}{{#if_feature "auth"}},
     "@types/js-cookie": "^3.0.6"{{/if_feature}}
