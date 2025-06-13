@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist/ts",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowJs": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "strict": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/ui/**/*", "**/*.test.ts", "**/*.spec.ts"],
+  "references": [{ "path": "../types" }, { "path": "../core" }]
+}

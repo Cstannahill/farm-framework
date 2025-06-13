@@ -6,6 +6,11 @@ export * from "./database.js";
 export * from "./errors.js";
 export * from "./auth.js";
 
+// Observability Types
+export * from "./telemetry.js";
+export * from "./cost.js";
+export * from "./observability.js";
+
 // CLI types (separate to avoid conflicts)
 export type {
   CLIOptions,

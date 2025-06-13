@@ -1,0 +1,72 @@
+{
+  "name": "@farm-framework/observability",
+  "version": "0.1.0",
+  "description": "Comprehensive observability, telemetry, and cost tracking for FARM applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build:bundle": "tsup",
+    "build:watch": "tsup --watch",
+    "build": "npm run build:bundle",
+    "clean": "rm -rf dist",
+    "type-check": "tsc --noEmit",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@farm-framework/types": "^0.1.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.60.0",
+    "@opentelemetry/sdk-node": "^0.202.0",
+    "@opentelemetry/sdk-trace-node": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/core": "^2.0.1",
+    "@opentelemetry/sdk-trace-base": "^2.0.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.202.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.202.0",
+    "@opentelemetry/exporter-jaeger": "^2.0.1",
+    "@opentelemetry/instrumentation": "^0.202.0",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/semantic-conventions": "^1.34.0",
+    "chalk": "^5.4.1",
+    "fs-extra": "^11.3.0",
+    "lodash-es": "^4.17.21",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/lodash-es": "^4.17.12",
+    "@types/node": "^24.0.1",
+    "@types/node-fetch": "^2.6.12",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "farm-framework",
+    "observability",
+    "telemetry",
+    "cost-tracking",
+    "monitoring",
+    "opentelemetry",
+    "ai-cost-analytics"
+  ]
+}
