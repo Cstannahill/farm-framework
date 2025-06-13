@@ -47,6 +47,7 @@ These types will be used by CLI commands, recipes and analytics modules.
 - Add a new `deploy` command in `packages/cli/src/commands` that loads `@farm/deployment`.
 - Command delegates to `DeployEngine.deploy()` and streams status events using the existing logger utilities.
 - Use the **DeploymentProgress** UI from `@farm/deployment/src/ui` to render a live progress bar and step list.
+- Support a `--profile` flag to load environment-specific overrides from `deploy.<name>.yml`.
 - Provide subcommands for `status`, `logs`, `rollback` and `cost` as described in the design plan.
 - When run without options, launch an interactive **Deploy Wizard** to guide first-time users.
 
@@ -95,11 +96,11 @@ Responsibilities:
 ## 7. Cost Estimation & Health Monitoring
 
 Use helper classes under `src/cost` and `src/health` to estimate monthly cost before deployment and to poll deployment status after launch. These modules will reuse types already defined in `@farm/observability` (`CostPrediction`, `AIMetrics`).
-Results from health checks are summarised as `HealthStatus` and surfaced in the CLI. The cost estimator exposes a `cost estimate` command for quick budgeting.
+Results from health checks are summarised as `HealthStatus` and surfaced in the CLI. The health monitor can trigger an automatic rollback through `RollbackManager` if checks fail. The cost estimator exposes a `cost estimate` command for quick budgeting and includes cross‑platform comparisons with optimisation suggestions.
 
 ## 8. Rollback Manager
 
-Located at `src/rollback/manager.ts`. Provides a simple interface to revert deployments when supported by the platform. Works with the recipe system to determine available rollback strategies (previous image, last successful deployment, etc.).
+Located at `src/rollback/manager.ts`. Provides a simple interface to revert deployments when supported by the platform. Snapshots capture containers, database dumps, environment variables and AI models so a failed rollout can be cleanly restored. The manager works with the recipe system to determine available rollback strategies (previous image, last successful deployment, etc.).
 
 ## 9. Analytics
 
@@ -107,10 +108,9 @@ A small analytics module `src/analytics/deployment-analytics.ts` records deploym
 On success, a summary is printed highlighting cost, duration and next steps.
 
 ## 10. Future Enhancements
-
-- Interactive deploy wizard for first‑time users.
 - Dashboard integration for viewing deployment history.
 - Plugin hooks allowing templates or packages to extend the deployment workflow.
+- Preview environment support for pull requests.
 
 ## 11. Quick Wins
 
@@ -120,4 +120,7 @@ Small improvements that can be tackled alongside the main implementation:
 - **Config overrides** via `deploy.prod.yml` so environments can tweak container options.
 - **Docker layer caching** during image builds to speed up successive deploys.
 - **Environment validation** step that warns about missing secrets before pushing.
+- `.farmignore` support to exclude files from packaging.
+- Cache platform detection results to speed up repeated runs.
+- Parallelize container builds where possible.
 
