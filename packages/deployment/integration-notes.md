@@ -13,6 +13,10 @@ packages/deployment/
 │   ├── health/              # Health checks & monitoring
 │   ├── cost/                # Cost estimator utilities
 │   ├── rollback/            # RollbackManager implementation
+│   ├── ui/                  # CLI progress components
+│   ├── analytics/           # DeploymentAnalytics module
+│   ├── errors/              # Error classes and diagnostics
+│   ├── utils/               # Git and helper utilities
 │   └── index.ts             # Public exports
 ├── designplan.md
 └── integration-notes.md     # (this file)
@@ -30,6 +34,10 @@ Key types:
 - `DeploymentPlan` – normalized representation of tasks the engine will execute.
 - `DeployOptions` – optional overrides for the deploy command (platform, dryRun, verbose, region).
 - `DeploymentResult` – final result including platform, success flag, url, services, errors and cost.
+- `RollbackOptions` – options for the rollback command (to snapshot, dryRun).
+- `Snapshot` – representation of a saved deployment state for rollbacks.
+- `CostEstimate` – projected monthly cost returned before deployment.
+- `HealthStatus` – result of post-deploy health checks.
 
 These types will be used by CLI commands, recipes and analytics modules.
 
@@ -38,7 +46,9 @@ These types will be used by CLI commands, recipes and analytics modules.
 ### CLI
 - Add a new `deploy` command in `packages/cli/src/commands` that loads `@farm/deployment`.
 - Command delegates to `DeployEngine.deploy()` and streams status events using the existing logger utilities.
+- Use the **DeploymentProgress** UI from `@farm/deployment/src/ui` to render a live progress bar and step list.
 - Provide subcommands for `status`, `logs`, `rollback` and `cost` as described in the design plan.
+- When run without options, launch an interactive **Deploy Wizard** to guide first-time users.
 
 ### Core & Observability
 - Reuse `@farm/core` for configuration loading (`FarmConfig`) and watcher utilities.
@@ -77,12 +87,15 @@ Responsibilities:
 - Resolve platform via `PlatformDetector` or CLI option.
 - Load the chosen recipe and call `generatePlan`.
 - Stream progress events via `EventEmitter` so the CLI and observability system can react.
-- Execute each step, collect metrics and handle errors using structured diagnostics (see `diagnoseFailure` in design plan).
+- Execute each step, run preflight checks and collect metrics.
+- Render progress using `DeploymentProgress`.
+- Handle errors via `DeployErrorHandler` for helpful diagnostics.
 - Delegate rollback logic to `RollbackManager` when failures occur.
 
 ## 7. Cost Estimation & Health Monitoring
 
 Use helper classes under `src/cost` and `src/health` to estimate monthly cost before deployment and to poll deployment status after launch. These modules will reuse types already defined in `@farm/observability` (`CostPrediction`, `AIMetrics`).
+Results from health checks are summarised as `HealthStatus` and surfaced in the CLI. The cost estimator exposes a `cost estimate` command for quick budgeting.
 
 ## 8. Rollback Manager
 
@@ -91,10 +104,20 @@ Located at `src/rollback/manager.ts`. Provides a simple interface to revert depl
 ## 9. Analytics
 
 A small analytics module `src/analytics/deployment-analytics.ts` records deployment metrics using the observability provider. It listens to `DeployEngine` events and sends data after each deployment.
+On success, a summary is printed highlighting cost, duration and next steps.
 
 ## 10. Future Enhancements
 
 - Interactive deploy wizard for first‑time users.
 - Dashboard integration for viewing deployment history.
 - Plugin hooks allowing templates or packages to extend the deployment workflow.
+
+## 11. Quick Wins
+
+Small improvements that can be tackled alongside the main implementation:
+
+- **Dry-run mode** for `deploy` and `rollback` commands to print the plan without making changes.
+- **Config overrides** via `deploy.prod.yml` so environments can tweak container options.
+- **Docker layer caching** during image builds to speed up successive deploys.
+- **Environment validation** step that warns about missing secrets before pushing.
 
