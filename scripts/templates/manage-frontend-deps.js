@@ -22,7 +22,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const TEMPLATES_DIR = path.join(__dirname, "../packages/cli/templates");
+const TEMPLATES_DIR = path.join(__dirname, "../../packages/cli/templates");
 const BASE_TEMPLATE_PKG = path.join(
   TEMPLATES_DIR,
   "base/apps/web/package.json.hbs"
