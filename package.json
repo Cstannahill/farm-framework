@@ -37,7 +37,7 @@
     "release:snapshot": "pnpm build && changeset version --snapshot alpha && changeset publish --tag alpha",
     "pre-release": "pnpm test:run && pnpm build",
     "pre-release:check": "bash ./scripts/pre-release-check.sh",
-    "npm:setup": "bash ./scripts/npm-setup.sh",
+    "npm:setup": "bash ./scripts/inactive/npm-setup.sh",
     "deps:check": "node scripts/check-and-update-deps.js",
     "deps:update": "node scripts/check-and-update-deps.js --update",
     "deps:update-interactive": "node scripts/check-and-update-deps.js --update --interactive",
