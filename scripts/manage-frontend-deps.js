@@ -108,7 +108,9 @@ function getLatestVersion(packageName) {
     });
     return result.trim();
   } catch (error) {
-    console.warn(`Warning: Could not get version for ${packageName}`);
+    console.warn(
+      `⚠️  Could not get version for ${packageName}: ${error.message}`
+    );
     return null;
   }
 }
@@ -167,23 +169,30 @@ function readPackageJson(filePath) {
 
     return parsed;
   } catch (error) {
-    console.error(`❌ [readPackageJson] Failed to parse ${filePath}`);
-    console.error(`❌ [readPackageJson] Error: ${error.message}`);
-    console.error(`❌ [readPackageJson] Error stack: ${error.stack}`);
+    console.error(
+      `⚠️  [readPackageJson] Failed to parse ${filePath} - continuing...`
+    );
+    console.error(`⚠️  [readPackageJson] Error: ${error.message}`);
 
-    // Try to show more debugging info
-    try {
-      const rawContent = fs.readFileSync(filePath, "utf8");
-      console.error(
-        `❌ [readPackageJson] Original content preview: ${rawContent.substring(0, 400)}...`
-      );
-    } catch (readError) {
-      console.error(
-        `❌ [readPackageJson] Could not re-read file: ${readError.message}`
-      );
+    if (process.env.VERBOSE === "true") {
+      console.error(`⚠️  [readPackageJson] Error stack: ${error.stack}`);
+
+      // Try to show more debugging info
+      try {
+        const rawContent = fs.readFileSync(filePath, "utf8");
+        console.error(
+          `⚠️  [readPackageJson] Original content preview: ${rawContent.substring(0, 400)}...`
+        );
+      } catch (readError) {
+        console.error(
+          `⚠️  [readPackageJson] Could not re-read file: ${readError.message}`
+        );
+      }
     }
 
-    console.warn(`Warning: Could not read ${filePath}:`, error.message);
+    console.warn(
+      `⚠️  Could not process ${filePath}: ${error.message} - skipping this file...`
+    );
     return null;
   }
 }
@@ -204,43 +213,81 @@ async function updateBaseTemplate() {
   console.log("🔄 Updating base template dependencies...");
 
   const basePkg = readPackageJson(BASE_TEMPLATE_PKG);
-  if (!basePkg) return;
+  if (!basePkg) {
+    console.warn(
+      "⚠️  Could not read base template package.json - skipping base update"
+    );
+    return;
+  }
 
   let updated = false;
+  const updateErrors = [];
 
   // Update core dependencies
+  console.log("📦 Checking core dependencies...");
   for (const dep of CORE_DEPENDENCIES) {
-    const latestVersion = getLatestVersion(dep);
-    if (latestVersion) {
-      const currentVersion = basePkg.dependencies[dep];
-      const newVersion = `^${latestVersion}`;
-      if (currentVersion !== newVersion) {
-        console.log(`  📦 ${dep}: ${currentVersion} → ${newVersion}`);
-        basePkg.dependencies[dep] = newVersion;
-        updated = true;
+    try {
+      const latestVersion = getLatestVersion(dep);
+      if (latestVersion) {
+        const currentVersion = basePkg.dependencies[dep];
+        const newVersion = `^${latestVersion}`;
+        if (currentVersion !== newVersion) {
+          console.log(`  📦 ${dep}: ${currentVersion} → ${newVersion}`);
+          basePkg.dependencies[dep] = newVersion;
+          updated = true;
+        }
+      } else {
+        updateErrors.push(`Could not get latest version for ${dep}`);
       }
+    } catch (error) {
+      updateErrors.push(`Error updating ${dep}: ${error.message}`);
+      console.warn(
+        `⚠️  Could not update ${dep}: ${error.message} - continuing...`
+      );
     }
   }
 
   // Update core dev dependencies
+  console.log("🛠️  Checking core dev dependencies...");
   for (const dep of CORE_DEV_DEPENDENCIES) {
-    const latestVersion = getLatestVersion(dep);
-    if (latestVersion) {
-      const currentVersion = basePkg.devDependencies[dep];
-      const newVersion = `^${latestVersion}`;
-      if (currentVersion !== newVersion) {
-        console.log(`  🛠️  ${dep}: ${currentVersion} → ${newVersion}`);
-        basePkg.devDependencies[dep] = newVersion;
-        updated = true;
+    try {
+      const latestVersion = getLatestVersion(dep);
+      if (latestVersion) {
+        const currentVersion = basePkg.devDependencies[dep];
+        const newVersion = `^${latestVersion}`;
+        if (currentVersion !== newVersion) {
+          console.log(`  🛠️  ${dep}: ${currentVersion} → ${newVersion}`);
+          basePkg.devDependencies[dep] = newVersion;
+          updated = true;
+        }
+      } else {
+        updateErrors.push(`Could not get latest version for ${dep}`);
       }
+    } catch (error) {
+      updateErrors.push(`Error updating ${dep}: ${error.message}`);
+      console.warn(
+        `⚠️  Could not update ${dep}: ${error.message} - continuing...`
+      );
     }
   }
 
   if (updated) {
-    writePackageJson(BASE_TEMPLATE_PKG, basePkg);
-    console.log("✅ Base template updated");
+    try {
+      writePackageJson(BASE_TEMPLATE_PKG, basePkg);
+      console.log("✅ Base template updated");
+    } catch (error) {
+      console.error(`❌ Failed to write base template: ${error.message}`);
+      updateErrors.push(`Failed to write base template: ${error.message}`);
+    }
   } else {
     console.log("✅ Base template already up to date");
+  }
+
+  if (updateErrors.length > 0) {
+    console.log(
+      `⚠️  ${updateErrors.length} errors occurred during base template update:`
+    );
+    updateErrors.forEach((error) => console.log(`   - ${error}`));
   }
 }
 
@@ -613,6 +660,12 @@ if (scriptPath === executedPath) {
   main().catch((error) => {
     console.error("💥 [main] Error in main function:", error);
     console.error("💥 [main] Error stack:", error.stack);
+    console.error(
+      "⚠️  Script encountered an error but some operations may have completed successfully."
+    );
+    console.error(
+      "💡 You can try running the script again or check individual templates manually."
+    );
     process.exit(1);
   });
 } else {

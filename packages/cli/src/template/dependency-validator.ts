@@ -72,9 +72,15 @@ export class DependencyValidator {
    * Load base template dependencies for validation
    */
   async loadBaseDependencies(baseTemplatePath: string): Promise<void> {
+    logger.step(`📦 Loading base template dependencies`);
+    logger.debugVerbose(`Base template path: ${baseTemplatePath}`);
+
     const basePackageJsonPath = path.join(
       baseTemplatePath,
       "apps/web/package.json.hbs"
+    );
+    logger.debugVerbose(
+      `Looking for base package.json at: ${basePackageJsonPath}`
     );
 
     if (!(await fs.pathExists(basePackageJsonPath))) {
@@ -83,17 +89,24 @@ export class DependencyValidator {
     }
 
     try {
+      logger.progress(`Reading base package.json template`);
       const baseContent = await fs.readFile(basePackageJsonPath, "utf-8");
+      logger.debugTrace(
+        `Base package.json content length: ${baseContent.length} chars`
+      );
 
       // Parse Handlebars template to extract dependencies
+      logger.progress(`Parsing base package.json template`);
       const basePackageJson = this.parsePackageJsonTemplate(baseContent);
 
       this.baseDependencies = basePackageJson.dependencies || {};
       this.baseDevDependencies = basePackageJson.devDependencies || {};
 
-      logger.debug(
+      logger.result(
         `📦 Loaded ${Object.keys(this.baseDependencies).length} base dependencies and ${Object.keys(this.baseDevDependencies).length} base dev dependencies`
       );
+      logger.debugDetailed(`Base dependencies:`, this.baseDependencies);
+      logger.debugDetailed(`Base dev dependencies:`, this.baseDevDependencies);
     } catch (error) {
       logger.error(`Failed to load base dependencies: ${error}`);
       throw error;
@@ -110,7 +123,14 @@ export class DependencyValidator {
       filePath: string;
     }>
   ): Promise<DependencyValidationResult> {
+    logger.step(`🔍 STARTING PACKAGE.JSON VALIDATION AND MERGE`);
+    logger.debugVerbose(
+      `Processing ${packageJsonFiles.length} package.json files`
+    );
+    logger.debugVerbose(`Validation config:`, this.config);
+
     if (this.config.skipValidation) {
+      logger.warn(`⚠️  Validation skipped by configuration`);
       return this.mergeWithoutValidation(packageJsonFiles);
     }
 
@@ -119,29 +139,65 @@ export class DependencyValidator {
     let mergedDependencies = { ...this.baseDependencies };
     let mergedDevDependencies = { ...this.baseDevDependencies };
 
+    logger.progress(
+      `Starting with ${Object.keys(mergedDependencies).length} base dependencies`
+    );
+    logger.progress(
+      `Starting with ${Object.keys(mergedDevDependencies).length} base dev dependencies`
+    );
+
     // Process each package.json file
     for (const file of packageJsonFiles) {
-      if (file.source === "base") continue; // Skip base, already loaded
+      logger.progress(
+        `Processing ${file.source} package.json: ${path.basename(file.filePath)}`
+      );
+
+      if (file.source === "base") {
+        logger.debugTrace(`Skipping base file (already loaded)`);
+        continue; // Skip base, already loaded
+      }
 
       try {
+        logger.debugTrace(`Parsing package.json template for ${file.source}`);
         const packageJson = this.parsePackageJsonTemplate(file.content);
 
+        const fileDeps = Object.keys(packageJson.dependencies || {});
+        const fileDevDeps = Object.keys(packageJson.devDependencies || {});
+        logger.progress(
+          `Found ${fileDeps.length} dependencies and ${fileDevDeps.length} dev dependencies`
+        );
+        logger.debugDetailed(
+          `${file.source} dependencies:`,
+          packageJson.dependencies
+        );
+        logger.debugDetailed(
+          `${file.source} dev dependencies:`,
+          packageJson.devDependencies
+        );
+
         // Validate dependencies
+        logger.progress(`Validating dependencies from ${file.source}`);
         const depConflicts = this.validateDependencies(
           packageJson.dependencies || {},
           "dependencies",
           file
         );
         conflicts.push(...depConflicts);
+        logger.debugTrace(`Found ${depConflicts.length} dependency conflicts`);
 
+        logger.progress(`Validating dev dependencies from ${file.source}`);
         const devDepConflicts = this.validateDependencies(
           packageJson.devDependencies || {},
           "devDependencies",
           file
         );
         conflicts.push(...devDepConflicts);
+        logger.debugTrace(
+          `Found ${devDepConflicts.length} dev dependency conflicts`
+        );
 
         // Merge non-conflicting dependencies
+        logger.progress(`Merging dependencies from ${file.source}`);
         mergedDependencies = this.mergeDependencies(
           mergedDependencies,
           packageJson.dependencies || {},
@@ -155,16 +211,32 @@ export class DependencyValidator {
           conflicts,
           "devDependencies"
         );
+
+        logger.progress(`Completed processing ${file.source}`);
       } catch (error) {
-        warnings.push(
-          `Failed to parse ${file.source} package.json at ${file.filePath}: ${error}`
-        );
+        const errorMsg = `Failed to parse ${file.source} package.json at ${file.filePath}: ${error}`;
+        logger.error(errorMsg);
+        warnings.push(errorMsg);
       }
     }
 
     // Determine if validation passed
+    logger.step(`📊 Analyzing validation results`);
     const errorConflicts = conflicts.filter((c) => c.severity === "error");
+    const warningConflicts = conflicts.filter((c) => c.severity === "warning");
     const valid = errorConflicts.length === 0;
+
+    logger.result(`Total conflicts: ${conflicts.length}`);
+    logger.result(`Error conflicts: ${errorConflicts.length}`);
+    logger.result(`Warning conflicts: ${warningConflicts.length}`);
+    logger.result(`Warnings: ${warnings.length}`);
+    logger.result(`Validation passed: ${valid}`);
+    logger.result(
+      `Final merged dependencies: ${Object.keys(mergedDependencies).length}`
+    );
+    logger.result(
+      `Final merged dev dependencies: ${Object.keys(mergedDevDependencies).length}`
+    );
 
     if (!valid && !this.config.warnOnly) {
       logger.error("❌ Dependency validation failed:");
@@ -174,6 +246,17 @@ export class DependencyValidator {
         );
       });
     }
+
+    if (warningConflicts.length > 0) {
+      logger.warn(`⚠️  Found ${warningConflicts.length} dependency warnings:`);
+      warningConflicts.forEach((conflict) => {
+        logger.warn(
+          `   ${conflict.packageName}: base uses ${conflict.baseVersion}, template wants ${conflict.templateVersion} (resolution: ${conflict.resolution})`
+        );
+      });
+    }
+
+    logger.success(`✅ DEPENDENCY VALIDATION AND MERGE COMPLETED`);
 
     return {
       valid: valid || (this.config.warnOnly ?? false),

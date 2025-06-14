@@ -49,6 +49,12 @@ async function getLatestVersion(packageName) {
     });
     return result.trim();
   } catch (error) {
+    // Graceful error handling: Log but don't fail
+    if (process.env.VERBOSE === "true") {
+      console.warn(
+        `⚠️  Could not fetch latest version for ${packageName}: ${error.message}`
+      );
+    }
     return "unknown";
   }
 }
@@ -81,8 +87,16 @@ function compareVersions(current, latest) {
 // Check dependencies in a package.json file
 async function checkPackageDependencies(packageJsonPath, packageName) {
   if (!existsSync(packageJsonPath)) {
-    printColor("red", `❌ package.json not found at: ${packageJsonPath}`);
-    return { outdated: 0, total: 0, updates: [] };
+    printColor(
+      "yellow",
+      `⚠️  package.json not found at: ${packageJsonPath} - skipping ${packageName}`
+    );
+    return {
+      outdated: 0,
+      total: 0,
+      updates: [],
+      errors: ["package.json not found"],
+    };
   }
 
   printHeader(`Checking: ${packageName}`);
@@ -91,13 +105,23 @@ async function checkPackageDependencies(packageJsonPath, packageName) {
   try {
     packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   } catch (error) {
-    printColor("red", `❌ Error reading package.json: ${error.message}`);
-    return { outdated: 0, total: 0, updates: [] };
+    printColor(
+      "red",
+      `❌ Error reading package.json for ${packageName}: ${error.message}`
+    );
+    printColor("yellow", `⚠️  Continuing with other packages...`);
+    return {
+      outdated: 0,
+      total: 0,
+      updates: [],
+      errors: [`Parse error: ${error.message}`],
+    };
   }
 
   let outdatedCount = 0;
   let totalCount = 0;
   const updatesAvailable = [];
+  const errors = [];
 
   // Check different dependency types
   const depTypes = [
@@ -114,29 +138,45 @@ async function checkPackageDependencies(packageJsonPath, packageName) {
     console.log("");
 
     for (const [depName, currentVersionRaw] of Object.entries(deps)) {
-      const currentVersion = parseVersion(currentVersionRaw);
-      const latestVersion = await getLatestVersion(depName);
-      const status = compareVersions(currentVersion, latestVersion);
+      try {
+        const currentVersion = parseVersion(currentVersionRaw);
+        const latestVersion = await getLatestVersion(depName);
+        const status = compareVersions(currentVersion, latestVersion);
 
-      totalCount++;
+        totalCount++;
 
-      const statusSymbol = {
-        "up-to-date": colors.green + "✓" + colors.reset,
-        outdated: colors.yellow + "⚠" + colors.reset,
-        unknown: colors.purple + "?" + colors.reset,
-        "check-needed": colors.purple + "?" + colors.reset,
-      }[status];
+        const statusSymbol = {
+          "up-to-date": colors.green + "✓" + colors.reset,
+          outdated: colors.yellow + "⚠" + colors.reset,
+          unknown: colors.purple + "?" + colors.reset,
+          "check-needed": colors.purple + "?" + colors.reset,
+        }[status];
 
-      console.log(
-        `  ${depName.padEnd(40)} ${currentVersion} -> ${latestVersion} ${statusSymbol}`
-      );
+        console.log(
+          `  ${depName.padEnd(40)} ${currentVersion} -> ${latestVersion} ${statusSymbol}`
+        );
 
-      if (status === "outdated") {
-        outdatedCount++;
-        updatesAvailable.push(`${depName}:${latestVersion}`);
+        if (status === "outdated") {
+          outdatedCount++;
+          updatesAvailable.push(`${depName}:${latestVersion}`);
+        }
+      } catch (depError) {
+        errors.push(`${depName}: ${depError.message}`);
+        printColor(
+          "yellow",
+          `  ${depName.padEnd(40)} ⚠️  Error checking version: ${depError.message}`
+        );
+        totalCount++;
       }
     }
     console.log("");
+  }
+
+  if (errors.length > 0) {
+    printColor(
+      "yellow",
+      `⚠️  ${errors.length} dependencies had check errors but continuing...`
+    );
   }
 
   printColor("cyan", `Summary for ${packageName}:`);
@@ -144,12 +184,16 @@ async function checkPackageDependencies(packageJsonPath, packageName) {
   if (outdatedCount > 0) {
     printColor("yellow", `  ⚠ Outdated: ${outdatedCount}`);
   }
+  if (errors.length > 0) {
+    printColor("yellow", `  ⚠ Errors: ${errors.length}`);
+  }
   printColor("blue", `  📊 Total dependencies: ${totalCount}`);
 
   return {
     outdated: outdatedCount,
     total: totalCount,
     updates: updatesAvailable,
+    errors: errors,
   };
 }
 
@@ -176,6 +220,13 @@ async function updatePackageDependencies(packageDir, packageName) {
     return true;
   } catch (error) {
     printColor("red", `❌ Failed to update ${packageName}: ${error.message}`);
+    printColor("yellow", `⚠️  Continuing with other packages...`);
+
+    // Provide helpful suggestion
+    printColor("cyan", `💡 You can manually update ${packageName} by running:`);
+    printColor("cyan", `   cd ${packageDir}`);
+    printColor("cyan", `   pnpm update --latest`);
+
     return false;
   }
 }
@@ -426,6 +477,15 @@ async function main() {
 
 // Run the script
 main().catch((error) => {
-  printColor("red", `❌ Error: ${error.message}`);
+  printColor("red", `❌ Script error: ${error.message}`);
+  printColor(
+    "yellow",
+    `⚠️  Some operations may have completed successfully before this error.`
+  );
+  printColor(
+    "cyan",
+    `💡 Try running the script again or check individual packages manually.`
+  );
+  console.error("Full error details:", error);
   process.exit(1);
 });

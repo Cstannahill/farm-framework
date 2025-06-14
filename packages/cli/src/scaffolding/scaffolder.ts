@@ -51,38 +51,61 @@ export class ProjectScaffolder {
     this.structureGenerator = new ProjectStructureGenerator();
     this.dependencyResolver = new DependencyResolver();
   }
-
   async generateProject(
     projectName: string,
     context: TemplateContext
   ): Promise<ScaffoldResult> {
     const projectPath = join(process.cwd(), projectName);
     const generatedFiles: string[] = [];
+
+    logger.step(`🚀 STARTING PROJECT GENERATION`);
+    logger.debugVerbose(`Project name: ${projectName}`);
+    logger.debugVerbose(`Template: ${context.template}`);
+    logger.debugVerbose(`Features: ${context.features?.join(", ") || "none"}`);
+    logger.debugVerbose(`Database: ${context.database}`);
+    logger.debugVerbose(`Project path: ${projectPath}`);
+
     try {
       logger.info(`🏗️ Generating ${context.template} project...`);
 
       // Convert to CLI context for internal operations
+      logger.step(`🔄 Converting context for internal operations`);
       const cliContext = toCliTemplateContext(context);
+      logger.debugDetailed(`CLI context created:`, cliContext);
 
       // Validate template exists
+      logger.step(`🔍 Validating template exists: ${context.template}`);
       const template = this.templateRegistry.get(
         context.template as TemplateName
       );
       if (!template) {
+        logger.error(`Template ${context.template} not found in registry`);
         throw new Error(`Template ${context.template} not found`);
       }
+      logger.result(`✅ Template validated: ${template.name}`);
+      logger.debugDetailed(`Template definition:`, template);
 
       // 1. Create project directory
+      logger.step(`📁 Creating project directory: ${projectPath}`);
       await mkdir(projectPath, { recursive: true });
-      logger.info(`📁 Created project directory: ${projectPath}`);
+      logger.result(`✅ Project directory created: ${projectPath}`);
 
       // 2. Generate directory structure
+      logger.step(`🏗️ Generating directory structure`);
       const createdDirs =
         await this.structureGenerator.generateProjectStructure(
           projectPath,
           cliContext
         );
-      logger.info(`📁 Created ${createdDirs.length} directories`); // 3. Process and copy template files with enhanced processor
+      logger.result(`✅ Created ${createdDirs.length} directories`);
+      logger.debugVerbose(`Created directories:`, createdDirs); // 3. Process and copy template files with enhanced processor
+      logger.step(`🎨 Processing template files with inheritance`);
+      logger.debugVerbose(`Starting template processing with options:`, {
+        verbose: this.options.verbose,
+        template: context.template,
+        outputPath: projectPath,
+      });
+
       const processingResult = await this.templateProcessor.processTemplate(
         context.template,
         context,
@@ -91,8 +114,8 @@ export class ProjectScaffolder {
           verbose: this.options.verbose,
           onProgress: (progress) => {
             if (this.options.verbose) {
-              logger.info(
-                `📄 Processing: ${progress.currentFile} (${progress.current}/${progress.total})`
+              logger.progress(
+                `Processing: ${progress.currentFile} (${progress.current}/${progress.total}) - ${progress.phase}`
               );
             }
           },
@@ -101,23 +124,28 @@ export class ProjectScaffolder {
 
       generatedFiles.push(...processingResult.generatedFiles);
 
-      logger.info(
-        `📄 Generated ${processingResult.generatedFiles.length} files from template`
+      logger.result(
+        `✅ Generated ${processingResult.generatedFiles.length} files from template`
       );
+      logger.debugDetailed(`Generated files:`, processingResult.generatedFiles);
+
       if (processingResult.skippedFiles.length > 0) {
-        logger.info(
+        logger.result(
           `⏭️ Skipped ${processingResult.skippedFiles.length} files based on features/template`
         );
+        logger.debugDetailed(`Skipped files:`, processingResult.skippedFiles);
       }
 
       if (this.options.verbose && processingResult.metrics) {
-        logger.info(
+        logger.result(
           `⚡ Template processing completed in ${processingResult.metrics.totalProcessingTime}ms`
         );
-        logger.info(
+        logger.result(
           `📊 Cache hit ratio: ${((processingResult.metrics.cacheHits / (processingResult.metrics.cacheHits + processingResult.metrics.cacheMisses)) * 100).toFixed(1)}%`
         );
+        logger.debugDetailed(`Processing metrics:`, processingResult.metrics);
       } // 4. Generate dependency files
+      logger.step(`📦 Generating dependency files`);
       await this.generateDependencyFiles(projectPath, cliContext);
       generatedFiles.push("package.json");
       if (context.template !== "api-only") {
@@ -127,19 +155,32 @@ export class ProjectScaffolder {
         "apps/api/requirements.txt",
         "apps/api/pyproject.toml"
       );
+      logger.result(`✅ Dependency files generated`);
 
       // 5. Initialize git if requested
+      logger.step(
+        `🔧 Git initialization ${context.git ? "requested" : "skipped"}`
+      );
       const gitInitialized = context.git
         ? await this.initializeGit(projectPath)
         : false;
+      logger.result(`Git initialized: ${gitInitialized ? "Yes" : "No"}`);
 
       // 6. Install dependencies if requested
+      logger.step(
+        `📦 Dependency installation ${context.install && !this.options.skipInstall ? "requested" : "skipped"}`
+      );
       const installedDependencies =
         context.install && !this.options.skipInstall
           ? await this.installDependencies(projectPath, context)
           : false;
+      logger.result(
+        `Dependencies installed: ${installedDependencies ? "Yes" : "No"}`
+      );
 
-      logger.success(`✅ Project generation completed successfully!`);
+      logger.success(`🎉 PROJECT GENERATION COMPLETED SUCCESSFULLY!`);
+      logger.result(`Total files generated: ${generatedFiles.length}`);
+      logger.debugDetailed(`Final generated files list:`, generatedFiles);
 
       return {
         success: true,
@@ -152,7 +193,11 @@ export class ProjectScaffolder {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(`❌ Project generation failed: ${errorMessage}`);
+      logger.error(`❌ PROJECT GENERATION FAILED: ${errorMessage}`);
+
+      if (error instanceof Error && error.stack) {
+        logger.debugDetailed(`Error stack trace:`, error.stack);
+      }
 
       return {
         success: false,
@@ -168,40 +213,61 @@ export class ProjectScaffolder {
     projectPath: string,
     context: CLITemplateContext
   ): Promise<void> {
-    logger.info(`📦 Generating dependency files...`);
+    logger.step(`📦 Starting dependency file generation`);
+    logger.debugVerbose(`Project path: ${projectPath}`);
+    logger.debugVerbose(`Template: ${context.template}`);
 
     // Generate root package.json
+    logger.progress(`Generating root package.json`);
     const rootPackageJson =
       this.dependencyResolver.generateRootPackageJson(context);
+    logger.debugDetailed(`Root package.json content:`, rootPackageJson);
     await fs.writeJSON(join(projectPath, "package.json"), rootPackageJson, {
       spaces: 2,
     });
+    logger.result(`✅ Root package.json written`);
 
     // Generate frontend package.json (if not API-only)
     if (context.template !== "api-only") {
+      logger.progress(`Generating frontend package.json`);
       const frontendPackageJson =
         this.dependencyResolver.generateFrontendPackageJson(context);
+      logger.debugDetailed(
+        `Frontend package.json content:`,
+        frontendPackageJson
+      );
       await fs.writeJSON(
         join(projectPath, "apps/web/package.json"),
         frontendPackageJson,
         { spaces: 2 }
       );
+      logger.result(`✅ Frontend package.json written`);
+    } else {
+      logger.progress(`Skipping frontend package.json (API-only template)`);
     }
 
     // Generate Python requirements
+    logger.progress(`Generating Python requirements.txt`);
     const requirements = this.dependencyResolver.generateRequirements(context);
+    logger.debugDetailed(`Requirements content:`, requirements);
     await fs.writeFile(
       join(projectPath, "apps/api/requirements.txt"),
       requirements
     );
+    logger.result(`✅ Requirements.txt written`);
 
     // Generate pyproject.toml
+    logger.progress(`Generating pyproject.toml`);
     const pyprojectToml =
       this.dependencyResolver.generatePyprojectToml(context);
+    logger.debugDetailed(`Pyproject.toml content:`, pyprojectToml);
     await fs.writeFile(
       join(projectPath, "apps/api/pyproject.toml"),
       pyprojectToml
     );
+    logger.result(`✅ Pyproject.toml written`);
+
+    logger.result(`✅ All dependency files generated successfully`);
   }
 
   private async initializeGit(projectPath: string): Promise<boolean> {

@@ -200,6 +200,7 @@ export interface CreateCommandOptions {
   install?: boolean;
   interactive?: boolean;
   verbose?: boolean;
+  preflight?: boolean;
 }
 
 // =============================================================================

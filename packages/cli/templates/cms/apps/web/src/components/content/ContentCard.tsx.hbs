@@ -5,7 +5,7 @@ export default function ContentCard({ content }: { content: Content }) {
   return (
     <div className="border rounded p-4 shadow">
       <h3 className="text-lg font-semibold mb-2">{content.title}</h3>
-      <div className="text-sm text-gray-600" dangerouslySetInnerHTML={{ __html: content.body }} />
+      <div className="text-sm text-gray-600" dangerouslySetInnerHTML=\{{ __html: content.body \}} />
     </div>
   );
 }

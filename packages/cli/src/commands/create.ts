@@ -3,8 +3,7 @@ import { Command } from "commander";
 import path from "path";
 import fs from "fs-extra";
 import chalk from "chalk";
-import { ProjectFileGenerator } from "../generators/project-file-generator.js";
-import { FileGeneratorAdapter } from "../generators/file-generator-adapter.js";
+import { ProjectScaffolder } from "../scaffolding/scaffolder.js";
 import { PackageInstaller } from "../utils/package-installer.js";
 import { GitInitializer } from "../utils/git-initializer.js";
 import { displayWelcome, promptForMissingOptions } from "../utils/prompts.js";
@@ -18,7 +17,11 @@ import {
   isTemplateName,
   isFeatureName,
   isDatabaseType,
+  type TemplateContext as CLITemplateContext,
 } from "../template/types.js";
+import { TemplateContext as SharedTemplateContext } from "@farm-framework/types";
+import { logger } from "../utils/logger.js";
+import { TemplateProcessor } from "../template/processor.js";
 
 export function createCreateCommand(): Command {
   const createCmd = new Command("create");
@@ -46,6 +49,10 @@ export function createCreateCommand(): Command {
     .option("--no-install", "Skip dependency installation")
     .option("--no-interactive", "Skip interactive prompts")
     .option("-v, --verbose", "Verbose output")
+    .option(
+      "--preflight",
+      "Run preflight checks on templates before processing"
+    )
     .action(createProject);
 
   return createCmd;
@@ -56,6 +63,19 @@ async function createProject(
   options: CreateCommandOptions
 ): Promise<void> {
   try {
+    // Configure logging based on verbose flag
+    if (options.verbose) {
+      logger.setLevel("debug");
+      logger.setDebugLevel("trace"); // Use trace for maximum detail
+      // Set environment variables for child processes
+      process.env.FARM_LOG_LEVEL = "debug";
+      process.env.FARM_DEBUG_LEVEL = "trace";
+    }
+
+    logger.step(`🚀 FARM CLI CREATE COMMAND STARTING`);
+    logger.debugVerbose(`Project name: ${projectName}`);
+    logger.debugVerbose(`Options:`, options);
+
     // Show welcome message if interactive mode
     if (options.interactive !== false) {
       displayWelcome();
@@ -123,27 +143,91 @@ async function createProject(
       )
     );
     console.log(styles.muted("─".repeat(50)));
-
     console.log(
       styles.brand(
         `\n🌾 Creating FARM application: ${styles.emphasis(projectName)}`
       )
     );
 
+    // Run preflight checks if requested
+    if (normalizedOptions.preflight) {
+      console.log(messages.step("🔍 Running preflight template checks..."));
+      const processor = new TemplateProcessor();
+
+      try {
+        // Get template directory path
+        const templatePath = processor.resolveTemplatesDirectory();
+        const templateDir = path.join(templatePath, context.template);
+
+        // Run preflight checks
+        const preflightIssues = await processor.runPreflightChecks(templateDir);
+
+        if (preflightIssues.length > 0) {
+          const errors = preflightIssues.filter(
+            (issue) => issue.severity === "error"
+          );
+          const warnings = preflightIssues.filter(
+            (issue) => issue.severity === "warning"
+          );
+
+          if (errors.length > 0) {
+            console.log(
+              messages.error(
+                `❌ Found ${errors.length} critical template issues:`
+              )
+            );
+            errors.forEach((error) => {
+              console.log(chalk.red(`  • ${error.file}: ${error.message}`));
+              if (error.suggestion) {
+                console.log(chalk.gray(`    💡 ${error.suggestion}`));
+              }
+            });
+
+            console.log(
+              messages.error(
+                "\nTemplate has critical issues. Please fix them or run without --preflight"
+              )
+            );
+            process.exit(1);
+          }
+
+          if (warnings.length > 0) {
+            console.log(
+              messages.warning(`⚠️ Found ${warnings.length} template warnings:`)
+            );
+            warnings.forEach((warning) => {
+              console.log(
+                chalk.yellow(`  • ${warning.file}: ${warning.message}`)
+              );
+              if (warning.suggestion) {
+                console.log(chalk.gray(`    💡 ${warning.suggestion}`));
+              }
+            });
+            console.log(); // Add spacing
+          }
+        } else {
+          console.log(messages.success("✅ All preflight checks passed!"));
+        }
+      } catch (error) {
+        console.log(
+          messages.warning(
+            `⚠️ Preflight checks failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
+        console.log(chalk.gray("Continuing with project generation..."));
+      }
+    }
+
     // Generate project structure
     console.log(messages.step("🏗️  Generating project structure..."));
-    const projectGenerator = new ProjectFileGenerator();
-    const adapter = new FileGeneratorAdapter(projectGenerator as any);
-    // Pass a dummy template definition for new generator signature compatibility
-    const dummyTemplate = {
-      name: context.template,
-      description: "",
-      features: context.features,
-      structure: { files: [], directories: [] },
-      dependencies: {},
-      prompts: [],
-    };
-    await adapter.generate(projectPath, context, dummyTemplate);
+    const scaffolder = new ProjectScaffolder({
+      verbose: normalizedOptions.verbose,
+      skipInstall: true, // We'll handle installation separately
+    });
+
+    // Convert context to shared type for scaffolder
+    const sharedContext = convertToSharedContext(context);
+    const result = await scaffolder.generateProject(projectName, sharedContext);
 
     // Initialize git repository
     if (normalizedOptions.git) {
@@ -315,6 +399,32 @@ async function validateAndNormalizeOptions(
   }
 
   return normalized;
+}
+
+// Convert CLI TemplateContext to shared TemplateContext
+function convertToSharedContext(
+  context: CLITemplateContext
+): SharedTemplateContext {
+  return {
+    ...context,
+    projectName: context.projectName || context.name,
+    name: context.projectName || context.name,
+    template: context.template,
+    features: context.features || [],
+    database:
+      typeof context.database === "object"
+        ? context.database.type
+        : context.database || "mongodb",
+    answers: {}, // Empty answers object for compatibility
+    timestamp: new Date().toISOString(), // Current timestamp
+    farmVersion: "1.0.0", // TODO: Get from package.json
+    // Optional properties
+    description: context.description,
+    typescript: context.typescript,
+    docker: context.docker,
+    git: context.git,
+    install: context.install,
+  };
 }
 
 export { createProject };
