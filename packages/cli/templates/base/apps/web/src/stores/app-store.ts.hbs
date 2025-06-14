@@ -1,0 +1,57 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+interface AppState {
+  theme: "light" | "dark" | "system";
+  sidebarOpen: boolean;
+  user: User | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
+interface AppActions {
+  setTheme: (theme: AppState["theme"]) => void;
+  toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+  setUser: (user: User | null) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearError: () => void;
+}
+
+export const useAppStore = create<AppState & AppActions>()(
+  persist(
+    (set, get) => ({
+      // State
+      theme: "system",
+      sidebarOpen: false,
+      user: null,
+      isLoading: false,
+      error: null,
+
+      // Actions
+      setTheme: (theme) => set({ theme }),
+      toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      setUser: (user) => set({ user }),
+      setLoading: (loading) => set({ isLoading: loading }),
+      setError: (error) => set({ error }),
+      clearError: () => set({ error: null }),
+    }),
+    {
+      name: "{{projectName}}-app-store",
+      partialize: (state) => ({
+        theme: state.theme,
+        sidebarOpen: state.sidebarOpen,
+        user: state.user,
+      }),
+    }
+  )
+);

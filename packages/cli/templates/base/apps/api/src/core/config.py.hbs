@@ -1,0 +1,290 @@
+# packages/cli/templates/base/apps/api/src/core/config.py.hbs
+"""
+Application configuration
+Environment-based configuration management for {{name}}
+"""
+import os
+from functools import lru_cache
+from typing import List, Optional, Dict, Any
+from pydantic import BaseSettings, validator
+
+class Settings(BaseSettings):
+    """Master application settings supporting all databases and features"""
+    
+    # Application
+    APP_NAME: str = "{{name}}"
+    VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    WORKERS: int = 1
+    
+    # Database - Support all 5 database types with complete URLs
+    DATABASE_URL: str = "{{#switch database}}{{#case 'mongodb'}}mongodb://localhost:27017/{{kebabCase name}}{{/case}}{{#case 'postgresql'}}postgresql://user:password@localhost:5432/{{kebabCase name}}{{/case}}{{#case 'mysql'}}mysql://user:password@localhost:3306/{{kebabCase name}}{{/case}}{{#case 'sqlite'}}sqlite:///./{{kebabCase name}}.db{{/case}}{{#case 'sqlserver'}}mssql://user:password@localhost:1433/{{kebabCase name}}{{/case}}{{/switch}}"
+    DATABASE_NAME: str = "{{kebabCase name}}"
+    
+    # Database connection settings
+    {{#if_database "mongodb"}}
+    MONGODB_MIN_CONNECTIONS: int = 1
+    MONGODB_MAX_CONNECTIONS: int = 100
+    MONGODB_CONNECTION_TIMEOUT_MS: int = 30000
+    {{/if_database}}
+    
+    {{#if_database "postgresql" "mysql" "sqlserver"}}
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 3600
+    {{/if_database}}
+    
+    {{#if_database "sqlite"}}
+    SQLITE_CHECK_SAME_THREAD: bool = False
+    SQLITE_POOL_PRE_PING: bool = True
+    {{/if_database}}
+    
+    # Security
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    
+    {{#if_feature "auth"}}
+    # Authentication
+    JWT_SECRET_KEY: str = "your-jwt-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_EXPIRE_DAYS: int = 7
+    
+    # Password hashing
+    PASSWORD_HASH_SCHEMES: List[str] = ["bcrypt"]
+    PASSWORD_HASH_DEPRECATED: str = "auto"
+    {{/if_feature}}
+    
+    # CORS
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://localhost:4000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:4000"
+    ]
+    ALLOWED_HOSTS: List[str] = ["*"]
+    
+    {{#if_feature "ai"}}
+    # AI Configuration - Template-specific
+    {{#if_template "ai-chat" "ai-dashboard"}}
+    # AI Providers for chat/dashboard templates
+    OLLAMA_URL: str = "{{ai.providers.ollama.url}}"
+    OLLAMA_DEFAULT_MODEL: str = "{{ai.providers.ollama.defaultModel}}"
+    OLLAMA_TIMEOUT: int = 120
+    
+    {{#if ai.providers.openai.enabled}}
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_DEFAULT_MODEL: str = "{{ai.providers.openai.defaultModel}}"
+    OPENAI_TIMEOUT: int = 120
+    {{/if}}
+    
+    {{#if ai.providers.anthropic.enabled}}
+    ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_DEFAULT_MODEL: str = "{{ai.providers.anthropic.defaultModel}}"
+    {{/if}}
+    
+    # Provider routing
+    AI_DEFAULT_PROVIDER: str = "{{ai.routing.development}}"
+    AI_FALLBACK_PROVIDER: str = "{{ai.routing.production}}"
+    
+    # AI Features
+    AI_STREAMING_ENABLED: bool = {{ai.features.streaming}}
+    AI_CACHING_ENABLED: bool = {{ai.features.caching}}
+    AI_RATE_LIMITING_ENABLED: bool = {{ai.features.rateLimiting}}
+    AI_FALLBACK_ENABLED: bool = {{ai.features.fallback}}
+    {{else}}
+    # Basic AI configuration for other templates with AI feature
+    AI_ENABLED: bool = True
+    AI_DEFAULT_PROVIDER: str = "ollama"
+    OLLAMA_URL: str = "http://localhost:11434"
+    {{/if_template}}
+    {{/if_feature}}
+    
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    # Rate limiting
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 60  # seconds
+    
+    # File uploads
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    UPLOAD_DIRECTORY: str = "./uploads"
+    
+    {{#if_feature "realtime"}}
+    # WebSocket settings
+    WEBSOCKET_HEARTBEAT_INTERVAL: int = 30  # seconds
+    WEBSOCKET_MAX_CONNECTIONS: int = 1000
+    WEBSOCKET_PING_INTERVAL: int = 20
+    WEBSOCKET_PING_TIMEOUT: int = 10
+    {{/if_feature}}
+    
+    {{#if_feature "storage"}}
+    # Storage settings
+    STORAGE_TYPE: str = "local"  # local, s3, gcs, azure
+    STORAGE_BUCKET: Optional[str] = None
+    STORAGE_REGION: Optional[str] = None
+    STORAGE_ACCESS_KEY: Optional[str] = None
+    STORAGE_SECRET_KEY: Optional[str] = None
+    {{/if_feature}}
+    
+    {{#if_feature "email"}}
+    # Email settings
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    EMAIL_FROM: str = "noreply@{{kebabCase name}}.com"
+    {{/if_feature}}
+    
+    {{#if_feature "analytics"}}
+    # Analytics
+    ANALYTICS_ENABLED: bool = True
+    ANALYTICS_PROVIDER: str = "internal"  # internal, google, mixpanel
+    ANALYTICS_API_KEY: Optional[str] = None
+    {{/if_feature}}
+    
+    # Health check settings
+    HEALTH_CHECK_TIMEOUT: int = 30
+    HEALTH_CHECK_INTERVAL: int = 60
+    
+    @validator("ENVIRONMENT")
+    def validate_environment(cls, v):
+        """Validate environment setting"""
+        valid_environments = ["development", "staging", "production", "testing"]
+        if v not in valid_environments:
+            raise ValueError(f"Environment must be one of: {valid_environments}")
+        return v
+    
+    @validator("DEBUG", pre=True)
+    def set_debug_from_environment(cls, v, values):
+        """Set debug based on environment"""
+        environment = values.get("ENVIRONMENT", "development")
+        return environment != "production"
+    
+    @validator("ALLOWED_ORIGINS", pre=True)
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from string or list"""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+    
+    {{#if_feature "auth"}}
+    @validator("JWT_SECRET_KEY")
+    def validate_jwt_secret(cls, v):
+        """Validate JWT secret key is set"""
+        if v == "your-jwt-secret-key-change-in-production":
+            import warnings
+            warnings.warn("JWT_SECRET_KEY is using default value. Change this in production!")
+        return v
+    {{/if_feature}}
+    
+    # Computed properties
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode"""
+        return self.ENVIRONMENT == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production mode"""
+        return self.ENVIRONMENT == "production"
+    
+    @property
+    def is_testing(self) -> bool:
+        """Check if running in testing mode"""
+        return self.ENVIRONMENT == "testing"
+    
+    {{#if_feature "auth"}}
+    @property
+    def jwt_config(self) -> Dict[str, Any]:
+        """Get JWT configuration"""
+        return {
+            "secret_key": self.JWT_SECRET_KEY,
+            "algorithm": self.JWT_ALGORITHM,
+            "expire_minutes": self.JWT_EXPIRE_MINUTES,
+            "refresh_expire_days": self.JWT_REFRESH_EXPIRE_DAYS
+        }
+    {{/if_feature}}
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
+
+class DevelopmentSettings(Settings):
+    """Development-specific settings"""
+    
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    LOG_LEVEL: str = "DEBUG"
+    
+    # More permissive CORS for development
+    ALLOWED_ORIGINS: List[str] = ["*"]
+
+class ProductionSettings(Settings):
+    """Production-specific settings"""
+    
+    ENVIRONMENT: str = "production"
+    DEBUG: bool = False
+    LOG_LEVEL: str = "INFO"
+    
+    # Stricter settings for production
+    WORKERS: int = 4
+    
+    {{#if_feature "ai"}}
+    {{#if_template "ai-chat" "ai-dashboard"}}
+    # Use cloud AI provider by default in production
+    AI_DEFAULT_PROVIDER: str = "{{ai.routing.production}}"
+    {{/if_template}}
+    {{/if_feature}}
+
+class TestingSettings(Settings):
+    """Testing-specific settings"""
+    
+    ENVIRONMENT: str = "testing"
+    DEBUG: bool = True
+    LOG_LEVEL: str = "DEBUG"
+    
+    # Use in-memory/test databases
+    {{#switch database}}
+    {{#case "mongodb"}}
+    DATABASE_URL: str = "mongodb://localhost:27017/{{kebabCase name}}_test"
+    {{/case}}
+    {{#case "postgresql"}}
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/{{kebabCase name}}_test"
+    {{/case}}
+    {{#case "mysql"}}
+    DATABASE_URL: str = "mysql://user:password@localhost:3306/{{kebabCase name}}_test"
+    {{/case}}
+    {{#case "sqlite"}}
+    DATABASE_URL: str = "sqlite:///./{{kebabCase name}}_test.db"
+    {{/case}}
+    {{#case "sqlserver"}}
+    DATABASE_URL: str = "mssql://user:password@localhost:1433/{{kebabCase name}}_test"
+    {{/case}}
+    {{/switch}}
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Get cached settings instance based on environment"""
+    environment = os.getenv("ENVIRONMENT", "development").lower()
+    
+    if environment == "production":
+        return ProductionSettings()
+    elif environment == "testing":
+        return TestingSettings()
+    else:
+        return DevelopmentSettings()
+
+# Global settings instance
+settings = get_settings()

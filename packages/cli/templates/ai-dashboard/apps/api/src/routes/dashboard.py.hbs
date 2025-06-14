@@ -1,9 +1,255 @@
-from fastapi import APIRouter
+# packages/cli/templates/ai-dashboard/apps/api/src/routes/dashboard.py.hbs
+"""
+Dashboard endpoints
+Main dashboard data aggregation and overview endpoints
+"""
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import BaseModel
+
+{{#if_database "mongodb"}}
 from ..models.dataset import Dataset
+from ..models.metric import Metric
+from ..models.insight import Insight
+{{else}}
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, func
+from ..database.connection import get_db_session
+from ..models.dataset import Dataset
+from ..models.metric import Metric  
+from ..models.insight import Insight
+{{/if_database}}
+
+from ..ai.analytics import generate_dashboard_insights
+from ..ml.data_processor import get_data_summary
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-@router.get("/data", response_model=Dataset)
-async def dashboard_data():
-    """Return demo dashboard dataset."""
-    return Dataset(name="demo", records=1000)
+# Response models
+class DashboardOverview(BaseModel):
+    """Dashboard overview response model"""
+    total_datasets: int
+    total_metrics: int
+    active_insights: int
+    latest_insights: List[Dict[str, Any]]
+    key_metrics: List[Dict[str, Any]]
+    summary_stats: Dict[str, Any]
+
+class MetricResponse(BaseModel):
+    """Metric response model"""
+    id: int
+    name: str
+    display_name: str
+    value: float
+    unit: str
+    change_percent: Optional[float]
+    is_increasing: Optional[bool]
+    category: Optional[str]
+
+{{#if_database "mongodb"}}
+@router.get("/overview", response_model=DashboardOverview)
+async def get_dashboard_overview():
+    """Get dashboard overview with key statistics"""
+    try:
+        # Get counts
+        total_datasets = await Dataset.count()
+        total_metrics = await Metric.count()
+        active_insights = await Insight.find(Insight.is_active == True).count()
+        
+        # Get latest insights
+        latest_insights = await Insight.find(
+            Insight.is_active == True
+        ).sort(-Insight.created_at).limit(5).to_list()
+        
+        # Get key metrics
+        key_metrics = await Metric.find(
+            Metric.is_active == True
+        ).sort(-Metric.updated_at).limit(10).to_list()
+        
+        # Generate summary stats
+        summary_stats = await get_data_summary()
+        
+        return DashboardOverview(
+            total_datasets=total_datasets,
+            total_metrics=total_metrics,
+            active_insights=active_insights,
+            latest_insights=[insight.dict() for insight in latest_insights],
+            key_metrics=[metric.dict() for metric in key_metrics],
+            summary_stats=summary_stats
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get dashboard overview: {str(e)}")
+
+@router.get("/metrics", response_model=List[MetricResponse])
+async def get_dashboard_metrics(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    limit: int = Query(20, description="Limit number of results")
+):
+    """Get dashboard metrics"""
+    try:
+        query = Metric.find(Metric.is_active == True)
+        
+        if category:
+            query = query.find(Metric.category == category)
+            
+        metrics = await query.sort(-Metric.updated_at).limit(limit).to_list()
+        
+        return [
+            MetricResponse(
+                id=str(metric.id),
+                name=metric.name,
+                display_name=metric.display_name,
+                value=metric.value,
+                unit=metric.unit,
+                change_percent=metric.change_percent,
+                is_increasing=metric.is_increasing,
+                category=metric.category
+            ) for metric in metrics
+        ]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+
+@router.get("/insights", response_model=List[Dict[str, Any]])
+async def get_dashboard_insights(
+    type: Optional[str] = Query(None, description="Filter by insight type"),
+    limit: int = Query(10, description="Limit number of results")
+):
+    """Get dashboard insights"""
+    try:
+        query = Insight.find(Insight.is_active == True)
+        
+        if type:
+            query = query.find(Insight.type == type)
+            
+        insights = await query.sort(-Insight.created_at).limit(limit).to_list()
+        
+        return [insight.dict() for insight in insights]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get insights: {str(e)}")
+
+{{else}}
+@router.get("/overview", response_model=DashboardOverview)
+async def get_dashboard_overview(db: Session = Depends(get_db_session)):
+    """Get dashboard overview with key statistics"""
+    try:
+        # Get counts
+        total_datasets = db.query(func.count(Dataset.id)).scalar()
+        total_metrics = db.query(func.count(Metric.id)).scalar()
+        active_insights = db.query(func.count(Insight.id)).filter(Insight.is_active == True).scalar()
+        
+        # Get latest insights
+        latest_insights_query = db.query(Insight).filter(
+            Insight.is_active == True
+        ).order_by(desc(Insight.created_at)).limit(5)
+        latest_insights = [insight.to_dict() for insight in latest_insights_query.all()]
+        
+        # Get key metrics
+        key_metrics_query = db.query(Metric).filter(
+            Metric.is_active == True
+        ).order_by(desc(Metric.updated_at)).limit(10)
+        key_metrics = [metric.to_dict() for metric in key_metrics_query.all()]
+        
+        # Generate summary stats
+        summary_stats = await get_data_summary(db)
+        
+        return DashboardOverview(
+            total_datasets=total_datasets,
+            total_metrics=total_metrics,
+            active_insights=active_insights,
+            latest_insights=latest_insights,
+            key_metrics=key_metrics,
+            summary_stats=summary_stats
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get dashboard overview: {str(e)}")
+
+@router.get("/metrics", response_model=List[MetricResponse])
+async def get_dashboard_metrics(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    limit: int = Query(20, description="Limit number of results"),
+    db: Session = Depends(get_db_session)
+):
+    """Get dashboard metrics"""
+    try:
+        query = db.query(Metric).filter(Metric.is_active == True)
+        
+        if category:
+            query = query.filter(Metric.category == category)
+            
+        metrics = query.order_by(desc(Metric.updated_at)).limit(limit).all()
+        
+        return [
+            MetricResponse(
+                id=metric.id,
+                name=metric.name,
+                display_name=metric.display_name,
+                value=metric.value,
+                unit=metric.unit,
+                change_percent=metric.change_percent,
+                is_increasing=metric.is_increasing,
+                category=metric.category
+            ) for metric in metrics
+        ]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+
+@router.get("/insights", response_model=List[Dict[str, Any]])
+async def get_dashboard_insights(
+    type: Optional[str] = Query(None, description="Filter by insight type"),
+    limit: int = Query(10, description="Limit number of results"),
+    db: Session = Depends(get_db_session)
+):
+    """Get dashboard insights"""
+    try:
+        query = db.query(Insight).filter(Insight.is_active == True)
+        
+        if type:
+            query = query.filter(Insight.type == type)
+            
+        insights = query.order_by(desc(Insight.created_at)).limit(limit).all()
+        
+        return [insight.to_dict() for insight in insights]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get insights: {str(e)}")
+
+{{/if_database}}
+
+@router.post("/generate-insights")
+async def generate_insights(
+    dataset_name: Optional[str] = Query(None, description="Dataset to analyze"),
+    {{#if_database "sql"}}db: Session = Depends(get_db_session){{/if_database}}
+):
+    """Generate AI insights for dashboard"""
+    try:
+        # Generate insights using AI analytics
+        {{#if_database "mongodb"}}
+        insights = await generate_dashboard_insights(dataset_name)
+        {{else}}
+        insights = await generate_dashboard_insights(dataset_name, db)
+        {{/if_database}}
+        
+        return {
+            "status": "success",
+            "insights_generated": len(insights),
+            "insights": insights
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
+
+@router.get("/health")
+async def dashboard_health():
+    """Dashboard health check"""
+    return {
+        "status": "healthy",
+        "service": "ai-dashboard",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0"
+    }

@@ -1,5 +1,267 @@
-from pydantic import BaseModel
+# packages/cli/templates/ai-dashboard/apps/api/src/models/metric.py.hbs
+"""
+Metric model
+{{#switch database}}
+{{#case "mongodb"}}Metric document model using Beanie for MongoDB{{/case}}
+{{#default}}Metric model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
 
-class Metric(BaseModel):
-    name: str
-    value: int | float
+{{#if_database "mongodb"}}
+from datetime import datetime
+from typing import Optional, Dict, Any, List, Union
+from beanie import Document, Indexed
+from pydantic import Field
+from enum import Enum
+
+class MetricType(str, Enum):
+    """Types of metrics"""
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
+    TIMER = "timer"
+    RATE = "rate"
+    PERCENTAGE = "percentage"
+
+class MetricUnit(str, Enum):
+    """Metric units"""
+    COUNT = "count"
+    SECONDS = "seconds"
+    MILLISECONDS = "milliseconds"
+    BYTES = "bytes"
+    PERCENTAGE = "percentage"
+    CURRENCY = "currency"
+    RATIO = "ratio"
+
+class Metric(Document):
+    """Metric document for storing dashboard metrics"""
+    
+    # Basic metric information
+    name: Indexed(str) = Field(..., description="Metric name")
+    display_name: str = Field(..., description="Human-readable metric name")
+    description: Optional[str] = Field(None, description="Metric description")
+    
+    # Metric value and type
+    value: Union[int, float] = Field(..., description="Current metric value")
+    previous_value: Optional[Union[int, float]] = Field(None, description="Previous metric value")
+    type: MetricType = Field(..., description="Type of metric")
+    unit: MetricUnit = Field(default=MetricUnit.COUNT, description="Metric unit")
+    
+    # Metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    
+    # Categorization
+    category: Optional[str] = Field(None, description="Metric category")
+    tags: List[str] = Field(default_factory=list, description="Metric tags")
+    
+    # Data source information
+    source: Optional[str] = Field(None, description="Data source")
+    query: Optional[str] = Field(None, description="Query used to generate metric")
+    
+    # Visualization settings
+    chart_type: Optional[str] = Field(None, description="Preferred chart type")
+    color: Optional[str] = Field(None, description="Display color")
+    icon: Optional[str] = Field(None, description="Display icon")
+    
+    # Thresholds and alerts
+    min_value: Optional[float] = Field(None, description="Minimum expected value")
+    max_value: Optional[float] = Field(None, description="Maximum expected value")
+    warning_threshold: Optional[float] = Field(None, description="Warning threshold")
+    critical_threshold: Optional[float] = Field(None, description="Critical threshold")
+    
+    # Time series data
+    historical_data: List[Dict[str, Any]] = Field(default_factory=list, description="Historical metric values")
+    
+    # Status
+    is_active: bool = Field(default=True, description="Whether metric is actively tracked")
+    
+    @property
+    def change_percent(self) -> Optional[float]:
+        """Calculate percentage change from previous value"""
+        if self.previous_value is None or self.previous_value == 0:
+            return None
+        return ((self.value - self.previous_value) / self.previous_value) * 100
+    
+    @property
+    def is_increasing(self) -> Optional[bool]:
+        """Check if metric is increasing"""
+        if self.previous_value is None:
+            return None
+        return self.value > self.previous_value
+    
+    class Settings:
+        name = "metrics"
+        indexes = [
+            "name",
+            "category",
+            "type",
+            "created_at",
+            "updated_at",
+            "is_active",
+            "tags"
+        ]
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any, List, Union
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Boolean, Float
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+from enum import Enum
+
+Base = declarative_base()
+
+class MetricType(str, Enum):
+    """Types of metrics"""
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
+    TIMER = "timer"
+    RATE = "rate"
+    PERCENTAGE = "percentage"
+
+class MetricUnit(str, Enum):
+    """Metric units"""
+    COUNT = "count"
+    SECONDS = "seconds"
+    MILLISECONDS = "milliseconds"
+    BYTES = "bytes"
+    PERCENTAGE = "percentage"
+    CURRENCY = "currency"
+    RATIO = "ratio"
+
+class Metric(Base):
+    """Metric model for SQL databases"""
+    __tablename__ = "metrics"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Basic metric information
+    name = Column(String(255), nullable=False, index=True)
+    display_name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    
+    # Metric value and type
+    value = Column(Float, nullable=False)
+    previous_value = Column(Float, nullable=True)
+    type = Column(String(50), nullable=False)
+    unit = Column(String(50), nullable=False, default="count")
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
+    # Categorization
+    category = Column(String(100), nullable=True, index=True)
+    
+    # Data source information
+    source = Column(String(255), nullable=True)
+    query = Column(Text, nullable=True)
+    
+    # Visualization settings
+    chart_type = Column(String(50), nullable=True)
+    color = Column(String(20), nullable=True)
+    icon = Column(String(50), nullable=True)
+    
+    # Thresholds and alerts
+    min_value = Column(Float, nullable=True)
+    max_value = Column(Float, nullable=True)
+    warning_threshold = Column(Float, nullable=True)
+    critical_threshold = Column(Float, nullable=True)
+    
+    # Use JSON for PostgreSQL/MySQL, Text for SQLite/SQL Server
+    {{#if_database "postgresql" "mysql"}}
+    tags = Column(JSON, nullable=True, default=list)
+    historical_data = Column(JSON, nullable=True, default=list)
+    {{else}}
+    tags = Column(Text, nullable=True)  # JSON string for SQLite/SQL Server
+    historical_data = Column(Text, nullable=True)  # JSON string
+    {{/if_database}}
+    
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_tags(self) -> List[str]:
+        """Get tags as list (for SQLite/SQL Server)"""
+        if self.tags:
+            import json
+            return json.loads(self.tags)
+        return []
+    
+    def set_tags(self, tags: List[str]):
+        """Set tags from list (for SQLite/SQL Server)"""
+        import json
+        self.tags = json.dumps(tags)
+        self.updated_at = datetime.utcnow()
+    
+    def get_historical_data(self) -> List[Dict[str, Any]]:
+        """Get historical data as list (for SQLite/SQL Server)"""
+        if self.historical_data:
+            import json
+            return json.loads(self.historical_data)
+        return []
+    
+    def set_historical_data(self, historical_data: List[Dict[str, Any]]):
+        """Set historical data from list (for SQLite/SQL Server)"""
+        import json
+        self.historical_data = json.dumps(historical_data)
+        self.updated_at = datetime.utcnow()
+    {{/if_database}}
+    
+    @property
+    def change_percent(self) -> Optional[float]:
+        """Calculate percentage change from previous value"""
+        if self.previous_value is None or self.previous_value == 0:
+            return None
+        return ((self.value - self.previous_value) / self.previous_value) * 100
+    
+    @property
+    def is_increasing(self) -> Optional[bool]:
+        """Check if metric is increasing"""
+        if self.previous_value is None:
+            return None
+        return self.value > self.previous_value
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metric to dictionary"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "display_name": self.display_name,
+            "description": self.description,
+            "value": self.value,
+            "previous_value": self.previous_value,
+            "type": self.type,
+            "unit": self.unit,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "category": self.category,
+            {{#if_database "postgresql" "mysql"}}
+            "tags": self.tags or [],
+            "historical_data": self.historical_data or [],
+            {{else}}
+            "tags": self.get_tags(),
+            "historical_data": self.get_historical_data(),
+            {{/if_database}}
+            "source": self.source,
+            "query": self.query,
+            "chart_type": self.chart_type,
+            "color": self.color,
+            "icon": self.icon,
+            "min_value": self.min_value,
+            "max_value": self.max_value,
+            "warning_threshold": self.warning_threshold,
+            "critical_threshold": self.critical_threshold,
+            "is_active": self.is_active,
+            "change_percent": self.change_percent,
+            "is_increasing": self.is_increasing
+        }
+
+    def __str__(self) -> str:
+        return f"Metric({self.name}: {self.value})"
+
+{{/if_database}}

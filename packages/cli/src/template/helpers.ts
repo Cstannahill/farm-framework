@@ -133,41 +133,37 @@ export function registerHandlebarsHelpers(
   // =============================================================================
   // DATABASE HELPERS
   // =============================================================================
-
   // Check if specific database type is selected
   handlebars.registerHelper(
     "if_database",
-    function (
-      this: TemplateContext,
-      databaseType: DatabaseType,
-      options: HandlebarsOptions
-    ): string {
+    function (this: TemplateContext, ...args: any[]): string {
+      const options = args.pop() as HandlebarsOptions;
+      const databaseTypes = args as DatabaseType[];
+
       const config = this.config || this;
       const selectedDb =
         (typeof config.database === "object"
           ? config.database?.type
           : config.database) || "mongodb";
-      return selectedDb === databaseType
-        ? options.fn(this)
-        : options.inverse(this);
+
+      const isMatch = databaseTypes.includes(selectedDb as DatabaseType);
+      return isMatch ? options.fn(this) : options.inverse(this);
     }
   );
-
   handlebars.registerHelper(
     "unless_database",
-    function (
-      this: TemplateContext,
-      databaseType: DatabaseType,
-      options: HandlebarsOptions
-    ): string {
+    function (this: TemplateContext, ...args: any[]): string {
+      const options = args.pop() as HandlebarsOptions;
+      const databaseTypes = args as DatabaseType[];
+
       const config = this.config || this;
       const selectedDb =
         (typeof config.database === "object"
           ? config.database?.type
           : config.database) || "mongodb";
-      return selectedDb !== databaseType
-        ? options.fn(this)
-        : options.inverse(this);
+
+      const isMatch = databaseTypes.includes(selectedDb as DatabaseType);
+      return !isMatch ? options.fn(this) : options.inverse(this);
     }
   );
 
@@ -480,8 +476,32 @@ export function registerHandlebarsHelpers(
   );
 
   // =============================================================================
-  // UTILITY HELPERS
+  // STRING TRANSFORMATION HELPERS
   // =============================================================================
+
+  // Add kebabCase alias for compatibility with existing templates
+  handlebars.registerHelper(
+    "kebabCase",
+    function (this: TemplateContext, str: string): string {
+      if (typeof str !== "string") return "";
+      return str
+        .replace(/([a-z])([A-Z])/g, "$1-$2")
+        .replace(/[\s_]+/g, "-")
+        .toLowerCase();
+    }
+  );
+
+  // Add pascalCase alias for compatibility with existing templates
+  handlebars.registerHelper(
+    "pascalCase",
+    function (this: TemplateContext, str: string): string {
+      if (typeof str !== "string") return "";
+      const camelCase = str.replace(/[-_\s]+(.)?/g, (_, char: string) =>
+        char ? char.toUpperCase() : ""
+      );
+      return camelCase.charAt(0).toUpperCase() + camelCase.slice(1);
+    }
+  );
 
   // String manipulation
   handlebars.registerHelper(
@@ -623,17 +643,22 @@ export function registerHandlebarsHelpers(
       return !value ? options.fn(this) : options.inverse(this);
     }
   );
-
-  // Comparison helpers
+  // Comparison helpers that work both as block and inline helpers
   handlebars.registerHelper(
     "eq",
     function (
       this: TemplateContext,
       a: any,
       b: any,
-      options: HandlebarsOptions
-    ): string {
-      return a === b ? options.fn(this) : options.inverse(this);
+      options?: HandlebarsOptions
+    ): string | boolean {
+      const result = a === b;
+      // If called as inline helper (no options.fn), return boolean
+      if (!options || typeof options !== "object" || !options.fn) {
+        return result;
+      }
+      // If called as block helper, return template content
+      return result ? options.fn(this) : options.inverse(this);
     }
   );
 
@@ -643,21 +668,28 @@ export function registerHandlebarsHelpers(
       this: TemplateContext,
       a: any,
       b: any,
-      options: HandlebarsOptions
-    ): string {
-      return a !== b ? options.fn(this) : options.inverse(this);
+      options?: HandlebarsOptions
+    ): string | boolean {
+      const result = a !== b;
+      if (!options || typeof options !== "object" || !options.fn) {
+        return result;
+      }
+      return result ? options.fn(this) : options.inverse(this);
     }
   );
-
   handlebars.registerHelper(
     "gt",
     function (
       this: TemplateContext,
       a: number,
       b: number,
-      options: HandlebarsOptions
-    ): string {
-      return a > b ? options.fn(this) : options.inverse(this);
+      options?: HandlebarsOptions
+    ): string | boolean {
+      const result = a > b;
+      if (!options || typeof options !== "object" || !options.fn) {
+        return result;
+      }
+      return result ? options.fn(this) : options.inverse(this);
     }
   );
 
@@ -667,22 +699,28 @@ export function registerHandlebarsHelpers(
       this: TemplateContext,
       a: number,
       b: number,
-      options: HandlebarsOptions
-    ): string {
-      return a < b ? options.fn(this) : options.inverse(this);
+      options?: HandlebarsOptions
+    ): string | boolean {
+      const result = a < b;
+      if (!options || typeof options !== "object" || !options.fn) {
+        return result;
+      }
+      return result ? options.fn(this) : options.inverse(this);
     }
   );
-
   handlebars.registerHelper(
     "includes",
     function (
       this: TemplateContext,
       array: unknown[],
       value: any,
-      options: HandlebarsOptions
-    ): string {
-      if (!Array.isArray(array)) return options.inverse(this);
-      return array.includes(value) ? options.fn(this) : options.inverse(this);
+      options?: HandlebarsOptions
+    ): string | boolean {
+      const result = Array.isArray(array) && array.includes(value);
+      if (!options || typeof options !== "object" || !options.fn) {
+        return result;
+      }
+      return result ? options.fn(this) : options.inverse(this);
     }
   );
 

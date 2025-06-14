@@ -107,7 +107,6 @@ export default defineConfig(${JSON.stringify(config, null, 2)});
 
     return baseConfig;
   }
-
   private getDefaultDatabaseUrl(database: string, projectName: string): string {
     switch (database) {
       case "mongodb":
@@ -118,6 +117,8 @@ export default defineConfig(${JSON.stringify(config, null, 2)});
         return `mysql://user:password@localhost:3306/${projectName}`;
       case "sqlite":
         return `sqlite:./${projectName}.db`;
+      case "sqlserver":
+        return `mssql+pyodbc://user:password@localhost:1433/${projectName}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes`;
       default:
         return `mongodb://localhost:27017/${projectName}`;
     }
@@ -377,7 +378,6 @@ services:
 
     return services;
   }
-
   private getDatabaseImage(database: string): string {
     switch (database) {
       case "mongodb":
@@ -388,11 +388,12 @@ services:
         return "mysql:8";
       case "sqlite":
         return ""; // SQLite doesn't need a Docker image
+      case "sqlserver":
+        return "mcr.microsoft.com/mssql/server:2022-latest";
       default:
         return "mongo:7";
     }
   }
-
   private getDatabaseEnvironment(
     database: string,
     projectName: string
@@ -411,11 +412,16 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: password
       MYSQL_ROOT_PASSWORD: rootpassword`;
+      case "sqlite":
+        return ""; // SQLite doesn't need environment variables
+      case "sqlserver":
+        return `ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: Farm123!Strong
+      MSSQL_PID: Developer`;
       default:
         return "";
     }
   }
-
   private getDatabasePort(database: string): string {
     switch (database) {
       case "mongodb":
@@ -424,6 +430,10 @@ services:
         return "5432";
       case "mysql":
         return "3306";
+      case "sqlite":
+        return ""; // SQLite doesn't need a port
+      case "sqlserver":
+        return "1433";
       default:
         return "27017";
     }

@@ -1,6 +1,565 @@
-"""Simple data processing utilities."""
+"""Advanced data processing utilities for ML and analytics workflows."""
 
 import pandas as pd
+import numpy as np
+from typing import Dict, List, Any, Optional, Union, Tuple
+from datetime import datetime, timedelta
+import json
+import io
+import logging
+from pathlib import Path
 
-async def load_csv(path: str) -> pd.DataFrame:
-    return pd.read_csv(path)
+logger = logging.getLogger(__name__)
+
+async def load_csv(path: str, **kwargs) -> pd.DataFrame:
+    """
+    Load CSV file with error handling and encoding detection.
+    
+    Supports various CSV formats and automatically handles
+    common encoding issues.
+    """
+    try:
+        # Try different encodings
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(path, encoding=encoding, **kwargs)
+                logger.info(f"Successfully loaded CSV with {encoding} encoding")
+                return df
+            except UnicodeDecodeError:
+                continue
+        
+        # If all encodings fail, try with error handling
+        df = pd.read_csv(path, encoding='utf-8', errors='replace', **kwargs)
+        logger.warning("Loaded CSV with UTF-8 encoding and error replacement")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error loading CSV from {path}: {str(e)}")
+        raise
+
+async def process_upload_data(content: bytes, data_type: str) -> pd.DataFrame:
+    """
+    Process uploaded data files and convert to DataFrame.
+    
+    Supports CSV, JSON, and Excel formats with automatic
+    format detection and validation.
+    """
+    try:
+        if data_type == "csv":
+            # Convert bytes to string and then to DataFrame
+            csv_string = content.decode('utf-8')
+            df = pd.read_csv(io.StringIO(csv_string))
+            
+        elif data_type == "json":
+            # Parse JSON data
+            json_string = content.decode('utf-8')
+            json_data = json.loads(json_string)
+            
+            if isinstance(json_data, list):
+                df = pd.DataFrame(json_data)
+            elif isinstance(json_data, dict):
+                # Handle various JSON structures
+                if 'data' in json_data:
+                    df = pd.DataFrame(json_data['data'])
+                else:
+                    df = pd.DataFrame([json_data])
+            else:
+                raise ValueError("Unsupported JSON structure")
+                
+        elif data_type == "excel":
+            # Process Excel files
+            df = pd.read_excel(io.BytesIO(content))
+            
+        else:
+            raise ValueError(f"Unsupported data type: {data_type}")
+        
+        # Basic data cleaning
+        df = await _clean_dataframe(df)
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error processing upload data: {str(e)}")
+        raise
+
+async def validate_data_format(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Validate DataFrame format and data quality.
+    
+    Checks for common data issues and provides
+    quality score and recommendations.
+    """
+    try:
+        if df.empty:
+            return {
+                "valid": False,
+                "errors": ["DataFrame is empty"],
+                "quality_score": 0.0
+            }
+        
+        validation_results = {
+            "valid": True,
+            "errors": [],
+            "warnings": [],
+            "quality_score": 1.0,
+            "metrics": {}
+        }
+        
+        # Check for basic structure
+        validation_results["metrics"]["row_count"] = len(df)
+        validation_results["metrics"]["column_count"] = len(df.columns)
+        
+        # Check for missing values
+        missing_count = df.isnull().sum().sum()
+        missing_percentage = (missing_count / df.size) * 100
+        validation_results["metrics"]["missing_percentage"] = missing_percentage
+        
+        if missing_percentage > 50:
+            validation_results["errors"].append(f"Too many missing values: {missing_percentage:.1f}%")
+            validation_results["quality_score"] -= 0.3
+        elif missing_percentage > 20:
+            validation_results["warnings"].append(f"High missing values: {missing_percentage:.1f}%")
+            validation_results["quality_score"] -= 0.1
+        
+        # Check for duplicate rows
+        duplicate_count = df.duplicated().sum()
+        duplicate_percentage = (duplicate_count / len(df)) * 100
+        validation_results["metrics"]["duplicate_percentage"] = duplicate_percentage
+        
+        if duplicate_percentage > 30:
+            validation_results["warnings"].append(f"High duplicate rows: {duplicate_percentage:.1f}%")
+            validation_results["quality_score"] -= 0.1
+        
+        # Check column data types
+        numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
+        text_cols = len(df.select_dtypes(include=['object']).columns)
+        datetime_cols = len(df.select_dtypes(include=['datetime64']).columns)
+        
+        validation_results["metrics"]["numeric_columns"] = numeric_cols
+        validation_results["metrics"]["text_columns"] = text_cols
+        validation_results["metrics"]["datetime_columns"] = datetime_cols
+        
+        # Data type diversity score
+        if numeric_cols == 0 and text_cols == 0:
+            validation_results["warnings"].append("No recognizable data types found")
+            validation_results["quality_score"] -= 0.2
+        
+        # Check for extreme values in numeric columns
+        for col in df.select_dtypes(include=[np.number]).columns:
+            col_data = df[col].dropna()
+            if len(col_data) > 0:
+                # Check for infinite values
+                if np.isinf(col_data).any():
+                    validation_results["warnings"].append(f"Infinite values found in {col}")
+                    validation_results["quality_score"] -= 0.05
+                
+                # Check for extreme outliers (beyond 5 standard deviations)
+                if len(col_data) > 3:
+                    z_scores = np.abs((col_data - col_data.mean()) / col_data.std())
+                    extreme_outliers = (z_scores > 5).sum()
+                    if extreme_outliers > 0:
+                        validation_results["warnings"].append(f"Extreme outliers in {col}: {extreme_outliers}")
+        
+        # Final validation
+        if validation_results["errors"]:
+            validation_results["valid"] = False
+        
+        # Ensure quality score is between 0 and 1
+        validation_results["quality_score"] = max(0.0, min(1.0, validation_results["quality_score"]))
+        
+        return validation_results
+        
+    except Exception as e:
+        logger.error(f"Error validating data format: {str(e)}")
+        return {
+            "valid": False,
+            "errors": [f"Validation error: {str(e)}"],
+            "quality_score": 0.0
+        }
+
+async def get_data_summary(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Generate comprehensive data summary with statistics and insights.
+    
+    Provides overview of data characteristics, distributions,
+    and quality metrics for dashboard display.
+    """
+    try:
+        if df.empty:
+            return {"error": "Empty DataFrame"}
+        
+        summary = {
+            "basic_info": {
+                "rows": len(df),
+                "columns": len(df.columns),
+                "memory_usage_mb": df.memory_usage(deep=True).sum() / (1024 * 1024),
+                "dtypes": df.dtypes.value_counts().to_dict()
+            },
+            "data_quality": {
+                "missing_values": df.isnull().sum().sum(),
+                "missing_percentage": (df.isnull().sum().sum() / df.size) * 100,
+                "duplicate_rows": df.duplicated().sum(),
+                "complete_rows": df.dropna().shape[0]
+            },
+            "column_info": {}
+        }
+        
+        # Analyze each column
+        for col in df.columns:
+            col_info = await _analyze_column(df[col])
+            summary["column_info"][col] = col_info
+        
+        # Numeric data summary
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            summary["numeric_summary"] = df[numeric_cols].describe().to_dict()
+        
+        # Categorical data summary
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        if len(categorical_cols) > 0:
+            categorical_summary = {}
+            for col in categorical_cols[:5]:  # Limit to first 5 categorical columns
+                value_counts = df[col].value_counts().head(10)
+                categorical_summary[col] = {
+                    "unique_values": df[col].nunique(),
+                    "most_common": value_counts.to_dict(),
+                    "null_count": df[col].isnull().sum()
+                }
+            summary["categorical_summary"] = categorical_summary
+        
+        # Data insights
+        summary["insights"] = await _generate_data_insights(df)
+        
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error generating data summary: {str(e)}")
+        return {"error": str(e)}
+
+async def transform_data_for_chart(data: List[Any], chart_type: str) -> Dict[str, Any]:
+    """
+    Transform data for chart visualization.
+    
+    Converts various data formats to chart-ready structures
+    for different visualization types.
+    """
+    try:
+        if not data:
+            return {"error": "No data provided"}
+        
+        # Convert to DataFrame if needed
+        if isinstance(data, list) and len(data) > 0:
+            if hasattr(data[0], 'dict'):  # Pydantic models
+                df = pd.DataFrame([item.dict() for item in data])
+            elif isinstance(data[0], dict):
+                df = pd.DataFrame(data)
+            else:
+                df = pd.DataFrame(data)
+        else:
+            df = pd.DataFrame(data)
+        
+        if chart_type == "metrics":
+            return await _transform_for_metrics_chart(df)
+        elif chart_type == "datasets":
+            return await _transform_for_datasets_chart(df)
+        elif chart_type == "dashboard":
+            return await _transform_for_dashboard_charts(df)
+        else:
+            return await _transform_generic_chart_data(df)
+        
+    except Exception as e:
+        logger.error(f"Error transforming data for chart: {str(e)}")
+        return {"error": str(e)}
+
+async def process_dashboard_data(source: str = "metrics", days: int = 30) -> pd.DataFrame:
+    """
+    Process and aggregate dashboard data for analysis.
+    
+    Retrieves and processes data from various sources
+    for AI insights generation.
+    """
+    try:
+        # This is a placeholder implementation
+        # In a real application, you would fetch data from your database
+        
+        # Generate sample data for demonstration
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Create sample time series data
+        date_range = pd.date_range(start=start_date, end=end_date, freq='H')
+        
+        # Generate synthetic data based on source type
+        if source == "metrics":
+            data = {
+                'timestamp': date_range,
+                'user_count': np.random.poisson(100, len(date_range)) + np.random.normal(0, 10, len(date_range)),
+                'session_count': np.random.poisson(150, len(date_range)) + np.random.normal(0, 15, len(date_range)),
+                'revenue': np.random.exponential(50, len(date_range)) + np.random.normal(0, 5, len(date_range)),
+                'page_views': np.random.poisson(500, len(date_range)) + np.random.normal(0, 50, len(date_range))
+            }
+        else:
+            # Generic data structure
+            data = {
+                'timestamp': date_range,
+                'value': np.random.normal(100, 20, len(date_range)),
+                'category': np.random.choice(['A', 'B', 'C'], len(date_range)),
+                'score': np.random.uniform(0, 1, len(date_range))
+            }
+        
+        df = pd.DataFrame(data)
+        
+        # Add some trend and seasonality
+        trend = np.linspace(0, 10, len(df))
+        seasonal = 5 * np.sin(2 * np.pi * np.arange(len(df)) / (24 * 7))  # Weekly seasonality
+        
+        if 'user_count' in df.columns:
+            df['user_count'] = df['user_count'] + trend + seasonal
+        if 'value' in df.columns:
+            df['value'] = df['value'] + trend + seasonal
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error processing dashboard data: {str(e)}")
+        return pd.DataFrame()
+
+# Helper functions
+
+async def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Basic DataFrame cleaning operations."""
+    try:
+        # Remove completely empty rows and columns
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        
+        # Convert string representations of numbers
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                # Try to convert to numeric
+                numeric_series = pd.to_numeric(df[col], errors='coerce')
+                if not numeric_series.isna().all():
+                    # If more than 50% can be converted, use numeric
+                    if numeric_series.notna().sum() / len(df) > 0.5:
+                        df[col] = numeric_series
+        
+        # Attempt to parse datetime columns
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                if any(keyword in col.lower() for keyword in ['date', 'time', 'created', 'updated']):
+                    try:
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                    except:
+                        pass
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error cleaning DataFrame: {str(e)}")
+        return df
+
+async def _analyze_column(series: pd.Series) -> Dict[str, Any]:
+    """Analyze individual column characteristics."""
+    try:
+        analysis = {
+            "dtype": str(series.dtype),
+            "null_count": series.isnull().sum(),
+            "null_percentage": (series.isnull().sum() / len(series)) * 100,
+            "unique_count": series.nunique(),
+            "unique_percentage": (series.nunique() / len(series)) * 100
+        }
+        
+        if series.dtype in ['int64', 'float64']:
+            # Numeric analysis
+            analysis.update({
+                "min": float(series.min()) if not series.empty else None,
+                "max": float(series.max()) if not series.empty else None,
+                "mean": float(series.mean()) if not series.empty else None,
+                "median": float(series.median()) if not series.empty else None,
+                "std": float(series.std()) if not series.empty and len(series) > 1 else None
+            })
+        elif series.dtype == 'object':
+            # Text analysis
+            analysis.update({
+                "avg_length": series.str.len().mean() if not series.empty else None,
+                "max_length": series.str.len().max() if not series.empty else None,
+                "most_common": series.value_counts().head(3).to_dict() if not series.empty else {}
+            })
+        
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Error analyzing column: {str(e)}")
+        return {"error": str(e)}
+
+async def _generate_data_insights(df: pd.DataFrame) -> List[str]:
+    """Generate automatic insights about the data."""
+    insights = []
+    
+    try:
+        # Data volume insights
+        if len(df) > 10000:
+            insights.append(f"Large dataset with {len(df):,} rows - suitable for statistical analysis")
+        elif len(df) < 100:
+            insights.append(f"Small dataset with {len(df)} rows - limited statistical power")
+        
+        # Missing data insights
+        missing_pct = (df.isnull().sum().sum() / df.size) * 100
+        if missing_pct > 20:
+            insights.append(f"High missing data ({missing_pct:.1f}%) - consider data imputation")
+        elif missing_pct < 5:
+            insights.append("Low missing data - good data quality")
+        
+        # Column diversity insights
+        numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
+        if numeric_cols > 5:
+            insights.append(f"Rich numeric data with {numeric_cols} quantitative variables")
+        
+        # Unique value insights
+        high_cardinality_cols = [col for col in df.columns if df[col].nunique() > len(df) * 0.8]
+        if high_cardinality_cols:
+            insights.append(f"High cardinality columns detected: {', '.join(high_cardinality_cols[:3])}")
+        
+        return insights
+        
+    except Exception as e:
+        logger.error(f"Error generating data insights: {str(e)}")
+        return ["Error generating insights"]
+
+async def _transform_for_metrics_chart(df: pd.DataFrame) -> Dict[str, Any]:
+    """Transform metrics data for chart visualization."""
+    try:
+        # Assume metrics have 'name', 'value', 'created_at' columns
+        if 'created_at' in df.columns:
+            df['created_at'] = pd.to_datetime(df['created_at'])
+            
+        chart_data = {
+            "line_chart": [],
+            "bar_chart": [],
+            "summary_stats": {}
+        }
+        
+        # Group by metric name for line chart
+        if 'name' in df.columns and 'value' in df.columns:
+            for metric_name in df['name'].unique():
+                metric_data = df[df['name'] == metric_name].sort_values('created_at')
+                
+                line_data = {
+                    "name": metric_name,
+                    "data": []
+                }
+                
+                for _, row in metric_data.iterrows():
+                    line_data["data"].append({
+                        "x": row['created_at'].isoformat() if pd.notna(row['created_at']) else None,
+                        "y": float(row['value']) if pd.notna(row['value']) else 0
+                    })
+                
+                chart_data["line_chart"].append(line_data)
+                
+                # Summary for bar chart
+                chart_data["bar_chart"].append({
+                    "name": metric_name,
+                    "value": float(metric_data['value'].mean()),
+                    "count": len(metric_data)
+                })
+        
+        return chart_data
+        
+    except Exception as e:
+        logger.error(f"Error transforming metrics for chart: {str(e)}")
+        return {"error": str(e)}
+
+async def _transform_for_datasets_chart(df: pd.DataFrame) -> Dict[str, Any]:
+    """Transform dataset data for chart visualization."""
+    try:
+        chart_data = {
+            "pie_chart": [],
+            "timeline": [],
+            "stats": {}
+        }
+        
+        # Data type distribution for pie chart
+        if 'data_type' in df.columns:
+            type_counts = df['data_type'].value_counts()
+            for data_type, count in type_counts.items():
+                chart_data["pie_chart"].append({
+                    "name": data_type,
+                    "value": int(count)
+                })
+        
+        # Timeline of dataset creation
+        if 'created_at' in df.columns:
+            df['created_at'] = pd.to_datetime(df['created_at'])
+            timeline_data = df.groupby(df['created_at'].dt.date).size().reset_index()
+            timeline_data.columns = ['date', 'count']
+            
+            for _, row in timeline_data.iterrows():
+                chart_data["timeline"].append({
+                    "date": row['date'].isoformat(),
+                    "count": int(row['count'])
+                })
+        
+        return chart_data
+        
+    except Exception as e:
+        logger.error(f"Error transforming datasets for chart: {str(e)}")
+        return {"error": str(e)}
+
+async def _transform_for_dashboard_charts(df: pd.DataFrame) -> Dict[str, Any]:
+    """Transform data for comprehensive dashboard charts."""
+    try:
+        charts = {
+            "overview": {},
+            "trends": {},
+            "distributions": {}
+        }
+        
+        # Overview metrics
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            charts["overview"] = {
+                "total_records": len(df),
+                "numeric_columns": len(numeric_cols),
+                "avg_values": df[numeric_cols].mean().to_dict(),
+                "sum_values": df[numeric_cols].sum().to_dict()
+            }
+        
+        # Trend analysis
+        if 'timestamp' in df.columns or 'created_at' in df.columns:
+            time_col = 'timestamp' if 'timestamp' in df.columns else 'created_at'
+            df[time_col] = pd.to_datetime(df[time_col])
+            
+            # Daily aggregation
+            daily_data = df.groupby(df[time_col].dt.date)[numeric_cols].mean()
+            
+            charts["trends"] = {
+                "daily_averages": daily_data.to_dict(),
+                "date_range": {
+                    "start": df[time_col].min().isoformat(),
+                    "end": df[time_col].max().isoformat()
+                }
+            }
+        
+        return charts
+        
+    except Exception as e:
+        logger.error(f"Error transforming dashboard charts: {str(e)}")
+        return {"error": str(e)}
+
+async def _transform_generic_chart_data(df: pd.DataFrame) -> Dict[str, Any]:
+    """Generic data transformation for charts."""
+    try:
+        return {
+            "data": df.head(100).to_dict('records'),  # Limit to 100 records
+            "summary": {
+                "rows": len(df),
+                "columns": len(df.columns),
+                "dtypes": df.dtypes.value_counts().to_dict()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in generic chart transformation: {str(e)}")
+        return {"error": str(e)}

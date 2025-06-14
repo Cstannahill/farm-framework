@@ -1,30 +1,35 @@
-{ "name": "{{projectName}}", "version": "0.1.0", "description": "{{description}}",
-"private": true, "type": "module",
-{{#unless (eq template "api-only")}}
-  "workspaces": ["apps/*"],
-{{/unless}}
-"scripts": {
-{{#unless (eq template "api-only")}}
-  "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"", "dev:web": "cd
-  apps/web && npm run dev", "build:web": "cd apps/web && npm run build",
-  "preview:web": "cd apps/web && npm run preview",
-{{/unless}}
-"dev:api": "cd apps/api && uvicorn src.main:app --reload --host 0.0.0.0 --port
-8000", "test:api": "cd apps/api && pytest", "lint:api": "cd apps/api && black .
-&& isort .", "type-check:api": "cd apps/api && mypy ."{{#if docker}},
-  "docker:up": "docker-compose up -d", "docker:down": "docker-compose down",
-  "docker:build": "docker-compose build"{{/if}}{{#if git}}, "prepare": "husky
-  install"{{/if}}
-}, "devDependencies": {
-{{#unless (eq template "api-only")}}
-  "concurrently": "^8.2.0"{{#if git}},{{/if}}
-{{/unless}}
+{
+  "name": "{{projectName}}",
+  "version": "0.1.0",
+  "description": "{{description}}",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "uvicorn src.main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "uvicorn src.main:app --host 0.0.0.0 --port 8000",
+    "test": "pytest",
+    "lint": "black . && isort .",
+    "type-check": "mypy ."{{#if docker}},
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build"{{/if}}{{#if git}},
+    "prepare": "husky install"{{/if}}
+  },
+  "devDependencies": {
 {{#if git}}
-  "husky": "^8.0.0", "lint-staged": "^14.0.0"
+    "husky": "^8.0.0",
+    "lint-staged": "^14.0.0"
 {{/if}}
-}, "keywords": [ "farm-stack", "fastapi",
-{{#unless (eq template "api-only")}}
-  "react",
-{{/unless}}
-"{{database}}"{{#if_feature "ai"}}, "ai", "machine-learning", "ollama"{{/if_feature}}
-], "author": "{{author}}", "license": "MIT" }
+  },
+  "keywords": [
+    "farm-stack",
+    "fastapi",
+    "api",
+    "{{database}}"{{#if_feature "ai"}},
+    "ai",
+    "machine-learning",
+    "ollama"{{/if_feature}}
+  ],
+  "author": "{{author}}",
+  "license": "MIT"
+}

@@ -46,6 +46,12 @@ get_latest_version() {
     
     # Try to get latest version from npm registry
     latest_version=$(npm view "$package_name" version 2>/dev/null || echo "unknown")
+    
+    # Handle npm registry errors gracefully
+    if [ "$latest_version" = "unknown" ] && [ "$VERBOSE" = true ]; then
+        print_color $YELLOW "⚠️  Could not fetch version for $package_name from npm registry"
+    fi
+    
     echo "$latest_version"
 }
 
@@ -78,7 +84,7 @@ check_package_deps() {
     local package_name=$2
     
     if [ ! -f "$package_json_path" ]; then
-        print_color $RED "❌ package.json not found at: $package_json_path"
+        print_color $YELLOW "⚠️  package.json not found at: $package_json_path - skipping $package_name"
         return 1
     fi
     
@@ -87,6 +93,7 @@ check_package_deps() {
     local outdated_count=0
     local total_count=0
     local updates_available=()
+    local check_errors=0
     
     # Check dependencies
     if jq -e '.dependencies // empty' "$package_json_path" > /dev/null 2>&1; then
@@ -100,23 +107,29 @@ check_package_deps() {
             if [ -n "$dep" ]; then
                 local current_version=$(jq -r ".dependencies[\"$dep\"]" "$package_json_path" | sed 's/[^0-9.]//g')
                 local latest_version=$(get_latest_version "$dep")
-                local status=$(version_compare "$current_version" "$latest_version")
                 
-                total_count=$((total_count + 1))
-                
-                case $status in
-                    "up-to-date")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
-                        ;;
-                    "outdated")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
-                        outdated_count=$((outdated_count + 1))
-                        updates_available+=("$dep:$latest_version")
-                        ;;
-                    *)
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
-                        ;;
-                esac
+                if [ "$latest_version" = "unknown" ]; then
+                    check_errors=$((check_errors + 1))
+                    printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                else
+                    local status=$(version_compare "$current_version" "$latest_version")
+                    
+                    total_count=$((total_count + 1))
+                    
+                    case $status in
+                        "up-to-date")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
+                            ;;
+                        "outdated")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                            outdated_count=$((outdated_count + 1))
+                            updates_available+=("$dep:$latest_version")
+                            ;;
+                        *)
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
+                            ;;
+                    esac
+                fi
             fi
         done <<< "$deps"
     fi
@@ -133,23 +146,29 @@ check_package_deps() {
             if [ -n "$dep" ]; then
                 local current_version=$(jq -r ".devDependencies[\"$dep\"]" "$package_json_path" | sed 's/[^0-9.]//g')
                 local latest_version=$(get_latest_version "$dep")
-                local status=$(version_compare "$current_version" "$latest_version")
                 
-                total_count=$((total_count + 1))
-                
-                case $status in
-                    "up-to-date")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
-                        ;;
-                    "outdated")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
-                        outdated_count=$((outdated_count + 1))
-                        updates_available+=("$dep:$latest_version")
-                        ;;
-                    *)
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
-                        ;;
-                esac
+                if [ "$latest_version" = "unknown" ]; then
+                    check_errors=$((check_errors + 1))
+                    printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                else
+                    local status=$(version_compare "$current_version" "$latest_version")
+                    
+                    total_count=$((total_count + 1))
+                    
+                    case $status in
+                        "up-to-date")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
+                            ;;
+                        "outdated")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                            outdated_count=$((outdated_count + 1))
+                            updates_available+=("$dep:$latest_version")
+                            ;;
+                        *)
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
+                            ;;
+                    esac
+                fi
             fi
         done <<< "$dev_deps"
     fi
@@ -166,23 +185,29 @@ check_package_deps() {
             if [ -n "$dep" ]; then
                 local current_version=$(jq -r ".peerDependencies[\"$dep\"]" "$package_json_path" | sed 's/[^0-9.]//g')
                 local latest_version=$(get_latest_version "$dep")
-                local status=$(version_compare "$current_version" "$latest_version")
                 
-                total_count=$((total_count + 1))
-                
-                case $status in
-                    "up-to-date")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
-                        ;;
-                    "outdated")
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
-                        outdated_count=$((outdated_count + 1))
-                        updates_available+=("$dep:$latest_version")
-                        ;;
-                    *)
-                        printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
-                        ;;
-                esac
+                if [ "$latest_version" = "unknown" ]; then
+                    check_errors=$((check_errors + 1))
+                    printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                else
+                    local status=$(version_compare "$current_version" "$latest_version")
+                    
+                    total_count=$((total_count + 1))
+                    
+                    case $status in
+                        "up-to-date")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $GREEN "✓")"
+                            ;;
+                        "outdated")
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $YELLOW "⚠")"
+                            outdated_count=$((outdated_count + 1))
+                            updates_available+=("$dep:$latest_version")
+                            ;;
+                        *)
+                            printf "  %-40s %s -> %s %s\n" "$dep" "$current_version" "$latest_version" "$(print_color $PURPLE "?")"
+                            ;;
+                    esac
+                fi
             fi
         done <<< "$peer_deps"
     fi
@@ -192,6 +217,9 @@ check_package_deps() {
     print_color $GREEN "  ✓ Up to date: $((total_count - outdated_count))"
     if [ $outdated_count -gt 0 ]; then
         print_color $YELLOW "  ⚠ Outdated: $outdated_count"
+    fi
+    if [ $check_errors -gt 0 ]; then
+        print_color $YELLOW "  ⚠ Check errors: $check_errors"
     fi
     print_color $BLUE "  📊 Total dependencies: $total_count"
     
@@ -221,16 +249,29 @@ update_package_deps() {
             # Update specific package using workspace filter
             cd "$WORKSPACE_ROOT"
             print_color $BLUE "🔄 Running: pnpm update --latest --filter $package_name"
-            pnpm update --latest --filter "$package_name" 2>/dev/null || {
+            if pnpm update --latest --filter "$package_name" 2>/dev/null; then
+                print_color $GREEN "✅ Dependencies updated for $package_name"
+                return 0
+            else
                 # Fallback: update from within the package directory
                 cd "$package_dir"
                 print_color $BLUE "🔄 Fallback: Running pnpm update --latest in package directory"
-                pnpm update --latest
-            }
+                if pnpm update --latest 2>/dev/null; then
+                    print_color $GREEN "✅ Dependencies updated for $package_name (fallback method)"
+                    return 0
+                else
+                    print_color $YELLOW "⚠️  pnpm update failed, trying npm fallback..."
+                fi
+            fi
         else
             # Root workspace update
             print_color $BLUE "🔄 Running: pnpm update --latest (root workspace)"
-            pnpm update --latest
+            if pnpm update --latest 2>/dev/null; then
+                print_color $GREEN "✅ Dependencies updated for $package_name"
+                return 0
+            else
+                print_color $YELLOW "⚠️  pnpm update failed, trying npm fallback..."
+            fi
         fi
         
     # Fallback to npm
@@ -248,19 +289,19 @@ update_package_deps() {
                         continue
                     fi
                     print_color $BLUE "  ↳ Updating $dep to @latest"
-                    npm install "$dep@latest" 2>/dev/null || true
+                    npm install "$dep@latest" 2>/dev/null || print_color $YELLOW "  ⚠ Failed to update $dep"
                 fi
             done <<< "$all_deps"
         else
             # Fallback to regular update
-            npm update
+            npm update 2>/dev/null || print_color $YELLOW "⚠️  npm update failed"
         fi
     else
         print_color $RED "❌ Neither pnpm nor npm found!"
         return 1
     fi
     
-    print_color $GREEN "✅ Dependencies updated for $package_name"
+    print_color $GREEN "✅ Dependencies updated for $package_name (with some potential issues)"
 }
 
 # Function to force update all dependencies to @latest

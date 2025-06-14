@@ -1,4 +1,13 @@
 # templates/ai-chat/apps/api/src/models/conversation.py.hbs
+"""
+Conversation model
+{{#switch database}}
+{{#case "mongodb"}}Conversation document model using Beanie for MongoDB{{/case}}
+{{#default}}Conversation model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
+
+{{#if_database "mongodb"}}
 from datetime import datetime
 from typing import Optional
 from beanie import Document, Indexed
@@ -47,3 +56,54 @@ class Conversation(Document):
                 "system_prompt": "You are a helpful AI assistant specialized in software development."
             }
         }
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any
+from sqlalchemy import Column, Integer, String, DateTime, Text, {{#if_database "postgresql" "mysql"}}JSON{{else}}Text{{/if_database}}
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Conversation(Base):
+    """Conversation table for storing chat conversations"""
+    
+    __tablename__ = "conversations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500), nullable=False)
+    {{#if features.auth}}
+    user_id = Column(String(50), nullable=False, index=True)
+    {{/if}}
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    last_activity = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    # Optional metadata
+    {{#if_database "postgresql" "mysql"}}
+    metadata = Column(JSON, nullable=True, default={})
+    {{else}}
+    metadata = Column(Text, nullable=True)  # JSON stored as string for SQLite/SQL Server
+    {{/if_database}}
+    
+    # AI settings for this conversation
+    preferred_provider = Column(String(50), nullable=True)
+    preferred_model = Column(String(100), nullable=True)
+    system_prompt = Column(Text, nullable=True)
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_metadata(self) -> Dict[str, Any]:
+        """Get metadata as dictionary (for SQLite/SQL Server)"""
+        if self.metadata:
+            import json
+            return json.loads(self.metadata)
+        return {}
+    
+    def set_metadata(self, metadata: Dict[str, Any]):
+        """Set metadata from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.metadata = json.dumps(metadata)
+    {{/if_database}}
+
+{{/if_database}}

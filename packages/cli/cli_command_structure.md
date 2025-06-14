@@ -9,6 +9,7 @@ The FARM CLI follows the Next.js model of comprehensive argument support with in
 ## `farm create` Command
 
 ### Command Syntax
+
 ```bash
 farm create <project-name> [options]
 ```
@@ -16,10 +17,11 @@ farm create <project-name> [options]
 ### Core Arguments & Options
 
 #### Templates (`--template`, `-t`)
+
 ```bash
 --template basic          # Simple React + FastAPI + MongoDB
 --template ai-chat        # Chat app with streaming AI responses
---template ai-dashboard   # Data dashboard with ML insights  
+--template ai-dashboard   # Data dashboard with ML insights
 --template ecommerce      # E-commerce platform with payments
 --template cms            # Content management system
 --template api-only       # FastAPI backend only (no React)
@@ -27,6 +29,7 @@ farm create <project-name> [options]
 ```
 
 #### Features (`--features`, `-f`)
+
 ```bash
 --features auth                    # Single feature
 --features auth,ai,realtime        # Multiple features
@@ -44,14 +47,17 @@ farm create <project-name> [options]
 ```
 
 #### Database (`--database`, `-d`)
+
 ```bash
 --database mongodb        # MongoDB (default)
 --database postgresql     # PostgreSQL with SQLAlchemy
---database mysql          # MySQL with SQLAlchemy  
+--database mysql          # MySQL with SQLAlchemy
 --database sqlite         # SQLite for development
+--database sqlserver      # SQL Server for enterprise
 ```
 
 #### Development Options
+
 ```bash
 --typescript              # Enable TypeScript (default: true)
 --no-typescript          # Use JavaScript instead
@@ -62,6 +68,7 @@ farm create <project-name> [options]
 ```
 
 #### Setup Options
+
 ```bash
 --git                     # Initialize git repo (default: true)
 --no-git                 # Skip git initialization
@@ -82,7 +89,7 @@ farm create <project-name> [options]
 
 ? What template would you like to use?
   ❯ Basic Web App
-    AI Chat Application  
+    AI Chat Application
     AI Dashboard
     E-commerce Platform
     Content Management System
@@ -104,6 +111,7 @@ farm create <project-name> [options]
     PostgreSQL
     MySQL
     SQLite
+    SQL Server
 
 ? Additional setup options:
   ✓ TypeScript
@@ -169,12 +177,14 @@ farm create my-app --template https://github.com/user/farm-template-custom
 ## Additional CLI Commands (Future Planning)
 
 ### Development Commands
+
 ```bash
 farm dev [--frontend-only] [--backend-only] [--port <port>]
 farm dev --watch [--verbose]
 ```
 
 ### Code Generation Commands
+
 ```bash
 farm generate model <name> [--fields <fields>]
 farm generate route <name> [--methods <methods>]
@@ -183,6 +193,7 @@ farm generate component <name>
 ```
 
 ### Database Commands
+
 ```bash
 farm db migrate [--create] [--upgrade] [--downgrade]
 farm db seed [--file <file>]
@@ -190,6 +201,7 @@ farm db studio
 ```
 
 ### AI/ML Commands
+
 ```bash
 farm ml serve <model> [--port <port>]
 farm ml train <script> [--gpu]
@@ -197,6 +209,7 @@ farm ml deploy <model> [--platform <platform>]
 ```
 
 ### Build & Deployment Commands
+
 ```bash
 farm build [--production] [--analyze]
 farm deploy [--platform <platform>] [--config <config>]
@@ -205,4 +218,4 @@ farm docker build [--tag <tag>]
 
 ---
 
-*Status: ✅ Completed - Ready for implementation*
+_Status: ✅ Completed - Ready for implementation_

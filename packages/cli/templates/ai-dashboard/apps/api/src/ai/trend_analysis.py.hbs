@@ -1,9 +1,425 @@
-"""Simple trend analysis utilities."""
+"""Advanced trend analysis utilities for time-series data and metrics."""
 
 import pandas as pd
+import numpy as np
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime, timedelta
+{{#if (eq database "mongodb")}}
+from beanie import PydanticObjectId
+{{else}}
+from sqlalchemy.orm import Session
+{{/if}}
+from ..models.metric import Metric
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def calculate_trend(df: pd.DataFrame, column: str) -> float:
-    values = df[column].tolist()
-    if len(values) < 2:
+    """
+    Calculate trend percentage for a specific column.
+    
+    Returns the percentage change from first to last value,
+    with additional smoothing for noisy data.
+    """
+    try:
+        if column not in df.columns or df[column].empty:
+            return 0.0
+        
+        values = df[column].dropna()
+        if len(values) < 2:
+            return 0.0
+        
+        # Use smoothed values if data is noisy (>10 points)
+        if len(values) > 10:
+            # Simple moving average to reduce noise
+            window_size = min(3, len(values) // 3)
+            smoothed = values.rolling(window=window_size, center=True).mean().dropna()
+            if len(smoothed) >= 2:
+                values = smoothed
+        
+        first_val = float(values.iloc[0])
+        last_val = float(values.iloc[-1])
+        
+        if abs(first_val) < 1e-10:  # Avoid division by very small numbers
+            return 0.0
+        
+        trend = (last_val - first_val) / abs(first_val)
+        return float(trend)
+        
+    except Exception as e:
+        logger.error(f"Error calculating trend for {column}: {str(e)}")
         return 0.0
-    return (values[-1] - values[0]) / max(values[0], 1)
+
+async def analyze_metric_trends(
+    {{#unless (eq database "mongodb")}}
+    db: Session,
+    {{/unless}}
+    metric_name: Optional[str] = None,
+    period: str = "week"
+) -> Dict[str, Any]:
+    """
+    Analyze trends for metrics over specified time periods.
+    
+    Provides comprehensive trend analysis including change detection,
+    velocity, acceleration, and statistical significance.
+    """
+    try:
+        # Define time periods
+        period_days = {
+            "day": 1,
+            "week": 7,
+            "month": 30,
+            "quarter": 90
+        }
+        
+        days = period_days.get(period, 7)
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Fetch metrics data
+        {{#if (eq database "mongodb")}}
+        query_filter = {"created_at": {"$gte": start_date, "$lte": end_date}}
+        if metric_name:
+            query_filter["name"] = metric_name
+        
+        metrics = await Metric.find(query_filter).sort("created_at").to_list()
+        
+        {{else}}
+        query = db.query(Metric).filter(
+            Metric.created_at >= start_date,
+            Metric.created_at <= end_date
+        )
+        if metric_name:
+            query = query.filter(Metric.name == metric_name)
+        
+        metrics = query.order_by(Metric.created_at).all()
+        
+        {{/if}}
+        
+        if not metrics:
+            return {
+                "error": "No metrics found for the specified period",
+                "period": period,
+                "metric_name": metric_name
+            }
+        
+        # Convert to DataFrame for analysis
+        metrics_data = []
+        for m in metrics:
+            metrics_data.append({
+                "name": m.name,
+                "value": m.value,
+                "created_at": m.created_at,
+                "metric_type": getattr(m, 'metric_type', 'gauge'),
+                "unit": getattr(m, 'unit', ''),
+                "threshold": getattr(m, 'threshold', None)
+            })
+        
+        df = pd.DataFrame(metrics_data)
+        
+        # Group by metric name and analyze trends
+        trend_results = {}
+        
+        for name in df['name'].unique():
+            metric_df = df[df['name'] == name].sort_values('created_at').reset_index(drop=True)
+            
+            if len(metric_df) < 2:
+                continue
+            
+            trend_analysis = await _analyze_single_metric_trend(metric_df)
+            trend_results[name] = trend_analysis
+        
+        return {
+            "period": period,
+            "days_analyzed": days,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "metrics_analyzed": len(trend_results),
+            "trends": trend_results
+        }
+        
+    except Exception as e:
+        logger.error(f"Error analyzing metric trends: {str(e)}")
+        return {"error": str(e)}
+
+async def detect_anomalies(df: pd.DataFrame, sensitivity: float = 2.0) -> List[Dict[str, Any]]:
+    """
+    Detect anomalies in data using statistical methods.
+    
+    Uses multiple detection methods including Z-score, IQR,
+    and moving average deviations.
+    """
+    anomalies = []
+    
+    try:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in numeric_cols:
+            col_data = df[col].dropna()
+            if len(col_data) < 5:  # Need minimum data points
+                continue
+            
+            # Method 1: Z-score based anomaly detection
+            z_anomalies = await _detect_zscore_anomalies(col_data, col, sensitivity)
+            anomalies.extend(z_anomalies)
+            
+            # Method 2: IQR based anomaly detection
+            iqr_anomalies = await _detect_iqr_anomalies(col_data, col)
+            anomalies.extend(iqr_anomalies)
+            
+            # Method 3: Moving average deviation (for time series)
+            if len(col_data) > 10:
+                ma_anomalies = await _detect_moving_average_anomalies(col_data, col)
+                anomalies.extend(ma_anomalies)
+        
+        # Remove duplicates and sort by confidence
+        unique_anomalies = []
+        seen = set()
+        
+        for anomaly in sorted(anomalies, key=lambda x: x.get('confidence', 0), reverse=True):
+            key = (anomaly['column'], anomaly['method'])
+            if key not in seen:
+                seen.add(key)
+                unique_anomalies.append(anomaly)
+        
+        return unique_anomalies[:10]  # Return top 10 anomalies
+        
+    except Exception as e:
+        logger.error(f"Error detecting anomalies: {str(e)}")
+        return [{"error": str(e)}]
+
+async def _analyze_single_metric_trend(metric_df: pd.DataFrame) -> Dict[str, Any]:
+    """Analyze trend for a single metric over time."""
+    try:
+        values = metric_df['value'].values
+        timestamps = pd.to_datetime(metric_df['created_at'])
+        
+        # Basic trend calculation
+        trend_pct = await calculate_trend(metric_df, 'value')
+        
+        # Calculate additional trend metrics
+        analysis = {
+            "data_points": len(values),
+            "first_value": float(values[0]),
+            "last_value": float(values[-1]),
+            "min_value": float(np.min(values)),
+            "max_value": float(np.max(values)),
+            "mean_value": float(np.mean(values)),
+            "std_value": float(np.std(values)),
+            "trend_percentage": float(trend_pct * 100),
+            "trend_direction": "up" if trend_pct > 0 else "down" if trend_pct < 0 else "stable"
+        }
+        
+        # Velocity (rate of change)
+        if len(values) > 2:
+            time_diff = (timestamps.iloc[-1] - timestamps.iloc[0]).total_seconds() / 3600  # hours
+            if time_diff > 0:
+                analysis["velocity_per_hour"] = float((values[-1] - values[0]) / time_diff)
+        
+        # Volatility (coefficient of variation)
+        if analysis["mean_value"] != 0:
+            analysis["volatility"] = float(analysis["std_value"] / abs(analysis["mean_value"]))
+        
+        # Trend classification
+        abs_trend = abs(trend_pct * 100)
+        if abs_trend < 5:
+            analysis["trend_strength"] = "stable"
+        elif abs_trend < 20:
+            analysis["trend_strength"] = "moderate"
+        else:
+            analysis["trend_strength"] = "strong"
+        
+        # Statistical significance (simple t-test approximation)
+        if len(values) > 3:
+            t_stat = abs(trend_pct) * np.sqrt(len(values)) / (analysis["std_value"] / analysis["mean_value"] if analysis["mean_value"] != 0 else 1)
+            analysis["statistical_significance"] = float(min(0.99, t_stat / 3))  # Rough approximation
+        
+        # Threshold analysis if available
+        threshold = metric_df['threshold'].iloc[0] if 'threshold' in metric_df.columns and pd.notna(metric_df['threshold'].iloc[0]) else None
+        if threshold:
+            analysis["threshold_breaches"] = int(np.sum(values > threshold))
+            analysis["current_vs_threshold"] = float(values[-1] / threshold if threshold != 0 else 0)
+        
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Error analyzing single metric trend: {str(e)}")
+        return {"error": str(e)}
+
+async def _detect_zscore_anomalies(data: pd.Series, column: str, sensitivity: float) -> List[Dict[str, Any]]:
+    """Detect anomalies using Z-score method."""
+    anomalies = []
+    
+    try:
+        mean_val = data.mean()
+        std_val = data.std()
+        
+        if std_val == 0:
+            return anomalies
+        
+        z_scores = np.abs((data - mean_val) / std_val)
+        anomaly_indices = z_scores > sensitivity
+        
+        if anomaly_indices.any():
+            anomaly_values = data[anomaly_indices]
+            max_z_score = z_scores[anomaly_indices].max()
+            
+            anomalies.append({
+                "column": column,
+                "method": "z_score",
+                "description": f"Z-score anomalies detected (max Z-score: {max_z_score:.2f})",
+                "anomaly_count": int(anomaly_indices.sum()),
+                "confidence": float(min(0.95, max_z_score / 5)),
+                "severity": "high" if max_z_score > 3 else "medium",
+                "details": {
+                    "max_z_score": float(max_z_score),
+                    "threshold": float(sensitivity),
+                    "anomalous_values": anomaly_values.tolist()[:5]  # First 5 anomalous values
+                }
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in Z-score anomaly detection: {str(e)}")
+    
+    return anomalies
+
+async def _detect_iqr_anomalies(data: pd.Series, column: str) -> List[Dict[str, Any]]:
+    """Detect anomalies using Interquartile Range method."""
+    anomalies = []
+    
+    try:
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        
+        if IQR == 0:
+            return anomalies
+        
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        outliers = data[(data < lower_bound) | (data > upper_bound)]
+        
+        if len(outliers) > 0:
+            outlier_percentage = (len(outliers) / len(data)) * 100
+            
+            anomalies.append({
+                "column": column,
+                "method": "iqr",
+                "description": f"IQR outliers detected ({len(outliers)} values, {outlier_percentage:.1f}%)",
+                "anomaly_count": len(outliers),
+                "confidence": float(0.8 if outlier_percentage < 5 else 0.6),
+                "severity": "high" if outlier_percentage > 10 else "medium",
+                "details": {
+                    "lower_bound": float(lower_bound),
+                    "upper_bound": float(upper_bound),
+                    "outlier_percentage": float(outlier_percentage),
+                    "anomalous_values": outliers.tolist()[:5]
+                }
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in IQR anomaly detection: {str(e)}")
+    
+    return anomalies
+
+async def _detect_moving_average_anomalies(data: pd.Series, column: str) -> List[Dict[str, Any]]:
+    """Detect anomalies using moving average deviation method."""
+    anomalies = []
+    
+    try:
+        window_size = min(5, len(data) // 3)
+        if window_size < 2:
+            return anomalies
+        
+        # Calculate moving average and standard deviation
+        moving_avg = data.rolling(window=window_size, center=True).mean()
+        moving_std = data.rolling(window=window_size, center=True).std()
+        
+        # Find points that deviate significantly from moving average
+        deviations = np.abs(data - moving_avg) / moving_std
+        threshold = 2.0
+        
+        anomaly_mask = deviations > threshold
+        anomaly_mask = anomaly_mask & ~deviations.isna()
+        
+        if anomaly_mask.any():
+            max_deviation = deviations[anomaly_mask].max()
+            anomaly_count = anomaly_mask.sum()
+            
+            anomalies.append({
+                "column": column,
+                "method": "moving_average",
+                "description": f"Moving average anomalies detected (max deviation: {max_deviation:.2f})",
+                "anomaly_count": int(anomaly_count),
+                "confidence": float(min(0.9, max_deviation / 4)),
+                "severity": "high" if max_deviation > 3 else "medium",
+                "details": {
+                    "window_size": window_size,
+                    "max_deviation": float(max_deviation),
+                    "threshold": float(threshold),
+                    "anomalous_indices": anomaly_mask[anomaly_mask].index.tolist()[:5]
+                }
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in moving average anomaly detection: {str(e)}")
+    
+    return anomalies
+
+async def forecast_trend(
+    df: pd.DataFrame,
+    column: str,
+    periods: int = 5,
+    method: str = "linear"
+) -> Dict[str, Any]:
+    """
+    Simple trend forecasting using linear regression or moving averages.
+    
+    Provides basic forecasting capabilities for trend continuation
+    with confidence intervals.
+    """
+    try:
+        if column not in df.columns:
+            return {"error": f"Column {column} not found"}
+        
+        values = df[column].dropna()
+        if len(values) < 3:
+            return {"error": "Insufficient data for forecasting"}
+        
+        # Simple linear trend forecasting
+        x = np.arange(len(values))
+        y = values.values
+        
+        # Linear regression
+        coeffs = np.polyfit(x, y, 1)
+        slope, intercept = coeffs
+        
+        # Generate forecasts
+        future_x = np.arange(len(values), len(values) + periods)
+        forecasts = slope * future_x + intercept
+        
+        # Calculate confidence intervals (simple approximation)
+        residuals = y - (slope * x + intercept)
+        mse = np.mean(residuals**2)
+        std_error = np.sqrt(mse)
+        
+        # 95% confidence interval approximation
+        confidence_interval = 1.96 * std_error
+        
+        return {
+            "method": method,
+            "periods_forecasted": periods,
+            "historical_points": len(values),
+            "trend_slope": float(slope),
+            "forecasts": forecasts.tolist(),
+            "confidence_interval": float(confidence_interval),
+            "upper_bound": (forecasts + confidence_interval).tolist(),
+            "lower_bound": (forecasts - confidence_interval).tolist(),
+            "mean_squared_error": float(mse),
+            "trend_direction": "increasing" if slope > 0 else "decreasing" if slope < 0 else "stable"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error forecasting trend: {str(e)}")
+        return {"error": str(e)}

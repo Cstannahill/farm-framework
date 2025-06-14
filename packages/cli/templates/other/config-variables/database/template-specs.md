@@ -22,3 +22,38 @@ export default defineConfig({
   },
 });
 ```
+
+**MySQL:**
+
+```typescript
+export default defineConfig({
+  database: {
+    type: "mysql",
+    url: process.env.DATABASE_URL || "mysql://user:pass@localhost/farmapp",
+  },
+});
+```
+
+**SQLite:**
+
+```typescript
+export default defineConfig({
+  database: {
+    type: "sqlite",
+    url: process.env.DATABASE_URL || "sqlite:///./farmapp.db",
+  },
+});
+```
+
+**SQL Server:**
+
+```typescript
+export default defineConfig({
+  database: {
+    type: "sqlserver",
+    url:
+      process.env.DATABASE_URL ||
+      "mssql+pyodbc://user:pass@localhost/farmapp?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+  },
+});
+```

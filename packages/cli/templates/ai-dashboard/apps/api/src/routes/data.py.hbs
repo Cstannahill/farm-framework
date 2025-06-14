@@ -1,11 +1,321 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+{{#if (eq database "mongodb")}}
+from beanie import PydanticObjectId
+{{else}}
+from sqlalchemy.orm import Session
+from ..database import get_db
+from fastapi import Depends
+{{/if}}
+from ..models.dataset import Dataset
+from ..models.metric import Metric
+from ..ml.data_processor import (
+    process_upload_data,
+    validate_data_format,
+    get_data_summary,
+    transform_data_for_chart
+)
+import pandas as pd
+import json
 
 router = APIRouter(prefix="/data", tags=["data"])
 
 @router.get("/")
-async def get_data(type: str):
-    """Return chart data by type."""
-    return {
-        "type": type,
-        "values": [1, 2, 3, 4]
-    }
+async def get_data(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    data_type: str = Query(..., description="Type of data to retrieve (metrics, datasets, charts)"),
+    format: str = Query("json", regex="^(json|csv|chart)$", description="Output format"),
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum records to return")
+):
+    """
+    Retrieve data by type with flexible formatting options.
+    
+    Supports metrics, datasets, and chart-ready data formats
+    with date filtering and output format selection.
+    """
+    try:
+        # Parse date filters
+        start_dt = None
+        end_dt = None
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+        
+        if data_type == "metrics":
+            {{#if (eq database "mongodb")}}
+            query_filter = {}
+            if start_dt:
+                query_filter["created_at"] = {"$gte": start_dt}
+            if end_dt:
+                if "created_at" in query_filter:
+                    query_filter["created_at"]["$lte"] = end_dt
+                else:
+                    query_filter["created_at"] = {"$lte": end_dt}
+            
+            metrics = await Metric.find(query_filter).limit(limit).to_list()
+            
+            {{else}}
+            query = db.query(Metric)
+            if start_dt:
+                query = query.filter(Metric.created_at >= start_dt)
+            if end_dt:
+                query = query.filter(Metric.created_at <= end_dt)
+            
+            metrics = query.limit(limit).all()
+            
+            {{/if}}
+            if format == "chart":
+                return transform_data_for_chart(metrics, "metrics")
+            elif format == "csv":
+                df = pd.DataFrame([m.dict() for m in metrics])
+                return {"csv_data": df.to_csv(index=False)}
+            else:
+                return {"data": metrics, "count": len(metrics)}
+        
+        elif data_type == "datasets":
+            {{#if (eq database "mongodb")}}
+            query_filter = {}
+            if start_dt:
+                query_filter["created_at"] = {"$gte": start_dt}
+            if end_dt:
+                if "created_at" in query_filter:
+                    query_filter["created_at"]["$lte"] = end_dt
+                else:
+                    query_filter["created_at"] = {"$lte": end_dt}
+            
+            datasets = await Dataset.find(query_filter).limit(limit).to_list()
+            
+            {{else}}
+            query = db.query(Dataset)
+            if start_dt:
+                query = query.filter(Dataset.created_at >= start_dt)
+            if end_dt:
+                query = query.filter(Dataset.created_at <= end_dt)
+            
+            datasets = query.limit(limit).all()
+            
+            {{/if}}
+            if format == "chart":
+                return transform_data_for_chart(datasets, "datasets")
+            elif format == "csv":
+                df = pd.DataFrame([d.dict() for d in datasets])
+                return {"csv_data": df.to_csv(index=False)}
+            else:
+                return {"data": datasets, "count": len(datasets)}
+        
+        elif data_type == "charts":
+            # Return chart-ready data for dashboard visualization
+            {{#if (eq database "mongodb")}}
+            metrics = await Metric.find().limit(limit).to_list()
+            {{else}}
+            metrics = db.query(Metric).limit(limit).all()
+            {{/if}}
+            
+            chart_data = transform_data_for_chart(metrics, "dashboard")
+            return {
+                "charts": chart_data,
+                "metadata": {
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "record_count": len(metrics),
+                    "date_range": {
+                        "start": start_date,
+                        "end": end_date
+                    }
+                }
+            }
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown data type: {data_type}")
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve data: {str(e)}")
+
+@router.post("/upload")
+async def upload_data(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    file: UploadFile = File(...),
+    dataset_name: str = Query(..., description="Name for the uploaded dataset"),
+    data_type: str = Query("csv", regex="^(csv|json|excel)$", description="Type of uploaded data")
+):
+    """
+    Upload and process data files.
+    
+    Supports CSV, JSON, and Excel files with automatic validation,
+    processing, and dataset creation.
+    """
+    try:
+        # Validate file format
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+        
+        # Read file content
+        content = await file.read()
+        
+        # Validate and process data
+        processed_data = await process_upload_data(content, data_type)
+        validation_result = await validate_data_format(processed_data)
+        
+        if not validation_result["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid data format: {validation_result['errors']}"
+            )
+        
+        # Create dataset record
+        dataset_data = {
+            "name": dataset_name,
+            "description": f"Uploaded {data_type} file: {file.filename}",
+            "data_type": data_type,
+            "file_name": file.filename,
+            "file_size": len(content),
+            "row_count": len(processed_data),
+            "column_count": len(processed_data.columns) if hasattr(processed_data, 'columns') else 0,
+            "columns": list(processed_data.columns) if hasattr(processed_data, 'columns') else [],
+            "data_quality": validation_result.get("quality_score", 0.0),
+            "created_at": datetime.utcnow()
+        }
+        
+        {{#if (eq database "mongodb")}}
+        dataset = Dataset(**dataset_data)
+        saved_dataset = await dataset.insert()
+        
+        {{else}}
+        dataset = Dataset(**dataset_data)
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+        saved_dataset = dataset
+        
+        {{/if}}
+        return {
+            "message": "Data uploaded successfully",
+            "dataset": saved_dataset,
+            "summary": await get_data_summary(processed_data)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload data: {str(e)}")
+
+@router.get("/summary")
+async def get_data_summary_endpoint(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    days: int = Query(30, ge=1, le=365, description="Number of days to summarize")
+):
+    """
+    Get data summary and statistics.
+    
+    Provides overview of data volume, quality, and key metrics
+    over the specified time period.
+    """
+    try:
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        {{#if (eq database "mongodb")}}
+        # Get metrics summary
+        metrics = await Metric.find({
+            "created_at": {"$gte": start_date, "$lte": end_date}
+        }).to_list()
+        
+        # Get datasets summary
+        datasets = await Dataset.find({
+            "created_at": {"$gte": start_date, "$lte": end_date}
+        }).to_list()
+        
+        {{else}}
+        # Get metrics summary
+        metrics = db.query(Metric).filter(
+            Metric.created_at >= start_date,
+            Metric.created_at <= end_date
+        ).all()
+        
+        # Get datasets summary
+        datasets = db.query(Dataset).filter(
+            Dataset.created_at >= start_date,
+            Dataset.created_at <= end_date
+        ).all()
+        
+        {{/if}}
+        
+        # Calculate summary statistics
+        summary = {
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "days": days
+            },
+            "metrics": {
+                "total_count": len(metrics),
+                "unique_names": len(set(m.name for m in metrics)),
+                "avg_value": sum(m.value for m in metrics) / len(metrics) if metrics else 0,
+                "data_points": sum(1 for m in metrics if m.value is not None)
+            },
+            "datasets": {
+                "total_count": len(datasets),
+                "total_rows": sum(d.row_count for d in datasets if d.row_count),
+                "total_size_mb": sum(d.file_size for d in datasets if d.file_size) / (1024 * 1024),
+                "avg_quality": sum(d.data_quality for d in datasets if d.data_quality) / len(datasets) if datasets else 0
+            },
+            "generated_at": datetime.utcnow().isoformat()
+        }
+        
+        return summary
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
+
+@router.get("/export")
+async def export_data(
+    {{#unless (eq database "mongodb")}}
+    db: Session = Depends(get_db),
+    {{/unless}}
+    data_type: str = Query(..., description="Type of data to export"),
+    format: str = Query("csv", regex="^(csv|json|excel)$", description="Export format"),
+    start_date: Optional[str] = Query(None, description="Start date filter"),
+    end_date: Optional[str] = Query(None, description="End date filter")
+):
+    """
+    Export data in various formats.
+    
+    Supports CSV, JSON, and Excel export with date filtering
+    and customizable data selection.
+    """
+    try:
+        # Get data using the existing get_data logic
+        data_response = await get_data(
+            {{#unless (eq database "mongodb")}}
+            db=db,
+            {{/unless}}
+            data_type=data_type,
+            format="json",
+            start_date=start_date,
+            end_date=end_date,
+            limit=10000  # Higher limit for exports
+        )
+        
+        data = data_response.get("data", [])
+        
+        if format == "csv":
+            df = pd.DataFrame([item.dict() if hasattr(item, 'dict') else item for item in data])
+            return {"csv_data": df.to_csv(index=False)}
+        elif format == "excel":
+            df = pd.DataFrame([item.dict() if hasattr(item, 'dict') else item for item in data])
+            # In a real implementation, you'd return a proper Excel file
+            return {"excel_data": df.to_json(orient="records")}
+        else:  # json
+            return {"json_data": data}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to export data: {str(e)}")

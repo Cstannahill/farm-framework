@@ -1,0 +1,144 @@
+# packages/cli/templates/base/apps/api/requirements.txt.hbs
+# FastAPI and ASGI server
+fastapi==0.115.10
+uvicorn[standard]==0.34.0
+
+# Database dependencies - All 5 databases supported
+{{#switch database}}
+{{#case "mongodb"}}
+# MongoDB
+motor==3.6.0
+beanie==1.30.0
+pymongo==4.13
+{{/case}}
+{{#case "postgresql"}}
+# PostgreSQL
+asyncpg==0.30.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.15.0
+{{/case}}
+{{#case "mysql"}}
+# MySQL
+aiomysql==0.3.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.15.0
+{{/case}}
+{{#case "sqlite"}}
+# SQLite
+aiosqlite==0.22.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.15.0
+{{/case}}
+{{#case "sqlserver"}}
+# SQL Server
+aioodbc==0.5.0
+pyodbc==5.2.0
+sqlalchemy[asyncio]==2.0.36
+alembic==1.15.0
+{{/case}}
+{{/switch}}
+
+{{#if_feature "auth"}}
+# Authentication and security
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.2
+{{/if_feature}}
+
+{{#if_feature "ai"}}
+# HTTP client for AI providers
+httpx==0.28.1
+
+{{#if_template "ai-chat" "ai-dashboard"}}
+{{#if ai.providers.openai.enabled}}
+# OpenAI
+openai==5.3.0
+{{/if}}
+
+{{#if ai.providers.anthropic.enabled}}
+# Anthropic
+anthropic==0.40.0
+{{/if}}
+
+{{#if ai.providers.huggingface.enabled}}
+# Hugging Face
+transformers==5.1.0
+torch==2.6.0
+{{/if}}
+{{else}}
+# Basic AI support
+openai==5.3.0
+{{/if_template}}
+{{/if_feature}}
+
+{{#if_feature "realtime"}}
+# WebSocket support
+websockets==13.1
+{{/if_feature}}
+
+{{#if_feature "storage"}}
+# Storage providers
+{{#switch storage.type}}
+{{#case "s3"}}
+boto3==1.36.51
+{{/case}}
+{{#case "gcs"}}
+google-cloud-storage==2.19.0
+{{/case}}
+{{#case "azure"}}
+azure-storage-blob==13.0.0
+{{/case}}
+{{/switch}}
+{{/if_feature}}
+
+{{#if_feature "email"}}
+# Email support
+aiosmtplib==3.0.2
+jinja2==3.1.4
+{{/if_feature}}
+
+{{#if_feature "analytics"}}
+# Analytics
+mixpanel==5.0.0
+{{/if_feature}}
+
+{{#if_feature "search"}}
+# Search functionality
+elasticsearch[async]==8.16.0
+{{/if_feature}}
+
+# Configuration management
+pydantic[email]==2.1.0
+pydantic-settings==2.7.0
+
+# Logging and monitoring
+python-json-logger==3.13.4
+coloredlogs==15.0.1
+
+{{#if_feature "observability"}}
+# Observability
+prometheus-client==0.22.0
+opentelemetry-api==1.30.0
+opentelemetry-sdk==1.30.0
+opentelemetry-instrumentation-fastapi==0.51b0
+{{/if_feature}}
+
+# Development and testing dependencies
+pytest==8.4.0
+pytest-asyncio==1.0.0
+pytest-cov==6.0.0
+httpx==0.28.1  # For testing
+faker==33.1.0  # For test data generation
+
+# Code quality
+black==24.12.0
+isort==5.13.2
+flake8==7.1.1
+mypy==1.14.0
+
+# Documentation
+mkdocs==1.6.2
+mkdocs-material==9.5.52
+
+# Environment management
+python-dotenv==1.0.1

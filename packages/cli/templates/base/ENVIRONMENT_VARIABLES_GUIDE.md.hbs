@@ -1,0 +1,210 @@
+# Environment Variables Configuration Guide
+
+## 📋 **Environment Variable Loading Strategy**
+
+The FARM framework uses a **layered environment variable approach** that provides flexibility while maintaining simplicity.
+
+### **Loading Priority (Highest to Lowest):**
+
+1. **`apps/*/env.local`** - App-specific overrides (highest priority)
+2. **Root `.env`** - Project-wide configuration  
+3. **Root `.env.example`** - Default template values (lowest priority)
+
+## 🏗️ **File Structure**
+
+```
+project-root/
+├── .env.example (template - committed to git)
+├── .env (actual values - gitignored)
+├── apps/
+│   ├── web/
+│   │   └── .env.local (frontend overrides - gitignored)
+│   └── api/
+│       └── .env.local (backend overrides - gitignored)
+```
+
+## ⚙️ **How It Works**
+
+### **Frontend (Vite)**
+- Loads from root directory first: `../../.env`
+- Then loads local overrides: `./.env.local`
+- Variables prefixed with `VITE_` are exposed to client code
+- Configuration in `vite.config.ts` handles the layered loading
+
+### **Backend (FastAPI)**
+- Python applications can read from root `.env` using `python-dotenv`
+- Local overrides in `apps/api/.env.local` take precedence
+- Typically loaded in `src/config.py` or similar
+
+## 💡 **Usage Examples**
+
+### **Root `.env` (Shared Configuration):**
+```bash
+# Database (choose one based on your database type)
+{{#switch database}}
+{{#case "mongodb"}}
+DATABASE_URL=mongodb://localhost:27017/{{kebabCase projectName}}
+{{/case}}
+{{#case "postgresql"}}
+DATABASE_URL=postgresql://postgres:password@localhost:5432/{{kebabCase projectName}}
+{{/case}}
+{{#case "mysql"}}
+DATABASE_URL=mysql://user:password@localhost:3306/{{kebabCase projectName}}
+{{/case}}
+{{#case "sqlite"}}
+DATABASE_URL=sqlite:///./{{kebabCase projectName}}.db
+{{/case}}
+{{#case "sqlserver"}}
+DATABASE_URL=mssql+pyodbc://sa:Farm123!Strong@localhost:1433/{{kebabCase projectName}}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+{{/case}}
+{{/switch}}
+
+# AI Providers
+OLLAMA_URL=http://localhost:11434
+OPENAI_API_KEY=sk-your-key-here
+
+# Development ports
+VITE_API_URL=http://localhost:8000/api
+VITE_WS_URL=ws://localhost:8000/ws
+```
+
+### **Database Connection Examples:**
+```bash
+# MongoDB (Document Database)
+DATABASE_URL=mongodb://localhost:27017/myproject
+# With authentication:
+DATABASE_URL=mongodb://username:password@localhost:27017/myproject
+
+# PostgreSQL (Relational Database)
+DATABASE_URL=postgresql://postgres:password@localhost:5432/myproject
+# With SSL:
+DATABASE_URL=postgresql://user:pass@localhost:5432/myproject?sslmode=require
+
+# MySQL (Relational Database)
+DATABASE_URL=mysql://user:password@localhost:3306/myproject
+# With specific charset:
+DATABASE_URL=mysql://user:pass@localhost:3306/myproject?charset=utf8mb4
+
+# SQLite (File-based Database)
+DATABASE_URL=sqlite:///./myproject.db
+# Absolute path:
+DATABASE_URL=sqlite:///C:/data/myproject.db
+
+# SQL Server (Enterprise Database)
+DATABASE_URL=mssql+pyodbc://sa:Password123!@localhost:1433/myproject?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+# With Azure SQL:
+DATABASE_URL=mssql+pyodbc://username@servername:password@servername.database.windows.net:1433/myproject?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes
+```
+
+### **Frontend Override (`apps/web/.env.local`):**
+```bash
+# Override API URL for local development
+VITE_API_URL=http://localhost:3001/api
+VITE_DEBUG=true
+```
+
+### **Backend Override (`apps/api/.env.local`):**
+```bash
+# Override database for local testing
+{{#switch database}}
+{{#case "mongodb"}}
+DATABASE_URL=mongodb://localhost:27017/{{kebabCase projectName}}_test
+{{/case}}
+{{#case "postgresql"}}
+DATABASE_URL=postgresql://postgres:password@localhost:5432/{{kebabCase projectName}}_test
+{{/case}}
+{{#case "mysql"}}
+DATABASE_URL=mysql://user:password@localhost:3306/{{kebabCase projectName}}_test
+{{/case}}
+{{#case "sqlite"}}
+DATABASE_URL=sqlite:///./{{kebabCase projectName}}_test.db
+{{/case}}
+{{#case "sqlserver"}}
+DATABASE_URL=mssql+pyodbc://sa:Farm123!Strong@localhost:1433/{{kebabCase projectName}}_test?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+{{/case}}
+{{/switch}}
+LOG_LEVEL=DEBUG
+```
+
+## 🔧 **Development Workflow**
+
+### **1. Initial Setup:**
+```bash
+# Copy template to actual environment file
+cp .env.example .env
+
+# Edit with your actual values
+# (This file is gitignored)
+```
+
+### **2. App-Specific Overrides:**
+```bash
+# For frontend-specific values
+echo "VITE_DEBUG=true" > apps/web/.env.local
+
+# For backend-specific values  
+echo "LOG_LEVEL=DEBUG" > apps/api/.env.local
+```
+
+### **3. Team Sharing:**
+- Share configuration changes via `.env.example`
+- Individual developer values stay in `.env` and `.env.local`
+- CI/CD can use different environment strategies
+
+## 🚀 **Production Deployment**
+
+### **Docker Compose:**
+```yaml
+services:
+  web:
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    env_file:
+      - .env
+      
+  api:
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - .env
+```
+
+### **Cloud Deployment:**
+- Set environment variables in your hosting platform
+- Use secrets management for sensitive values
+- Override development defaults with production values
+
+## ✅ **Best Practices**
+
+### **✅ DO:**
+- Use descriptive variable names with prefixes
+- Keep sensitive values in `.env` (gitignored)
+- Document all variables in `.env.example`
+- Use `VITE_` prefix for frontend variables
+- Group related variables with comments
+
+### **❌ DON'T:**
+- Commit actual `.env` files to git
+- Put production secrets in `.env.example`
+- Use different naming conventions across apps
+- Forget to update `.env.example` when adding new variables
+
+## 🔍 **Troubleshooting**
+
+### **Variable Not Loading:**
+1. Check variable name has correct prefix (`VITE_` for frontend)
+2. Verify file location and naming
+3. Restart development server after changes
+4. Check console for environment variable values
+
+### **Conflicting Values:**
+1. Remember the priority order (local > root > example)
+2. Check all potential source files
+3. Use unique variable names to avoid conflicts
+
+### **Production Issues:**
+1. Verify environment variables are set in deployment platform
+2. Check that sensitive values aren't in client-side code
+3. Ensure backend can access root-level environment files
+
+This layered approach provides maximum flexibility while maintaining clear separation between development and production configurations.

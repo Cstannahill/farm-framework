@@ -1,12 +1,335 @@
-from fastapi import APIRouter
+# packages/cli/templates/ai-dashboard/apps/api/src/routes/analytics.py.hbs
+"""
+Analytics endpoints
+Advanced analytics, trends, and data analysis endpoints
+"""
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import BaseModel
+
+{{#if_database "mongodb"}}
+from ..models.dataset import Dataset
 from ..models.metric import Metric
+from ..models.insight import Insight
+{{else}}
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, func, and_, or_
+from ..database.connection import get_db_session
+from ..models.dataset import Dataset
+from ..models.metric import Metric
+from ..models.insight import Insight
+{{/if_database}}
+
+from ..ai.analytics import analyze_trends, detect_anomalies
+from ..ml.data_processor import process_analytics_data
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
-@router.get("/", response_model=list[Metric])
-async def list_metrics():
-    """Return a list of metrics for the dashboard."""
-    return [
-        Metric(name="Users", value=120),
-        Metric(name="Sessions", value=340),
-    ]
+# Response models
+class TrendAnalysis(BaseModel):
+    """Trend analysis response model"""
+    metric_name: str
+    trend_direction: str  # 'up', 'down', 'stable'
+    trend_strength: float  # 0-1
+    period_days: int
+    change_percent: float
+    data_points: List[Dict[str, Any]]
+
+class AnomalyDetection(BaseModel):
+    """Anomaly detection response model"""
+    metric_name: str
+    anomaly_score: float
+    is_anomaly: bool
+    timestamp: datetime
+    expected_value: float
+    actual_value: float
+    deviation: float
+
+class AnalyticsSummary(BaseModel):
+    """Analytics summary response model"""
+    total_metrics_analyzed: int
+    trends_detected: int
+    anomalies_detected: int
+    insights_generated: int
+    analysis_period: str
+    generated_at: datetime
+
+{{#if_database "mongodb"}}
+@router.get("/trends", response_model=List[TrendAnalysis])
+async def get_trend_analysis(
+    metric_names: Optional[str] = Query(None, description="Comma-separated metric names"),
+    days: int = Query(30, description="Number of days to analyze"),
+    min_strength: float = Query(0.3, description="Minimum trend strength to include")
+):
+    """Get trend analysis for metrics"""
+    try:
+        # Get metrics to analyze
+        if metric_names:
+            names = [name.strip() for name in metric_names.split(",")]
+            metrics = await Metric.find(
+                and_(Metric.name.in_(names), Metric.is_active == True)
+            ).to_list()
+        else:
+            metrics = await Metric.find(Metric.is_active == True).to_list()
+        
+        trends = []
+        for metric in metrics:
+            trend_data = await analyze_trends(metric, days)
+            if trend_data and trend_data.get("strength", 0) >= min_strength:
+                trends.append(TrendAnalysis(
+                    metric_name=metric.name,
+                    trend_direction=trend_data["direction"],
+                    trend_strength=trend_data["strength"],
+                    period_days=days,
+                    change_percent=trend_data["change_percent"],
+                    data_points=trend_data["data_points"]
+                ))
+        
+        return trends
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze trends: {str(e)}")
+
+@router.get("/anomalies", response_model=List[AnomalyDetection])
+async def get_anomaly_detection(
+    metric_names: Optional[str] = Query(None, description="Comma-separated metric names"),
+    days: int = Query(7, description="Number of days to analyze"),
+    sensitivity: float = Query(0.8, description="Anomaly detection sensitivity")
+):
+    """Get anomaly detection for metrics"""
+    try:
+        # Get metrics to analyze
+        if metric_names:
+            names = [name.strip() for name in metric_names.split(",")]
+            metrics = await Metric.find(
+                and_(Metric.name.in_(names), Metric.is_active == True)
+            ).to_list()
+        else:
+            metrics = await Metric.find(Metric.is_active == True).to_list()
+        
+        anomalies = []
+        for metric in metrics:
+            anomaly_data = await detect_anomalies(metric, days, sensitivity)
+            if anomaly_data:
+                for anomaly in anomaly_data:
+                    anomalies.append(AnomalyDetection(
+                        metric_name=metric.name,
+                        anomaly_score=anomaly["score"],
+                        is_anomaly=anomaly["is_anomaly"],
+                        timestamp=anomaly["timestamp"],
+                        expected_value=anomaly["expected"],
+                        actual_value=anomaly["actual"],
+                        deviation=anomaly["deviation"]
+                    ))
+        
+        return anomalies
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to detect anomalies: {str(e)}")
+
+@router.get("/summary", response_model=AnalyticsSummary)
+async def get_analytics_summary(
+    days: int = Query(30, description="Analysis period in days")
+):
+    """Get analytics summary"""
+    try:
+        # Get total metrics analyzed
+        total_metrics = await Metric.find(Metric.is_active == True).count()
+        
+        # Get recent insights
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        recent_insights = await Insight.find(
+            and_(
+                Insight.created_at >= cutoff_date,
+                Insight.is_active == True
+            )
+        ).to_list()
+        
+        # Analyze trends and anomalies
+        trends = await get_trend_analysis(days=days, min_strength=0.1)
+        anomalies = await get_anomaly_detection(days=days)
+        
+        return AnalyticsSummary(
+            total_metrics_analyzed=total_metrics,
+            trends_detected=len(trends),
+            anomalies_detected=len([a for a in anomalies if a.is_anomaly]),
+            insights_generated=len(recent_insights),
+            analysis_period=f"{days} days",
+            generated_at=datetime.utcnow()
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get analytics summary: {str(e)}")
+
+{{else}}
+@router.get("/trends", response_model=List[TrendAnalysis])
+async def get_trend_analysis(
+    metric_names: Optional[str] = Query(None, description="Comma-separated metric names"),
+    days: int = Query(30, description="Number of days to analyze"),
+    min_strength: float = Query(0.3, description="Minimum trend strength to include"),
+    db: Session = Depends(get_db_session)
+):
+    """Get trend analysis for metrics"""
+    try:
+        # Get metrics to analyze
+        if metric_names:
+            names = [name.strip() for name in metric_names.split(",")]
+            metrics = db.query(Metric).filter(
+                and_(Metric.name.in_(names), Metric.is_active == True)
+            ).all()
+        else:
+            metrics = db.query(Metric).filter(Metric.is_active == True).all()
+        
+        trends = []
+        for metric in metrics:
+            trend_data = await analyze_trends(metric, days, db)
+            if trend_data and trend_data.get("strength", 0) >= min_strength:
+                trends.append(TrendAnalysis(
+                    metric_name=metric.name,
+                    trend_direction=trend_data["direction"],
+                    trend_strength=trend_data["strength"],
+                    period_days=days,
+                    change_percent=trend_data["change_percent"],
+                    data_points=trend_data["data_points"]
+                ))
+        
+        return trends
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze trends: {str(e)}")
+
+@router.get("/anomalies", response_model=List[AnomalyDetection])
+async def get_anomaly_detection(
+    metric_names: Optional[str] = Query(None, description="Comma-separated metric names"),
+    days: int = Query(7, description="Number of days to analyze"),
+    sensitivity: float = Query(0.8, description="Anomaly detection sensitivity"),
+    db: Session = Depends(get_db_session)
+):
+    """Get anomaly detection for metrics"""
+    try:
+        # Get metrics to analyze
+        if metric_names:
+            names = [name.strip() for name in metric_names.split(",")]
+            metrics = db.query(Metric).filter(
+                and_(Metric.name.in_(names), Metric.is_active == True)
+            ).all()
+        else:
+            metrics = db.query(Metric).filter(Metric.is_active == True).all()
+        
+        anomalies = []
+        for metric in metrics:
+            anomaly_data = await detect_anomalies(metric, days, sensitivity, db)
+            if anomaly_data:
+                for anomaly in anomaly_data:
+                    anomalies.append(AnomalyDetection(
+                        metric_name=metric.name,
+                        anomaly_score=anomaly["score"],
+                        is_anomaly=anomaly["is_anomaly"],
+                        timestamp=anomaly["timestamp"],
+                        expected_value=anomaly["expected"],
+                        actual_value=anomaly["actual"],
+                        deviation=anomaly["deviation"]
+                    ))
+        
+        return anomalies
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to detect anomalies: {str(e)}")
+
+@router.get("/summary", response_model=AnalyticsSummary)
+async def get_analytics_summary(
+    days: int = Query(30, description="Analysis period in days"),
+    db: Session = Depends(get_db_session)
+):
+    """Get analytics summary"""
+    try:
+        # Get total metrics analyzed
+        total_metrics = db.query(func.count(Metric.id)).filter(Metric.is_active == True).scalar()
+        
+        # Get recent insights
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        recent_insights = db.query(Insight).filter(
+            and_(
+                Insight.created_at >= cutoff_date,
+                Insight.is_active == True
+            )
+        ).all()
+        
+        # Analyze trends and anomalies
+        trends = await get_trend_analysis(days=days, min_strength=0.1, db=db)
+        anomalies = await get_anomaly_detection(days=days, db=db)
+        
+        return AnalyticsSummary(
+            total_metrics_analyzed=total_metrics,
+            trends_detected=len(trends),
+            anomalies_detected=len([a for a in anomalies if a.is_anomaly]),
+            insights_generated=len(recent_insights),
+            analysis_period=f"{days} days",
+            generated_at=datetime.utcnow()
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get analytics summary: {str(e)}")
+
+{{/if_database}}
+
+@router.post("/process-data")
+async def process_analytics_data_endpoint(
+    dataset_name: str = Query(..., description="Dataset name to process"),
+    analysis_type: str = Query("comprehensive", description="Type of analysis to perform"),
+    {{#if_database "sql"}}db: Session = Depends(get_db_session){{/if_database}}
+):
+    """Process analytics data for a dataset"""
+    try:
+        {{#if_database "mongodb"}}
+        result = await process_analytics_data(dataset_name, analysis_type)
+        {{else}}
+        result = await process_analytics_data(dataset_name, analysis_type, db)
+        {{/if_database}}
+        
+        return {
+            "status": "success",
+            "dataset": dataset_name,
+            "analysis_type": analysis_type,
+            "results": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process analytics data: {str(e)}")
+
+@router.get("/metrics", response_model=List[Dict[str, Any]])
+async def list_metrics(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    active_only: bool = Query(True, description="Show only active metrics"),
+    {{#if_database "sql"}}db: Session = Depends(get_db_session){{/if_database}}
+):
+    """List all analytics metrics"""
+    try:
+        {{#if_database "mongodb"}}
+        query = Metric.find()
+        
+        if active_only:
+            query = query.find(Metric.is_active == True)
+            
+        if category:
+            query = query.find(Metric.category == category)
+            
+        metrics = await query.to_list()
+        return [metric.dict() for metric in metrics]
+        
+        {{else}}
+        query = db.query(Metric)
+        
+        if active_only:
+            query = query.filter(Metric.is_active == True)
+            
+        if category:
+            query = query.filter(Metric.category == category)
+            
+        metrics = query.all()
+        return [metric.to_dict() for metric in metrics]
+        {{/if_database}}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list metrics: {str(e)}")

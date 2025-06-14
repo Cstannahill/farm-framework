@@ -3,22 +3,28 @@
 
 # FastAPI and ASGI server
 fastapi==0.115.12
-uvicorn[standard]==0.34.3
+uvicorn[standard]==0.34.2
 
 # Database
 motor==3.7.1              # Async MongoDB driver
-beanie==1.29.0            # MongoDB ODM with Pydantic
+pymongo==4.13.1           # MongoDB Python driver
+beanie==1.30.0            # MongoDB ODM with Pydantic
 
 # AI Providers
-openai==1.84.0            # OpenAI API client
+openai==1.86.0            # OpenAI API client
 httpx==0.28.1             # HTTP client for Ollama/HuggingFace
 transformers==4.52.4      # HuggingFace transformers
 torch==2.7.1              # PyTorch for local models
 
 # Configuration and validation
-pydantic==2.11.5           # Data validation
+pydantic==2.11.6          # Data validation
 pydantic_settings==2.9.1   # Settings management
 python-dotenv==1.0.0       # Environment variable loading
+
+# SQL Database support (optional)
+asyncpg==0.30.0           # Async PostgreSQL driver
+sqlalchemy==2.0.41        # SQL toolkit and ORM
+alembic==1.16.1           # Database migrations
 
 # Utilities
 python-multipart==0.0.20   # File upload support
@@ -28,7 +34,6 @@ passlib[bcrypt]==1.7.4     # Password hashing
 # Development
 pytest==8.4.0             # Testing
 pytest-asyncio==1.0.0     # Async testing
-httpx==0.28.1             # Test client
 
 # Logging and monitoring
 structlog==25.4.0          # Structured logging

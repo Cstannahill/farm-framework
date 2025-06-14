@@ -11,6 +11,6 @@
     "coverage",
     ".next",
     ".turbo",
-    "templates/**/*"
+    "archive/templates/**/*"
   ]
 }

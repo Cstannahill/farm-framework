@@ -156,6 +156,11 @@ export async function promptForMissingOptions(
           value: "sqlite",
           description: "Lightweight database for development",
         },
+        {
+          name: "SQL Server",
+          value: "sqlserver",
+          description: "Enterprise database for large-scale applications",
+        },
       ],
       default: "mongodb",
     });

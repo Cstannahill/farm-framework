@@ -1,5 +1,166 @@
-from pydantic import BaseModel
+# packages/cli/templates/ai-dashboard/apps/api/src/models/dataset.py.hbs
+"""
+Dataset model
+{{#switch database}}
+{{#case "mongodb"}}Dataset document model using Beanie for MongoDB{{/case}}
+{{#default}}Dataset model using SQLAlchemy for SQL databases{{/default}}
+{{/switch}}
+"""
 
-class Dataset(BaseModel):
-    name: str
-    records: int
+{{#if_database "mongodb"}}
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from beanie import Document, Indexed
+from pydantic import Field
+
+class Dataset(Document):
+    """Dataset document for storing ML dataset information"""
+    
+    # Basic dataset information
+    name: Indexed(str, unique=True) = Field(..., description="Dataset name")
+    description: Optional[str] = Field(None, description="Dataset description")
+    
+    # Data statistics
+    records: int = Field(..., description="Number of records in dataset")
+    features: int = Field(..., description="Number of features/columns")
+    target_column: Optional[str] = Field(None, description="Target column for ML")
+    
+    # Metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    
+    # File information
+    file_path: Optional[str] = Field(None, description="Path to dataset file")
+    file_size: Optional[int] = Field(None, description="File size in bytes")
+    file_format: Optional[str] = Field(None, description="File format (csv, json, parquet, etc.)")
+    
+    # Data quality metrics
+    missing_values: int = Field(default=0, description="Number of missing values")
+    duplicates: int = Field(default=0, description="Number of duplicate records")
+    data_types: Dict[str, str] = Field(default_factory=dict, description="Column data types")
+    
+    # ML metadata
+    tags: List[str] = Field(default_factory=list, description="Dataset tags")
+    category: Optional[str] = Field(None, description="Dataset category")
+    version: str = Field(default="1.0", description="Dataset version")
+    
+    class Settings:
+        name = "datasets"
+        indexes = [
+            "name",
+            "category",
+            "created_at",
+            "tags"
+        ]
+
+{{else}}
+# SQL Database Implementation (PostgreSQL, MySQL, SQLite, SQL Server)
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Dataset(Base):
+    """Dataset model for SQL databases"""
+    __tablename__ = "datasets"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Basic dataset information
+    name = Column(String(255), unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)
+    
+    # Data statistics
+    records = Column(Integer, nullable=False)
+    features = Column(Integer, nullable=False)
+    target_column = Column(String(255), nullable=True)
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    
+    # File information
+    file_path = Column(String(500), nullable=True)
+    file_size = Column(Integer, nullable=True)
+    file_format = Column(String(50), nullable=True)
+    
+    # Data quality metrics
+    missing_values = Column(Integer, default=0, nullable=False)
+    duplicates = Column(Integer, default=0, nullable=False)
+    
+    # Use JSON for PostgreSQL/MySQL, Text for SQLite/SQL Server
+    {{#if_database "postgresql" "mysql"}}
+    data_types = Column(JSON, nullable=True, default=dict)
+    tags = Column(JSON, nullable=True, default=list)
+    {{else}}
+    data_types = Column(Text, nullable=True)  # JSON string for SQLite/SQL Server
+    tags = Column(Text, nullable=True)  # JSON string
+    {{/if_database}}
+    
+    # ML metadata
+    category = Column(String(100), nullable=True)
+    version = Column(String(50), nullable=False, default="1.0")
+    
+    {{#if_database "sqlite" "sqlserver"}}
+    def get_data_types(self) -> Dict[str, str]:
+        """Get data types as dictionary (for SQLite/SQL Server)"""
+        if self.data_types:
+            import json
+            return json.loads(self.data_types)
+        return {}
+    
+    def set_data_types(self, data_types: Dict[str, str]):
+        """Set data types from dictionary (for SQLite/SQL Server)"""
+        import json
+        self.data_types = json.dumps(data_types)
+        self.updated_at = datetime.utcnow()
+    
+    def get_tags(self) -> List[str]:
+        """Get tags as list (for SQLite/SQL Server)"""
+        if self.tags:
+            import json
+            return json.loads(self.tags)
+        return []
+    
+    def set_tags(self, tags: List[str]):
+        """Set tags from list (for SQLite/SQL Server)"""
+        import json
+        self.tags = json.dumps(tags)
+        self.updated_at = datetime.utcnow()
+    {{/if_database}}
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert dataset to dictionary"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "records": self.records,
+            "features": self.features,
+            "target_column": self.target_column,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "file_path": self.file_path,
+            "file_size": self.file_size,
+            "file_format": self.file_format,
+            "missing_values": self.missing_values,
+            "duplicates": self.duplicates,
+            {{#if_database "postgresql" "mysql"}}
+            "data_types": self.data_types or {},
+            "tags": self.tags or [],
+            {{else}}
+            "data_types": self.get_data_types(),
+            "tags": self.get_tags(),
+            {{/if_database}}
+            "category": self.category,
+            "version": self.version
+        }
+
+    def __str__(self) -> str:
+        return f"Dataset({self.name})"
+
+{{/if_database}}
