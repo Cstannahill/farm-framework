@@ -3,7 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["cjs", "esm"],
-  dts: false, // Keep disabled for now due to workspace complexity
+  dts: false, // Disable due to workspace complexity, use tsc instead
   clean: true,
   sourcemap: true,
   external: [

@@ -238,8 +238,17 @@ export class CostEstimator {
     platform: Platform
   ): Promise<number> {
     const platformPlan = { ...plan, platform };
-    const estimate = await this.estimate(platformPlan);
-    return estimate.monthly;
+
+    // Calculate costs directly without calling estimate() to avoid circular reference
+    const costs = {
+      compute: this.estimateCompute(platformPlan),
+      storage: this.estimateStorage(platformPlan),
+      bandwidth: this.estimateBandwidth(platformPlan),
+      ai: this.estimateAICosts(platformPlan),
+      addons: this.estimateAddons(platformPlan),
+    };
+
+    return Object.values(costs).reduce((sum, cost) => sum + cost.monthly, 0);
   }
 
   /**

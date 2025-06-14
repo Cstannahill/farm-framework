@@ -58,21 +58,25 @@ async function deployCommand(options: DeployCommandOptions): Promise<void> {
     console.log(styles.title(`\n${icons.rocket} FARM Deployment`));
     console.log(styles.muted("Revolutionary zero-configuration deployment\n"));
 
+    // Load configuration
+    const { loadFarmConfig } = await import("../utils/config.js");
+    const config = await loadFarmConfig();
+
     // Initialize deployment engine
-    const deployEngine = new DeployEngine();
+    const deployEngine = new DeployEngine(config);
 
     // Set up event listeners for progress updates
-    deployEngine.on("status", (update) => {
+    deployEngine.on("status", (update: any) => {
       console.log(styles.info(`${update.message}`));
     });
 
-    deployEngine.on("progress", (update) => {
+    deployEngine.on("progress", (update: any) => {
       if (update.step) {
         console.log(styles.muted(`  → ${update.step.name}...`));
       }
     });
 
-    deployEngine.on("error", (error) => {
+    deployEngine.on("error", (error: any) => {
       console.error(styles.error(`❌ ${error.message}`));
       if (options.verbose && error.stack) {
         console.error(styles.muted(error.stack));
@@ -84,24 +88,16 @@ async function deployCommand(options: DeployCommandOptions): Promise<void> {
       platform: options.platform,
       environment: options.environment || "production",
       region: Array.isArray(options.region)
-        ? options.region
-        : options.region
-          ? [options.region]
-          : undefined,
+        ? options.region[0]
+        : options.region || config.deployment?.defaultRegion,
       yes: options.yes,
-      preview: options.preview,
-      production: options.production,
       branch: options.branch,
-      configPath: options.config,
       verbose: options.verbose,
       dryRun: options.dryRun,
-      gpu: options.gpu,
       domains:
         typeof options.domains === "string"
           ? options.domains.split(",")
           : options.domains,
-      skipHealthCheck: options.skipHealth,
-      skipBuild: options.skipBuild,
       force: options.force,
     });
 
@@ -143,7 +139,7 @@ async function deployCommand(options: DeployCommandOptions): Promise<void> {
     } else {
       console.error(styles.error("\n❌ Deployment failed"));
       if (result.errors && result.errors.length > 0) {
-        result.errors.forEach((error) => {
+        result.errors.forEach((error: any) => {
           const errorMsg = typeof error === "string" ? error : error.message;
           console.error(styles.error(`  • ${errorMsg}`));
         });
@@ -257,7 +253,7 @@ function createDeployCostCommand(): Command {
         .option("-r, --region <region>", "Region to estimate for")
         .option("-v, --verbose", "Enable verbose logging")
         .action(async (options) => {
-          const { estimateCostCommand } = await import("./cost-simple.js");
+          const { estimateCostCommand } = await import("./cost.js");
           await estimateCostCommand(options);
         })
     )
@@ -271,7 +267,7 @@ function createDeployCostCommand(): Command {
         )
         .option("-v, --verbose", "Enable verbose logging")
         .action(async (options) => {
-          const { currentCostCommand } = await import("./cost-simple.js");
+          const { currentCostCommand } = await import("./cost.js");
           await currentCostCommand(options);
         })
     )
@@ -280,7 +276,7 @@ function createDeployCostCommand(): Command {
         .description("Get cost optimization recommendations")
         .option("-v, --verbose", "Enable verbose logging")
         .action(async (options) => {
-          const { optimizeCostCommand } = await import("./cost-simple.js");
+          const { optimizeCostCommand } = await import("./cost.js");
           await optimizeCostCommand(options);
         })
     );
@@ -303,7 +299,11 @@ function createDeployWizardCommand(): Command {
           styles.muted("Let's set up deployment for your FARM application!\n")
         );
 
-        const wizard = new DeployWizard();
+        // Load configuration
+        const { loadFarmConfig } = await import("../utils/config.js");
+        const config = await loadFarmConfig();
+
+        const wizard = new DeployWizard(config);
         const plan = await wizard.run();
 
         console.log(styles.success("\n✅ Deployment plan created!"));

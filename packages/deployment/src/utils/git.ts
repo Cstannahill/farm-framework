@@ -64,7 +64,6 @@ export class GitInfo {
       const result = execSync('git log --format="%an" | sort -u', {
         cwd: this.workingDir,
         encoding: "utf-8",
-        shell: true,
       });
       return result.trim().split("\n").filter(Boolean);
     } catch {

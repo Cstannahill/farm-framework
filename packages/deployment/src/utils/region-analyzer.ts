@@ -43,8 +43,8 @@ export interface RegionCapabilities {
 }
 
 export class RegionAnalyzer {
-  private regionData: Map<DeploymentRegion, RegionCapabilities>;
-  private latencyData: Map<string, Map<DeploymentRegion, number>>;
+  private regionData: Map<DeploymentRegion, RegionCapabilities> = new Map();
+  private latencyData: Map<string, Map<DeploymentRegion, number>> = new Map();
 
   constructor() {
     this.initializeRegionData();

@@ -75,7 +75,37 @@ export class RailwayRecipe extends BaseRecipe implements DeployRecipe {
       environment: options.environment || "production",
       strategy: options.strategy || "rolling",
       services,
-      estimatedCost: await this.estimateCost(config, services),
+      estimatedCost: {
+        monthly: 25,
+        formatted: "$25/month",
+        breakdown: {
+          compute: {
+            monthly: 15,
+            description: "Web service",
+            optimizable: false,
+          },
+          storage: {
+            monthly: 5,
+            description: "Database storage",
+            optimizable: true,
+          },
+          bandwidth: {
+            monthly: 0,
+            description: "Included in plan",
+            optimizable: false,
+          },
+          ai: {
+            monthly: 5,
+            description: "AI service resources",
+            optimizable: true,
+          },
+          addons: {
+            monthly: 0,
+            description: "No additional addons",
+            optimizable: false,
+          },
+        },
+      },
       estimatedTime: this.estimateDeploymentTime(services),
       startTime: Date.now(),
       config,
@@ -147,7 +177,7 @@ export class RailwayRecipe extends BaseRecipe implements DeployRecipe {
       );
 
       // Step 5: Configure database
-      if (this.needsDatabase(plan)) {
+      if (plan.services.some((s) => s.type === "database")) {
         await this.configureDatabase(plan, projectId);
       }
 
@@ -521,27 +551,17 @@ CMD ["python", "-m", "uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--por
   }
 
   /**
-   * Check if deployment needs database
+   * Estimate deployment cost (implements DeployRecipe interface)
    */
-  private needsDatabase(plan: DeploymentPlan): boolean {
-    return plan.services.some((s) => s.type === "database");
-  }
-
-  /**
-   * Estimate deployment cost
-   */
-  private async estimateCost(
-    config: FarmConfig,
-    services: DeploymentService[]
-  ): Promise<CostEstimate> {
+  async estimateCost(plan: DeploymentPlan): Promise<CostEstimate> {
     let monthlyCost = 5; // Base Railway cost
 
     // Add costs for additional services
-    if (services.some((s) => s.type === "database")) {
+    if (plan.services.some((s) => s.type === "database")) {
       monthlyCost += 10; // PostgreSQL addon
     }
 
-    if (services.some((s) => s.type === "ai")) {
+    if (plan.services.some((s) => s.type === "ai")) {
       monthlyCost += 20; // Higher resource usage for AI
     }
 

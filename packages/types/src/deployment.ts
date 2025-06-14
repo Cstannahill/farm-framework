@@ -267,6 +267,7 @@ export interface Snapshot {
   environment: DeploymentEnvironment;
   platform: Platform;
   healthy: boolean;
+  preserveData?: boolean; // Add missing property
   state: {
     containers: any;
     database?: any;

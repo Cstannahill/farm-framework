@@ -22,6 +22,9 @@ import type {
   AIMetrics,
   AnalysisOptions,
   FarmConfig,
+  CostEstimate,
+  CostItem,
+  AlertSummary,
 } from "@farm-framework/types";
 import { styles, icons } from "../utils/styling.js";
 import { handleCommandError, logVerbose } from "../core/cli.js";
@@ -87,12 +90,13 @@ export async function estimateCostCommand(options: {
 
     console.log("\n📋 Cost Breakdown:");
     Object.entries(costEstimate.breakdown).forEach(([category, cost]) => {
-      if (cost.monthly > 0) {
-        const optimizable = cost.optimizable
+      const costItem = cost as CostItem;
+      if (costItem.monthly > 0) {
+        const optimizable = costItem.optimizable
           ? chalk.yellow(" (optimizable)")
           : "";
         console.log(
-          `  ${category.padEnd(12)}: $${cost.monthly.toFixed(2).padStart(8)} - ${cost.description}${optimizable}`
+          `  ${category.padEnd(12)}: $${costItem.monthly.toFixed(2).padStart(8)} - ${costItem.description}${optimizable}`
         );
       }
     });
@@ -101,7 +105,7 @@ export async function estimateCostCommand(options: {
     if (costEstimate.comparison && costEstimate.comparison.length > 0) {
       console.log("\n🔍 Platform Comparison:");
       console.log(styles.muted("─".repeat(50)));
-      costEstimate.comparison.forEach((comp) => {
+      costEstimate.comparison.forEach((comp: any) => {
         const savings = comp.savings
           ? ` (saves $${comp.savings.toFixed(2)}/month)`
           : "";
@@ -117,7 +121,7 @@ export async function estimateCostCommand(options: {
     if (costEstimate.optimization && costEstimate.optimization.length > 0) {
       console.log("\n💡 Cost Optimization Suggestions:");
       console.log(styles.muted("─".repeat(50)));
-      costEstimate.optimization.forEach((suggestion) => {
+      costEstimate.optimization.forEach((suggestion: any) => {
         console.log(`  • ${suggestion}`);
       });
     }
@@ -152,8 +156,29 @@ export async function currentCostCommand(options: {
     const costAnalyzer = new CostAnalyzer();
     const costCalculator = new CostCalculator();
 
-    // Get mock metrics data (in real implementation, this would come from observability data)
-    const metrics = await getMockAIMetrics(period);
+    console.log(styles.info("📊 Fetching cost data..."));
+
+    // Get real metrics data from observability system
+    const metrics = await getRealAIMetrics(period);
+
+    if (metrics.length === 0) {
+      console.log(
+        styles.warning(
+          "⚠️  No cost data found. Using sample data for demonstration."
+        )
+      );
+      // Fall back to mock data if no real data available
+      const mockMetrics = await getMockAIMetrics(period);
+      const analysis = await costAnalyzer.analyze(mockMetrics, {
+        timeRange: getTimeRangeForPeriod(period),
+        groupBy:
+          period === "daily" ? "hour" : period === "weekly" ? "day" : "week",
+        includeProjections: true,
+        includeSuggestions: true,
+      });
+      await displayCostAnalysis(analysis, period);
+      return;
+    }
 
     const analysisOptions: AnalysisOptions = {
       timeRange: getTimeRangeForPeriod(period),
@@ -163,102 +188,11 @@ export async function currentCostCommand(options: {
       includeSuggestions: true,
     };
 
-    console.log(styles.info("📊 Fetching cost data..."));
-
     // Analyze current costs
     const analysis = await costAnalyzer.analyze(metrics, analysisOptions);
+    await displayCostAnalysis(analysis, period);
 
-    // Display results
-    console.log(styles.success(`\n✅ Current ${period} cost analysis:\n`));
-
-    console.log(styles.subtitle(`💰 ${capitalizeFirst(period)} Cost Summary:`));
-    console.log(styles.muted("─".repeat(50)));
-    console.log(
-      styles.success(`Total Cost: $${analysis.totalCost.toFixed(2)}`)
-    );
-
-    // Show trend
-    if (analysis.trend) {
-      const trendIcon =
-        analysis.trend.direction === "up"
-          ? "📈"
-          : analysis.trend.direction === "down"
-            ? "📉"
-            : "➡️";
-      const trendColor =
-        analysis.trend.direction === "up"
-          ? chalk.red
-          : analysis.trend.direction === "down"
-            ? chalk.green
-            : chalk.yellow;
-      console.log(
-        `Trend: ${trendIcon} ${trendColor(`${analysis.trend.percentage.toFixed(1)}% ${analysis.trend.direction} from last ${period}`)}`
-      );
-    }
-
-    // Provider breakdown
-    if (analysis.providers && Object.keys(analysis.providers).length > 0) {
-      console.log("\n🏢 Cost by Provider:");
-      console.log(styles.muted("─".repeat(50)));
-      Object.entries(analysis.providers).forEach(([provider, data]) => {
-        console.log(
-          `  ${provider.padEnd(12)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
-        );
-      });
-    }
-
-    // Model breakdown
-    if (analysis.models && Object.keys(analysis.models).length > 0) {
-      console.log("\n🤖 Cost by AI Model:");
-      console.log(styles.muted("─".repeat(50)));
-      Object.entries(analysis.models).forEach(([model, data]) => {
-        console.log(
-          `  ${model.padEnd(15)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
-        );
-      });
-    }
-
-    // Cost projections
-    if (analysis.projections) {
-      console.log("\n📊 Cost Projections:");
-      console.log(styles.muted("─".repeat(50)));
-      Object.entries(analysis.projections).forEach(
-        ([timeframe, projection]) => {
-          const confidence = projection.confidence
-            ? ` (${(projection.confidence * 100).toFixed(0)}% confidence)`
-            : "";
-          console.log(
-            `  ${timeframe.padEnd(12)}: $${projection.estimated.toFixed(2)}${confidence}`
-          );
-        }
-      );
-    }
-
-    // Optimization suggestions
-    if (analysis.suggestions && analysis.suggestions.length > 0) {
-      console.log("\n💡 Cost Optimization Opportunities:");
-      console.log(styles.muted("─".repeat(50)));
-      analysis.suggestions.slice(0, 3).forEach((suggestion, index) => {
-        const impact =
-          suggestion.impact === "high"
-            ? chalk.red("HIGH")
-            : suggestion.impact === "medium"
-              ? chalk.yellow("MED")
-              : chalk.green("LOW");
-        console.log(
-          `  ${index + 1}. [${impact}] ${suggestion.implementation.description}`
-        );
-        console.log(
-          `     💰 Est. savings: $${suggestion.estimatedSavings.toFixed(2)}/month`
-        );
-      });
-
-      if (analysis.suggestions.length > 3) {
-        console.log(
-          `     ... and ${analysis.suggestions.length - 3} more suggestions`
-        );
-      }
-    }
+    await displayCostAnalysis(analysis, period);
 
     console.log(styles.subtitle("\n🎯 Next Steps:"));
     console.log(styles.muted("─".repeat(30)));
@@ -296,10 +230,7 @@ export async function optimizeCostCommand(options: {
     const optimizationPlan = await costOptimizer.analyzeAndSuggest();
 
     // Get predictions
-    const predictions = await costPredictor.predictCosts(
-      { period: "monthly", growthFactors: [] },
-      { baselineCost: optimizationPlan.currentMonthlyCost }
-    );
+    const predictions = await costPredictor.predictDailyCost();
 
     // Display results
     console.log(styles.success(`\n✅ Cost optimization analysis complete!\n`));
@@ -319,7 +250,7 @@ export async function optimizeCostCommand(options: {
     console.log("\n🎯 Optimization Recommendations:");
     console.log(styles.muted("─".repeat(50)));
 
-    optimizationPlan.suggestions.forEach((suggestion, index) => {
+    optimizationPlan.suggestions.forEach((suggestion: any, index: number) => {
       const impact =
         suggestion.impact === "high"
           ? chalk.red("HIGH")
@@ -363,12 +294,12 @@ export async function optimizeCostCommand(options: {
 
     // Quick wins
     const quickWins = optimizationPlan.suggestions.filter(
-      (s) => s.difficulty === "easy" && s.impact !== "low"
+      (s: any) => s.difficulty === "easy" && s.impact !== "low"
     );
     if (quickWins.length > 0) {
       console.log("\n⚡ Quick Wins (Start Here):");
       console.log(styles.muted("─".repeat(50)));
-      quickWins.forEach((suggestion, index) => {
+      quickWins.forEach((suggestion: any, index: number) => {
         console.log(
           `  ${index + 1}. ${suggestion.description} - $${suggestion.estimatedSavings.toFixed(2)}/month`
         );
@@ -376,19 +307,19 @@ export async function optimizeCostCommand(options: {
     }
 
     // Predictions
-    if (predictions.monthly) {
+    if (predictions) {
       console.log("\n📈 Cost Predictions:");
       console.log(styles.muted("─".repeat(50)));
       console.log(
-        `Without optimization: $${predictions.monthly.estimated.toFixed(2)}/month`
+        `Without optimization: $${predictions.estimated.toFixed(2)}/day`
       );
       console.log(
-        `With optimization:    $${(predictions.monthly.estimated - optimizationPlan.potentialSavings).toFixed(2)}/month`
+        `With optimization:    $${(predictions.estimated * 30 - optimizationPlan.potentialSavings).toFixed(2)}/month`
       );
 
-      if (predictions.monthly.confidence) {
+      if (predictions.confidence) {
         console.log(
-          `Confidence range: $${predictions.monthly.confidence.low.toFixed(2)} - $${predictions.monthly.confidence.high.toFixed(2)}`
+          `Confidence range: $${predictions.confidence.low.toFixed(2)} - $${predictions.confidence.high.toFixed(2)}`
         );
       }
     }
@@ -405,6 +336,124 @@ export async function optimizeCostCommand(options: {
 }
 
 // Helper functions
+
+/**
+ * Get real AI metrics from observability system
+ */
+async function getRealAIMetrics(period: string): Promise<AIMetrics[]> {
+  try {
+    // In a real implementation, this would query the observability data store
+    // For now, return empty array to indicate no real data available
+    // This could be enhanced to:
+    // 1. Query SQLite/PostgreSQL database where metrics are stored
+    // 2. Call observability API endpoints
+    // 3. Read from exported CSV/JSON files
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch real metrics data:", error);
+    return [];
+  }
+}
+
+/**
+ * Display comprehensive cost analysis results
+ */
+async function displayCostAnalysis(
+  analysis: CostAnalysis,
+  period: string
+): Promise<void> {
+  // Display results
+  console.log(styles.success(`\n✅ Current ${period} cost analysis:\n`));
+
+  console.log(styles.subtitle(`💰 ${capitalizeFirst(period)} Cost Summary:`));
+  console.log(styles.muted("─".repeat(50)));
+  console.log(styles.success(`Total Cost: $${analysis.totalCost.toFixed(2)}`));
+
+  // Show trend
+  if (analysis.trend) {
+    const trendIcon =
+      analysis.trend.direction === "increasing"
+        ? "📈"
+        : analysis.trend.direction === "decreasing"
+          ? "📉"
+          : "➡️";
+    const trendColor =
+      analysis.trend.direction === "increasing"
+        ? chalk.red
+        : analysis.trend.direction === "decreasing"
+          ? chalk.green
+          : chalk.yellow;
+    console.log(
+      `Trend: ${trendIcon} ${trendColor(`${analysis.trend.percentageChange.toFixed(1)}% ${analysis.trend.direction} from last ${period}`)}`
+    );
+  }
+
+  // Provider breakdown
+  if (analysis.providers && analysis.providers.length > 0) {
+    console.log("\n🏢 Cost by Provider:");
+    console.log(styles.muted("─".repeat(50)));
+    analysis.providers.forEach((providerData) => {
+      console.log(
+        `  ${providerData.provider.padEnd(12)}: $${providerData.totalCost.toFixed(2).padStart(8)} (${providerData.requestCount.toLocaleString()} requests)`
+      );
+    });
+  }
+
+  // Model breakdown
+  if (analysis.models && analysis.models.length > 0) {
+    console.log("\n🤖 Cost by AI Model:");
+    console.log(styles.muted("─".repeat(50)));
+    analysis.models.forEach((modelData) => {
+      console.log(
+        `  ${modelData.model.padEnd(15)}: $${modelData.totalCost.toFixed(2).padStart(8)} (${modelData.requestCount.toLocaleString()} requests)`
+      );
+    });
+  }
+
+  // Cost projections
+  if (analysis.projections) {
+    console.log("\n📊 Cost Projections:");
+    console.log(styles.muted("─".repeat(50)));
+    Object.entries(analysis.projections).forEach(
+      ([timeframe, projectionValue]) => {
+        const confidence = analysis.projections!.confidence
+          ? ` (${(analysis.projections!.confidence * 100).toFixed(0)}% confidence)`
+          : "";
+        console.log(
+          `  ${timeframe.padEnd(12)}: $${(projectionValue as number).toFixed(2)}${confidence}`
+        );
+      }
+    );
+  }
+
+  // Optimization suggestions
+  if (analysis.suggestions && analysis.suggestions.length > 0) {
+    console.log("\n💡 Cost Optimization Opportunities:");
+    console.log(styles.muted("─".repeat(50)));
+    analysis.suggestions
+      .slice(0, 3)
+      .forEach((suggestion: any, index: number) => {
+        const impact =
+          suggestion.impact === "high"
+            ? chalk.red("HIGH")
+            : suggestion.impact === "medium"
+              ? chalk.yellow("MED")
+              : chalk.green("LOW");
+        console.log(
+          `  ${index + 1}. [${impact}] ${suggestion.implementation?.description || suggestion.description}`
+        );
+        console.log(
+          `     💰 Est. savings: $${suggestion.estimatedSavings.toFixed(2)}/month`
+        );
+      });
+
+    if (analysis.suggestions.length > 3) {
+      console.log(
+        `     ... and ${analysis.suggestions.length - 3} more suggestions`
+      );
+    }
+  }
+}
 
 function generateServicesFromConfig(config: any): any[] {
   const services = [
@@ -450,10 +499,17 @@ async function getMockAIMetrics(period: string): Promise<AIMetrics[]> {
   const daysToGenerate = period === "daily" ? 1 : period === "weekly" ? 7 : 30;
 
   for (let i = 0; i < daysToGenerate * 24; i++) {
+    const costAmount = Math.random() * 5;
+    const requestCount = Math.floor(Math.random() * 100) + 10;
+
     metrics.push({
       provider: Math.random() > 0.6 ? "openai" : "anthropic",
       model: Math.random() > 0.5 ? "gpt-4" : "gpt-3.5-turbo",
       operation: Math.random() > 0.3 ? "chat" : "completion",
+      requestCount,
+      totalCost: costAmount,
+      avgLatency: Math.random() * 2000 + 500,
+      errorRate: Math.random() * 0.05, // 0-5% error rate
       tokens: {
         prompt: Math.floor(Math.random() * 1000) + 100,
         completion: Math.floor(Math.random() * 500) + 50,
@@ -462,7 +518,7 @@ async function getMockAIMetrics(period: string): Promise<AIMetrics[]> {
         output: Math.floor(Math.random() * 500) + 50,
       },
       cost: {
-        amount: Math.random() * 5,
+        amount: costAmount,
         currency: "USD",
       },
       duration: Math.random() * 2000 + 500,
