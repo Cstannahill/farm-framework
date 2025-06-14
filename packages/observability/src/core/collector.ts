@@ -14,21 +14,9 @@ import type {
   ObservabilityConfig,
   TelemetryData,
   MetricData,
+  TraceData,
+  CollectorOptions,
 } from "@farm-framework/types";
-
-// Define missing TraceData interface
-interface TraceData extends TelemetryData {
-  traceId: string;
-  spanId: string;
-  parentSpanId?: string;
-}
-
-export interface CollectorOptions {
-  bufferSize?: number;
-  flushInterval?: number;
-  maxQueueSize?: number;
-  enableCompression?: boolean;
-}
 
 export class TelemetryCollector {
   private static instance: TelemetryCollector;
@@ -213,7 +201,7 @@ export class TelemetryCollector {
     // Type-specific validation
     switch (data.type) {
       case "trace":
-        return this.validateTraceData(data as TraceData);
+        return this.validateTraceData(data as unknown as TraceData);
       case "metric":
         return this.validateMetricData(data as unknown as MetricData);
       case "log":
@@ -224,7 +212,12 @@ export class TelemetryCollector {
   }
 
   private validateTraceData(data: TraceData): boolean {
-    return !!(data.traceId && data.spanId);
+    return !!(
+      data.traceId &&
+      data.spanId &&
+      data.operationName &&
+      data.startTime
+    );
   }
 
   private validateMetricData(data: MetricData): boolean {

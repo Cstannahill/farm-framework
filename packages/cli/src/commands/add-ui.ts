@@ -4,11 +4,7 @@ import path from "path";
 import fs from "fs-extra";
 import { PackageInstaller } from "../utils/package-installer.js";
 import { logger } from "../utils/logger.js";
-
-interface AddUIOptions {
-  verbose?: boolean;
-  dryRun?: boolean;
-}
+import type { AddUIOptions } from "@farm-framework/types";
 
 export function createAddUICommand(): Command {
   const addCmd = new Command("add");

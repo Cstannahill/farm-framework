@@ -9,7 +9,7 @@ import {
 import {
   CodegenOrchestrator,
   type CodegenOptions,
-  type ProgressInfo,
+  type CodegenProgressInfo,
 } from "@farm-framework/core";
 import { performance } from "perf_hooks";
 
@@ -64,10 +64,8 @@ export function createTypeSyncCommand(): Command {
             maxConcurrency: parseInt(opts.maxConcurrency),
             cacheTimeout: parseInt(opts.cacheTimeout),
           },
-        };
-
-        // Setup progress reporting
-        const progressCallback = (progress: ProgressInfo) => {
+        }; // Setup progress reporting
+        const progressCallback = (progress: CodegenProgressInfo) => {
           currentStage = progress.stage;
           if (opts.verbose) {
             console.log(

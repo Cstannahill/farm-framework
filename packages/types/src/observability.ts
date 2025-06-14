@@ -383,3 +383,30 @@ export interface AlertSummary {
   count?: number;
   status?: "active" | "resolved" | "acknowledged";
 }
+
+// Provider Configuration Types
+export interface CustomTelemetryProviderConfig {
+  name: string;
+  endpoint: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+  batchSize?: number;
+  flushInterval?: number;
+}
+
+export interface CollectorOptions {
+  bufferSize?: number;
+  flushInterval?: number;
+  maxQueueSize?: number;
+  enableCompression?: boolean;
+}
+
+export interface PredictorConfig {
+  thresholds: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
+  alertEngine?: any;
+}

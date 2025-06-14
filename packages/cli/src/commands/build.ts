@@ -1,14 +1,7 @@
 // packages/cli/src/commands/build.ts
 import { Command } from "commander";
 import chalk from "chalk";
-
-export interface BuildCommandOptions {
-  target?: string[];
-  env?: string;
-  analyze?: boolean;
-  production?: boolean;
-  verbose?: boolean;
-}
+import type { BuildCommandOptions } from "@farm-framework/types";
 
 // Mock logger for now
 const logger = {

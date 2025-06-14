@@ -9,4 +9,5 @@ export type {
   TelemetryProvider,
   ProviderConfig,
   TelemetryData,
+  CustomTelemetryProviderConfig,
 } from "@farm-framework/types";

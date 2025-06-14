@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import crypto from "crypto";
-import type { OpenAPISchema } from "../types";
+import type { OpenAPISchema } from "@farm-framework/types";
 
 export interface ReactHookGeneratorOptions {
   outputDir: string;

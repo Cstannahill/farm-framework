@@ -2,19 +2,13 @@ import fsExtra from "fs-extra";
 import { resolve, extname } from "path";
 // Comment out esbuild-register import if not used or not present
 // import { register } from "esbuild-register/dist/node";
-import type { FarmConfig } from "@farm-framework/types";
+import type { FarmConfig, ConfigLoadOptions } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
 
 const { pathExists } = fsExtra;
 import { isErrorInstance } from "../utils/error-utils.js";
 import { createConfigError } from "./errors.js";
 import { FarmError, getErrorMessage } from "../utils/error-handling.js";
-
-export interface ConfigLoadOptions {
-  configPath?: string;
-  cwd?: string;
-  validate?: boolean;
-}
 
 export class ConfigLoader {
   private configCache = new Map<string, FarmConfig>();

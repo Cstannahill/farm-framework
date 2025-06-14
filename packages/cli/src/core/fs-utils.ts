@@ -12,16 +12,7 @@ import { glob } from "glob";
 import { FarmError, createFileSystemError } from "./errors.js";
 import { logger } from "../utils/logger.js";
 import { getErrorMessage } from "../utils/error-handling.js";
-
-export interface CopyOptions {
-  overwrite?: boolean;
-  filter?: (src: string, dest: string) => boolean;
-  transform?: (content: string, filePath: string) => string;
-}
-
-export interface TemplateVariables {
-  [key: string]: string | number | boolean;
-}
+import type { CopyOptions, TemplateVariables } from "@farm-framework/types";
 
 export class FileSystemUtils {
   /**

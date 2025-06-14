@@ -7,13 +7,7 @@ import {
   type SyncOptions,
 } from "@farm-framework/core";
 import { performance } from "perf_hooks";
-
-export interface GenerateCommandOptions {
-  fields?: string;
-  methods?: string;
-  crud?: boolean;
-  verbose?: boolean;
-}
+import type { GenerateCommandOptions } from "@farm-framework/types";
 
 // Mock logger for now
 const logger = {

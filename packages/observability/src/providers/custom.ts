@@ -7,21 +7,14 @@ import type {
   ProviderCapabilities,
   TelemetryData,
   MetricData,
+  CustomTelemetryProviderConfig,
 } from "@farm-framework/types";
-
-export interface CustomProviderConfig {
-  name: string;
-  endpoint: string;
-  apiKey?: string;
-  headers?: Record<string, string>;
-  timeout?: number;
-}
 
 export class CustomProvider extends BaseTelemetryProvider {
   private pendingSpans: ReadableSpan[] = [];
   private pendingMetrics: ResourceMetrics[] = [];
 
-  constructor(config: CustomProviderConfig) {
+  constructor(config: CustomTelemetryProviderConfig) {
     super({
       name: config.name,
       endpoint: config.endpoint,

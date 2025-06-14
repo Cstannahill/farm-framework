@@ -1,5 +1,18 @@
 // packages/ai/src/providers/base.ts
 import { EventEmitter } from "events";
+import type {
+  ChatMessage,
+  GenerationOptions,
+  GenerationRequest,
+  GenerationResponse,
+  ModelInfo,
+  ProviderStatus,
+  AIProviderConfig as ProviderConfig,
+  StreamChunk,
+  ProviderHealthCheck,
+  ProviderFactory,
+  IProviderRegistry,
+} from "@farm-framework/types";
 
 /**
  * Contains foundational types and the {@link BaseAIProvider} abstract class
@@ -7,79 +20,6 @@ import { EventEmitter } from "events";
  * establish a consistent interface for interacting with AI models and services
  * within the FARM framework.
  */
-
-export interface ChatMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-  metadata?: Record<string, any>;
-}
-
-export interface GenerationOptions {
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  stopSequences?: string[];
-  metadata?: Record<string, any>;
-}
-
-export interface GenerationRequest {
-  messages: ChatMessage[];
-  model: string;
-  options?: GenerationOptions;
-  stream?: boolean;
-}
-
-export interface GenerationResponse {
-  content: string;
-  model: string;
-  provider: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-  metadata?: Record<string, any>;
-}
-
-export interface ModelInfo {
-  name: string;
-  provider: string;
-  size?: string;
-  description?: string;
-  capabilities: string[];
-  parameters?: Record<string, any>;
-}
-
-export interface ProviderStatus {
-  name: string;
-  status: "healthy" | "unhealthy" | "loading" | "offline";
-  message?: string;
-  models: string[];
-  capabilities: string[];
-  lastChecked: Date;
-}
-
-export interface ProviderConfig {
-  enabled: boolean;
-  name: string;
-  type: "ollama" | "openai" | "huggingface" | "custom";
-}
-
-export interface StreamChunk {
-  content: string;
-  done: boolean;
-  metadata?: Record<string, any>;
-}
-
-export interface ProviderHealthCheck {
-  isHealthy: boolean;
-  message?: string;
-  latency?: number;
-  capabilities?: string[];
-  models?: string[];
-}
 
 /**
  * Abstract base class that all AI provider implementations must extend. It
@@ -135,14 +75,13 @@ export abstract class BaseAIProvider extends EventEmitter {
    * Get the current status information for the provider.
    *
    * @returns Structured status data describing the provider health
-   */
-  public getStatus(): ProviderStatus {
+   */ public getStatus(): ProviderStatus {
     return {
       name: this.name,
       status: this.isInitialized ? "healthy" : "offline",
       models: Array.from(this.models.keys()),
       capabilities: this.getCapabilities(),
-      lastChecked: new Date(),
+      lastChecked: Date.now(),
     };
   }
 
@@ -289,40 +228,32 @@ export abstract class BaseAIProvider extends EventEmitter {
   }
 }
 
-// Provider factory interface
-export interface ProviderFactory {
-  /**
-   * Create a new provider instance given a name and configuration.
-   *
-   * @param name - Unique provider identifier
-   * @param config - Provider configuration object
-   */
-  create(name: string, config: ProviderConfig): BaseAIProvider;
+// Re-export types from shared types
+// Re-export types for other modules in this package
+export type {
+  ChatMessage,
+  GenerationOptions,
+  GenerationRequest,
+  GenerationResponse,
+  ModelInfo,
+  ProviderStatus,
+  StreamChunk,
+  ProviderHealthCheck,
+  ProviderFactory,
+  IProviderRegistry,
+} from "@farm-framework/types";
+export type { AIProviderConfig as ProviderConfig } from "@farm-framework/types";
 
-  /**
-   * Determine if this factory supports the given provider type.
-   *
-   * @param type - Provider type string
-   */
-  supports(type: string): boolean;
-}
-
-// Provider registry interface
-export interface IProviderRegistry {
-  /** Register a provider factory */
-  register(factory: ProviderFactory): void;
-  /** Create and register a provider instance */
-  create(name: string, type: string, config: ProviderConfig): BaseAIProvider;
-  /** Get a list of supported provider types */
-  getAvailableTypes(): string[];
-}
-
-// Error types
+// Error classes implementing the shared interfaces
 /**
  * Base error type thrown by provider implementations when an operation fails.
  */
 export class ProviderError extends Error {
-  constructor(message: string, public provider: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public provider: string,
+    public cause?: Error
+  ) {
     super(message);
     this.name = "ProviderError";
   }

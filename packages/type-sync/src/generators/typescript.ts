@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import crypto from "crypto";
-import type { OpenAPISchema } from "../types";
+import type { OpenAPISchema } from "@farm-framework/types";
 
 export interface TypeScriptGenerationOptions {
   outputDir: string;
@@ -289,35 +289,15 @@ export class TypeScriptGenerator {
         return "any";
     }
   }
-
   private generateCommonTypes(opts: TypeScriptGenerationOptions): string {
     if (!opts.generateComments) return "";
 
     return `
 /**
  * Common utility types
+ * Note: PaginatedResponse, ApiError, and DeepPartial are imported from @farm-framework/types
  */
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-export interface ApiError {
-  message: string;
-  status: number;
-  code?: string;
-  details?: any;
-  timestamp: string;
-}
-
-export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+import type { PaginatedResponse, ApiError, DeepPartial } from "@farm-framework/types";
 `;
   }
 

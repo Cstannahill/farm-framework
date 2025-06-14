@@ -13,5 +13,8 @@ export { ReactHookGenerator } from "./generators/react-hooks";
 export type { ReactHookGeneratorOptions } from "./generators/react-hooks";
 export { AIHookGenerator } from "./generators/ai-hooks";
 export type { AIHookGeneratorOptions } from "./generators/ai-hooks";
-export type { SyncOptions, SyncResult } from "./orchestrator";
-export type { OpenAPISchema } from "./types";
+export type {
+  SyncOptions,
+  SyncResult,
+  OpenAPISchema,
+} from "@farm-framework/types";

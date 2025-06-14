@@ -7,84 +7,14 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosProgressEvent,
 } from "axios";
-
-// Base types for API responses
-/**
- * Standard API response returned from the server.
- *
- * @template T - Shape of the response payload
- */
-export interface ApiResponse<T = any> {
-  data: T;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-}
-
-/**
- * Error object describing a failed API request.
- */
-export interface ApiError {
-  message: string;
-  status: number;
-  code?: string;
-  details?: any;
-  timestamp: string;
-}
-
-/**
- * Generic structure for paginated API responses.
- *
- * @template T - Shape of each item in the paginated list
- */
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-/**
- * Configuration for an Axios request interceptor.
- */
-export interface RequestInterceptor {
-  name: string;
-  onRequest?: (
-    config: InternalAxiosRequestConfig
-  ) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>;
-  onRequestError?: (error: any) => any;
-}
-
-/**
- * Configuration for an Axios response interceptor.
- */
-export interface ResponseInterceptor {
-  name: string;
-  onResponse?: (
-    response: AxiosResponse
-  ) => AxiosResponse | Promise<AxiosResponse>;
-  onResponseError?: (error: AxiosError) => any;
-}
-
-/**
- * Options used when instantiating the {@link ApiClient}.
- */
-export interface ApiClientConfig {
-  baseURL: string;
-  timeout?: number;
-  headers?: Record<string, string>;
-  withCredentials?: boolean;
-  requestInterceptors?: RequestInterceptor[];
-  responseInterceptors?: ResponseInterceptor[];
-  retryConfig?: {
-    retries: number;
-    retryDelay: number;
-    retryCondition?: (error: AxiosError) => boolean;
-  };
-}
+import type {
+  ApiResponse,
+  ApiError,
+  PaginatedResponse,
+  RequestInterceptor,
+  ResponseInterceptor,
+  ApiClientConfig,
+} from "@farm-framework/types";
 
 /**
  * Lightweight wrapper around Axios with sane defaults and helper utilities.

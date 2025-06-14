@@ -1,45 +1,14 @@
 // tools/cli/commands/types.ts
 /**
- * @deprecated Moved to `@farm-framework/types` package
+ * @deprecated All types moved to `@farm-framework/types` package
+ * Import from @farm-framework/types instead of using these local definitions
  */
-export interface GenerateOptions {
-  watch?: boolean;
-  config?: string;
-  schema?: string;
-  output?: string;
-  ai?: boolean;
-}
 
-/**
- * @deprecated Moved to `@farm-framework/types` package
- */
-export interface GenerateAllOptions extends GenerateOptions {
-  watch?: boolean;
-  config?: string;
-}
-
-/**
- * @deprecated Moved to `@farm-framework/types` package
- */
-export interface GenerateHooksOptions extends GenerateOptions {
-  schema?: string;
-  output?: string;
-  ai?: boolean;
-}
-
-/**
- * @deprecated Moved to `@farm-framework/types` package
- */
-export interface GenerateTypesOptions extends GenerateOptions {
-  schema?: string;
-  output?: string;
-}
-
-/**
- * @deprecated Moved to `@farm-framework/types` package
- */
-export interface GenerateClientOptions extends GenerateOptions {
-  schema?: string;
-  output?: string;
-  ai?: boolean;
-}
+// Re-export from shared types for backward compatibility
+export type {
+  GenerateOptions,
+  GenerateAllOptions,
+  GenerateHooksOptions,
+  GenerateTypesOptions,
+  GenerateClientOptions,
+} from "@farm-framework/types";

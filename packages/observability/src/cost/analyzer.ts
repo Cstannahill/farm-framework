@@ -7,17 +7,8 @@ import type {
   ProviderCostSummary,
   TimeSeriesDataPoint,
   OptimizationSuggestion,
+  AnalysisOptions,
 } from "@farm-framework/types";
-
-export interface AnalysisOptions {
-  timeRange: {
-    start: Date;
-    end: Date;
-  };
-  groupBy?: "hour" | "day" | "week" | "month";
-  includeProjections?: boolean;
-  includeSuggestions?: boolean;
-}
 
 export class CostAnalyzer {
   private metricsCache: Map<string, AIMetrics[]> = new Map();

@@ -10,7 +10,11 @@ import fsExtra from "fs-extra";
 import path from "path";
 import crypto from "crypto";
 import { performance } from "perf_hooks";
-import type { OpenAPISchema } from "./types";
+import type {
+  OpenAPISchema,
+  SyncOptions,
+  SyncResult,
+} from "@farm-framework/types";
 import { TypeSyncError } from "./errors";
 
 const fs = fsExtra;
@@ -18,55 +22,6 @@ const { ensureDir } = fsExtra;
 
 /** Visible, repo‑relative folder for generated artifacts */
 const DEFAULT_OUTPUT_DIR = path.resolve(process.cwd(), "generated");
-
-/**
- * Configuration options controlling the type synchronization process.
- */
-export interface SyncOptions {
-  apiUrl: string;
-  outputDir?: string;
-  features: {
-    client: boolean;
-    hooks: boolean;
-    streaming: boolean;
-    aiHooks: boolean;
-  };
-  performance?: {
-    enableMonitoring: boolean;
-    enableIncrementalGeneration: boolean;
-    maxConcurrency: number;
-    cacheTimeout: number;
-  };
-  generators?: {
-    typescript?: any;
-    apiClient?: any;
-    reactHooks?: any;
-    aiHooks?: any;
-  };
-}
-
-/**
- * Result summary returned after running a synchronization cycle.
- */
-export interface SyncResult {
-  filesGenerated: number;
-  fromCache: boolean;
-  artifacts?: string[];
-  performance?: {
-    totalTime: number;
-    extractionTime: number;
-    generationTime: number;
-    cacheTime: number;
-    parallelJobs: number;
-  };
-  generationDetails?: {
-    generator: string;
-    file: string;
-    time: number;
-    fromCache: boolean;
-    size: number;
-  }[];
-}
 
 /**
  * Performance metrics for monitoring generation cycles

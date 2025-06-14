@@ -2,29 +2,12 @@
 import { Command } from "commander";
 import { readFile } from "fs-extra";
 import { ReactHookGenerator } from "@farm-framework/type-sync";
-
-// Type definitions for command options
-interface GenerateAllOptions {
-  watch?: boolean;
-  config?: string;
-}
-
-interface GenerateHooksOptions {
-  schema?: string;
-  output?: string;
-  ai?: boolean;
-}
-
-interface GenerateTypesOptions {
-  schema?: string;
-  output?: string;
-}
-
-interface GenerateClientOptions {
-  schema?: string;
-  output?: string;
-  ai?: boolean;
-}
+import type {
+  GenerateAllOptions,
+  GenerateHooksOptions,
+  GenerateTypesOptions,
+  GenerateClientOptions,
+} from "@farm-framework/types";
 
 export function createGenerateCommand(): Command {
   const generate = new Command("generate")

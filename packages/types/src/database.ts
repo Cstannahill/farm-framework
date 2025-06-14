@@ -35,7 +35,7 @@ export interface DatabaseConnection {
 
 export interface DatabaseConfig {
   type: DatabaseType;
-  url: string;
+  url?: string;
   options?: DatabaseOptions;
   migrations?: MigrationConfig;
 }

@@ -8,7 +8,14 @@
  */
 import { z } from "zod";
 import { EventEmitter } from "events";
-import { getErrorMessage } from "@farm-framework/cli";
+
+// Simple error helper since we don't have the CLI package yet
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
 // Base configuration schemas
 const BaseProviderConfigSchema = z.object({

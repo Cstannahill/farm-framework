@@ -4,13 +4,7 @@ import { DatabaseGenerator } from "../generators/database-generator.js";
 import { logger } from "../utils/logger.js";
 import { configLoader } from "../core/config.js";
 import { execAsync } from "../utils/exec.js";
-import type { DatabaseType } from "@farm-framework/types";
-
-interface MigrateOptions {
-  create?: string;
-  upgrade?: boolean;
-  downgrade?: string;
-}
+import type { DatabaseType, MigrateOptions } from "@farm-framework/types";
 
 export function createDatabaseCommands(): Command {
   const database = new Command("database");

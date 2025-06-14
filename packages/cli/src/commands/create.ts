@@ -54,8 +54,18 @@ export function createCreateCommand(): Command {
       "Run preflight checks on templates before processing"
     )
     .action(createProject);
-
   return createCmd;
+}
+
+// Helper function to get database type from config
+function getDatabaseType(database: any): string {
+  if (typeof database === "string") {
+    return database;
+  }
+  if (database && typeof database === "object" && database.type) {
+    return database.type;
+  }
+  return "unknown";
 }
 
 async function createProject(
@@ -114,7 +124,7 @@ async function createProject(
     );
     console.log(
       styles.info(
-        `Database:      ${styles.emphasis(typeof context.database === "object" ? context.database.type : context.database)}`
+        `Database:      ${styles.emphasis(getDatabaseType(context.database))}`
       )
     );
     console.log(
@@ -411,10 +421,7 @@ function convertToSharedContext(
     name: context.projectName || context.name,
     template: context.template,
     features: context.features || [],
-    database:
-      typeof context.database === "object"
-        ? context.database.type
-        : context.database || "mongodb",
+    database: getDatabaseType(context.database),
     answers: {}, // Empty answers object for compatibility
     timestamp: new Date().toISOString(), // Current timestamp
     farmVersion: "1.0.0", // TODO: Get from package.json

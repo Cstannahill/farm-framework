@@ -2,8 +2,8 @@
 
 ## Packages
 
-- [ ] ai
-- [ ] api-client
+- [x] ai
+- [x] api-client
 - [ ] cli
 - [ ] code-intelligence
 - [ ] core

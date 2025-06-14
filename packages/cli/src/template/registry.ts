@@ -349,99 +349,75 @@ export class TemplateRegistry {
   // ... dependency methods remain the same as before
   private getBasicTemplateDependencies() {
     return {
-      frontend: {
-        dependencies: {
-          react: "^18.2.0",
-          "react-dom": "^18.2.0",
-          "@tanstack/react-query": "^5.0.0",
-          zustand: "^4.4.0",
-          "react-router-dom": "^6.0.0",
-        },
-        devDependencies: {
-          "@types/react": "^18.2.0",
-          "@types/react-dom": "^18.2.0",
-          "@vitejs/plugin-react": "^4.0.0",
-          vite: "^5.0.0",
-          typescript: "^5.0.0",
-          tailwindcss: "^3.0.0",
-        },
-      },
-      backend: {
-        dependencies: [
-          "fastapi>=0.104.0",
-          "uvicorn[standard]>=0.24.0",
-          "pydantic>=2.0.0",
-          "motor>=3.3.0",
-          "beanie>=1.23.0",
-        ],
-        devDependencies: [
-          "pytest>=7.0.0",
-          "pytest-asyncio>=0.21.0",
-          "black>=23.0.0",
-          "isort>=5.0.0",
-          "mypy>=1.0.0",
-        ],
-      },
+      frontend: [
+        { name: "react", version: "^18.2.0" },
+        { name: "react-dom", version: "^18.2.0" },
+        { name: "@tanstack/react-query", version: "^5.0.0" },
+        { name: "zustand", version: "^4.4.0" },
+        { name: "react-router-dom", version: "^6.0.0" },
+        { name: "@types/react", version: "^18.2.0", dev: true },
+        { name: "@types/react-dom", version: "^18.2.0", dev: true },
+        { name: "@vitejs/plugin-react", version: "^4.0.0", dev: true },
+        { name: "vite", version: "^5.0.0", dev: true },
+        { name: "typescript", version: "^5.0.0", dev: true },
+        { name: "tailwindcss", version: "^3.0.0", dev: true },
+      ],
+      backend: [
+        { name: "fastapi", version: ">=0.104.0" },
+        { name: "uvicorn", version: ">=0.24.0", extras: ["standard"] },
+        { name: "pydantic", version: ">=2.0.0" },
+        { name: "motor", version: ">=3.3.0" },
+        { name: "beanie", version: ">=1.23.0" },
+        { name: "pytest", version: ">=7.0.0" },
+        { name: "pytest-asyncio", version: ">=0.21.0" },
+        { name: "black", version: ">=23.0.0" },
+        { name: "isort", version: ">=5.0.0" },
+        { name: "mypy", version: ">=1.0.0" },
+      ],
     };
   }
-
   private getAIChatTemplateDependencies() {
     const base = this.getBasicTemplateDependencies();
     return {
-      frontend: {
-        dependencies: {
-          ...base.frontend.dependencies,
-          marked: "^5.0.0",
-          prismjs: "^1.29.0",
-        },
-        devDependencies: base.frontend.devDependencies,
-      },
-      backend: {
-        dependencies: [
-          ...base.backend.dependencies,
-          "httpx>=0.25.0",
-          "websockets>=11.0.0",
-          "openai>=1.0.0",
-        ],
-        devDependencies: base.backend.devDependencies,
-      },
+      frontend: [
+        ...base.frontend,
+        { name: "marked", version: "^5.0.0" },
+        { name: "prismjs", version: "^1.29.0" },
+      ],
+      backend: [
+        ...base.backend,
+        { name: "httpx", version: ">=0.25.0" },
+        { name: "websockets", version: ">=11.0.0" },
+        { name: "openai", version: ">=1.0.0" },
+      ],
     };
   }
-
   private getAIDashboardTemplateDependencies() {
     const base = this.getBasicTemplateDependencies();
     return {
-      frontend: {
-        dependencies: {
-          ...base.frontend.dependencies,
-          "react-chartjs-2": "^5.2.0",
-          "chart.js": "^4.3.0",
-          recharts: "^2.8.0",
-          d3: "^7.8.0",
-          "@types/d3": "^7.4.0",
-        },
-        devDependencies: base.frontend.devDependencies,
-      },
-      backend: {
-        dependencies: [
-          ...base.backend.dependencies,
-          // AI Dashboard specific ML/Analytics packages (latest versions)
-          "pandas>=2.3.0",
-          "scikit-learn>=1.7.0",
-          "numpy>=2.3.0",
-          "plotly>=6.1.2",
-          "scipy>=1.15.2",
-          "seaborn>=0.13.2",
-        ],
-        devDependencies: base.backend.devDependencies,
-      },
+      frontend: [
+        ...base.frontend,
+        { name: "react-chartjs-2", version: "^5.2.0" },
+        { name: "chart.js", version: "^4.3.0" },
+        { name: "recharts", version: "^2.8.0" },
+        { name: "d3", version: "^7.8.0" },
+        { name: "@types/d3", version: "^7.4.0" },
+      ],
+      backend: [
+        ...base.backend,
+        { name: "pandas", version: ">=2.3.0" },
+        { name: "scikit-learn", version: ">=1.7.0" },
+        { name: "numpy", version: ">=2.3.0" },
+        { name: "plotly", version: ">=6.1.2" },
+        { name: "scipy", version: ">=1.15.2" },
+        { name: "seaborn", version: ">=0.13.2" },
+      ],
     };
   }
-
   private getAPIOnlyTemplateDependencies() {
     const base = this.getBasicTemplateDependencies();
     return {
-      frontend: { dependencies: {}, devDependencies: {} },
+      frontend: [], // No frontend dependencies for API-only
       backend: base.backend,
     };
   }

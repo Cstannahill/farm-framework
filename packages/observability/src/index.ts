@@ -15,6 +15,13 @@ export type {
   AlertConfig,
   AlertRule,
   TelemetryProvider,
+  CustomTelemetryProviderConfig,
+  CollectorOptions,
+  PredictorConfig,
+  AnalysisOptions,
+  CostDataPoint,
+  GrowthFactor,
+  TraceData,
 } from "@farm-framework/types";
 
 // Main initialization function

@@ -16,6 +16,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@farm-framework/types": "workspace:*",
     "change-case": "^5.4.4",
     "fs-extra": "^11.3.0",
     "lodash-es": "^4.17.21",

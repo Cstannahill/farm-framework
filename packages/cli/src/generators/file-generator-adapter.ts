@@ -5,7 +5,11 @@
  */
 
 import type { TemplateContext } from "../template/types.js";
-import type { TemplateDefinition } from "@farm-framework/types/templates";
+import {
+  getDatabaseTypeString,
+  normalizeDatabaseConfig,
+} from "../template/types.js";
+import type { TemplateDefinition } from "@farm-framework/types";
 
 // Define what your existing ProjectFileGenerator interface looks like
 interface ExistingFileGeneratorInterface {
@@ -91,21 +95,10 @@ export class FileGeneratorAdapter {
       // Project basics
       projectName: context.name,
       template: context.template,
-      name: context.name, // Some generators might expect 'name' instead of 'projectName'
-
-      // Database configuration - handle both object and string formats
-      database:
-        typeof context.database === "object"
-          ? context.database.type
-          : context.database,
-      databaseType:
-        typeof context.database === "object"
-          ? context.database.type
-          : context.database,
-      databaseConfig:
-        typeof context.database === "object"
-          ? context.database
-          : { type: context.database },
+      name: context.name, // Some generators might expect 'name' instead of 'projectName'      // Database configuration - handle both object and string formats
+      database: getDatabaseTypeString(context.database),
+      databaseType: getDatabaseTypeString(context.database),
+      databaseConfig: normalizeDatabaseConfig(context.database),
 
       // Features as array
       features: context.features || [],
@@ -151,16 +144,11 @@ export class FileGeneratorAdapter {
           testing: context.testing !== false,
           git: context.git !== false,
         },
-      },
-
-      // Legacy properties that old generators might expect
+      }, // Legacy properties that old generators might expect
       config: {
         projectName: context.name,
         template: context.template,
-        database:
-          typeof context.database === "object"
-            ? context.database.type
-            : context.database,
+        database: getDatabaseTypeString(context.database),
         features: context.features || [],
         typescript: context.typescript !== false,
         docker: context.docker !== false,

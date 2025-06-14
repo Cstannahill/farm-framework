@@ -1,12 +1,5 @@
 import chalk from "chalk";
-
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-export interface LoggerOptions {
-  level?: LogLevel;
-  silent?: boolean;
-  timestamp?: boolean;
-}
+import type { LogLevel, LoggerOptions } from "@farm-framework/types";
 
 class Logger {
   private level: LogLevel = "info";
@@ -26,7 +19,6 @@ class Logger {
     }
     return "info";
   }
-
   private shouldLog(level: LogLevel): boolean {
     if (this.silent) return false;
 
@@ -35,6 +27,7 @@ class Logger {
       info: 1,
       warn: 2,
       error: 3,
+      success: 1, // Same level as info
     };
 
     return levels[level] >= levels[this.level];

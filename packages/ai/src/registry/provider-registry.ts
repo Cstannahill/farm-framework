@@ -8,7 +8,14 @@ import {
   ProviderStatus,
   ProviderError,
 } from "../providers/base.js";
-import { getErrorMessage } from "@farm-framework/cli";
+
+// Simple error helper since we don't have the CLI package yet
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 export interface RegistryConfig {
   healthCheckInterval?: number;
   maxRetries?: number;
@@ -165,7 +172,7 @@ export class ProviderRegistry
           message: health.message,
           models: health.models || [],
           capabilities: health.capabilities || [],
-          lastChecked: new Date(),
+          lastChecked: Date.now(),
         };
 
         providers[name] = status;
@@ -183,7 +190,7 @@ export class ProviderRegistry
           message: getErrorMessage(error),
           models: [],
           capabilities: [],
-          lastChecked: new Date(),
+          lastChecked: Date.now(),
         };
 
         providers[name] = status;

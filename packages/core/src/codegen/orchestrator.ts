@@ -1,28 +1,12 @@
 import { TypeSyncOrchestrator } from "@farm-framework/type-sync";
 import type { SyncOptions, SyncResult } from "@farm-framework/type-sync";
-import type { FarmConfig } from "../config/types";
+import type {
+  FarmConfig,
+  CodegenOptions,
+  CodegenProgressInfo,
+} from "@farm-framework/types";
 import { performance } from "perf_hooks";
 import chalk from "chalk";
-
-/** Enhanced wrapper orchestrator that hooks framework specifics into type-sync. */
-export interface CodegenOptions extends SyncOptions {
-  verbose?: boolean;
-  dryRun?: boolean;
-  profile?: boolean;
-  progressCallback?: (progress: ProgressInfo) => void;
-}
-
-export interface ProgressInfo {
-  stage:
-    | "initialization"
-    | "extraction"
-    | "generation"
-    | "caching"
-    | "completion";
-  message: string;
-  progress: number; // 0-100
-  details?: any;
-}
 
 /**
  * Framework-aware orchestrator that integrates type-sync with FARM configuration
@@ -31,7 +15,7 @@ export interface ProgressInfo {
 export class CodegenOrchestrator {
   private typeSync = new TypeSyncOrchestrator();
   private startTime = 0;
-  private progressCallback?: (progress: ProgressInfo) => void;
+  private progressCallback?: (progress: CodegenProgressInfo) => void;
   private isVerbose = false;
 
   constructor(private farmConfig?: FarmConfig) {}
@@ -168,12 +152,17 @@ export class CodegenOrchestrator {
     };
   }
   private reportProgress(
-    stage: ProgressInfo["stage"],
+    stage: CodegenProgressInfo["stage"],
     message: string,
     progress: number,
     details?: any
   ) {
-    const progressInfo: ProgressInfo = { stage, message, progress, details };
+    const progressInfo: CodegenProgressInfo = {
+      stage,
+      message,
+      progress,
+      details,
+    };
 
     // Only log if verbose mode is enabled
     if (this.isVerbose || process.env.NODE_ENV === "development") {

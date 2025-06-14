@@ -872,10 +872,9 @@ multi_line_output = 3
 export default defineConfig({
   name: '${context.projectName}',
   template: '${context.template}',
-  
-  database: {
+    database: {
     type: '${context.database}',
-    url: process.env.DATABASE_URL || '${this.getDefaultDatabaseUrl(typeof context.database === "string" ? context.database : context.database.type, context.name)}'
+    url: process.env.DATABASE_URL || '${this.getDefaultDatabaseUrl(context.database, context.name)}'
   },`;
 
     if (hasAI) {

@@ -1,45 +1,10 @@
 // packages/observability/src/cost/predictor.ts
-
-// Define local types since we can't import from @farm/types yet
-interface CostDataPoint {
-  timestamp: number;
-  cost: number;
-  provider: string;
-  model: string;
-  tokens: number;
-}
-
-interface CostPrediction {
-  timeframe: "hour" | "day" | "week" | "month";
-  estimated: number;
-  confidence: {
-    low: number;
-    high: number;
-    interval: number;
-  };
-  factors: GrowthFactor[];
-  basedOn: {
-    dataPoints: number;
-    timeRange: string;
-    methodology: string;
-  };
-}
-
-interface GrowthFactor {
-  type: "model_upgrade" | "traffic_spike" | "usage_pattern" | "cost_increase";
-  impact: "high" | "medium" | "low";
-  description: string;
-  suggestion: string;
-  estimatedSavings?: number;
-}
-
-interface PredictorConfig {
-  thresholds: {
-    daily: number;
-    weekly: number;
-    monthly: number;
-  };
-}
+import type {
+  CostDataPoint,
+  CostPrediction,
+  GrowthFactor,
+  PredictorConfig,
+} from "@farm-framework/types";
 
 interface TrendAnalysis {
   project(period: number, unit: string, confidence?: number): number;

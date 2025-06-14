@@ -42,8 +42,8 @@ export type FeatureType =
   | "search"
   | "analytics";
 
-
 export interface AIConfig {
+  enabled?: boolean;
   providers: {
     ollama?: OllamaConfig;
     openai?: OpenAIConfig;
@@ -95,7 +95,13 @@ export interface DevelopmentConfig {
     frontend?: number;
     backend?: number;
     proxy?: number;
+    database?: number;
     ai?: number;
+    ollama?: number;
+  };
+  api?: {
+    url?: string;
+    port?: number;
   };
   hotReload?: {
     enabled?: boolean;

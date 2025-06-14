@@ -2,19 +2,10 @@ import { Command } from "commander";
 import { existsSync } from "fs";
 import { join } from "path";
 import { FarmDevServer, Logger } from "@farm-framework/dev-server";
+import type { DevCommandOptions } from "@farm-framework/types";
 
 // Create logger instance that will be updated with verbose setting
 let logger: Logger;
-
-export interface DevCommandOptions {
-  port?: number;
-  "frontend-only"?: boolean;
-  "backend-only"?: boolean;
-  verbose?: boolean;
-  config?: string;
-  "skip-health-check"?: boolean;
-  services?: string;
-}
 
 export function createDevCommand(): Command {
   return new Command("dev")

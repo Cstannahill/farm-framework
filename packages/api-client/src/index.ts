@@ -13,4 +13,4 @@ export type {
   RequestInterceptor,
   ResponseInterceptor,
   ApiClientConfig,
-} from "./base-client";
+} from "@farm-framework/types";

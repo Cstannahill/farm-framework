@@ -1,15 +1,7 @@
 // packages/cli/src/config/generator.ts
 import path from "path";
 import fs from "fs-extra";
-
-export interface ConfigOptions {
-  projectPath: string;
-  projectName: string;
-  template: string;
-  features: string[];
-  database: string;
-  typescript: boolean;
-}
+import type { ConfigOptions } from "@farm-framework/types";
 
 export class ConfigGenerator {
   async generateConfig(options: ConfigOptions): Promise<void> {

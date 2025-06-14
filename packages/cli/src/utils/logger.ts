@@ -1,13 +1,11 @@
 import chalk from "chalk";
+import type { LogLevel, LoggerOptions } from "@farm-framework/types";
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
 export type DebugLevel = "minimal" | "verbose" | "detailed" | "trace";
 
-export interface LoggerOptions {
-  level?: LogLevel;
+// Extend the shared LoggerOptions for CLI-specific needs
+interface CLILoggerOptions extends LoggerOptions {
   debugLevel?: DebugLevel;
-  silent?: boolean;
-  timestamp?: boolean;
 }
 
 class Logger {
@@ -15,8 +13,7 @@ class Logger {
   private debugLevel: DebugLevel = "minimal";
   private silent: boolean = false;
   private timestamp: boolean = false;
-
-  constructor(options: LoggerOptions = {}) {
+  constructor(options: CLILoggerOptions = {}) {
     this.level = options.level || this.getLogLevelFromEnv();
     this.debugLevel = options.debugLevel || this.getDebugLevelFromEnv();
     this.silent = options.silent || process.env.FARM_SILENT === "true";
@@ -43,12 +40,12 @@ class Logger {
   }
   private shouldLog(level: LogLevel): boolean {
     if (this.silent) return false;
-
     const levels: Record<LogLevel, number> = {
       debug: 0,
       info: 1,
       warn: 2,
       error: 3,
+      success: 1, // Same level as info
     };
 
     return levels[level] >= levels[this.level];

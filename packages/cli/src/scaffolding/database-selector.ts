@@ -199,8 +199,7 @@ export class DatabaseSelector {
    */
   async validateDatabaseConfig(config: DatabaseConfig): Promise<boolean> {
     const provider = await this.selectDatabase(config.type);
-
-    if (!this.isValidConnectionUrl(config.url, config.type)) {
+    if (config.url && !this.isValidConnectionUrl(config.url, config.type)) {
       throw new Error(`Invalid connection URL for ${config.type}`);
     }
 

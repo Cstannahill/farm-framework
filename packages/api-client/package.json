@@ -22,6 +22,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@farm-framework/types": "workspace:*",
     "axios": "^1.7.2"
   },
   "devDependencies": {

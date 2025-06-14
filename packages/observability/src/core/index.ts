@@ -1,7 +1,6 @@
 // Core observability exports
 export { FarmAutoInstrumentor } from "./auto-instrumentor.js";
 export { TelemetryCollector } from "./collector.js";
-export type { CollectorOptions } from "./collector.js";
 export { ZeroConfigObservability } from "./zero-config.js";
 
 // Re-export types for convenience
@@ -11,6 +10,7 @@ export type {
   AIMetrics,
   CostPrediction,
   OptimizationSuggestion,
+  CollectorOptions,
 } from "@farm-framework/types";
 
 // Import necessary types for local usage

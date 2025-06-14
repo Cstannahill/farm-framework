@@ -1,282 +1,61 @@
-// packages/cli/src/templates/types.ts
+// packages/cli/src/template/types.ts
 /**
  * Type definitions for template configuration and context
+ *
+ * @deprecated These types have been moved to @farm-framework/types
+ * This file now re-exports them for backward compatibility
  */
 
-// =============================================================================
-// FARM CONFIGURATION TYPES
-// =============================================================================
+// Import shared types
+export type {
+  // Core types from shared types (these use different names)
+  TemplateType as TemplateName,
+  FeatureType as FeatureName,
 
-export type DatabaseType =
-  | "mongodb"
-  | "postgresql"
-  | "mysql"
-  | "sqlite"
-  | "sqlserver";
-export type FeatureName =
-  | "auth"
-  | "ai"
-  | "realtime"
-  | "payments"
-  | "email"
-  | "storage"
-  | "search"
-  | "analytics";
-export type TemplateName =
-  | "basic"
-  | "ai-chat"
-  | "ai-dashboard"
-  | "ecommerce"
-  | "cms"
-  | "api-only";
+  // Configuration types
+  DatabaseConfig,
+  AIConfig,
+  DevelopmentConfig,
+  BuildConfig,
+  DeploymentConfig,
+  FarmConfig,
+  PluginConfig,
+
+  // Template types
+  CLITemplateContext as TemplateContext,
+  CreateCommandOptions,
+  TemplateFile,
+  TemplateDirectory,
+  CLITemplateDefinition as TemplateDefinition,
+
+  // Error types
+  TemplateProcessingError,
+  ConfigurationValidationError,
+} from "@farm-framework/types";
+
+// Import utility functions as values
+export {
+  isTemplateName,
+  isFeatureName,
+  createTemplateContext,
+} from "@farm-framework/types";
+
+// Re-export database types
+export type { DatabaseType } from "@farm-framework/types";
+
+// Add environment name type locally since it's not in shared types yet
 export type EnvironmentName = "development" | "staging" | "production";
 
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface DatabaseConfig {
-  type: DatabaseType;
-  url?: string;
-  options?: Record<string, any>;
-}
-
-export interface AIProviderConfig {
-  enabled: boolean;
-  url?: string;
-  models?: string[];
-  defaultModel?: string;
-  apiKey?: string;
-  token?: string;
-  autoStart?: boolean;
-  autoPull?: string[];
-  gpu?: boolean;
-  rateLimiting?: {
-    requestsPerMinute?: number;
-    tokensPerMinute?: number;
-  };
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface AIConfig {
-  providers?: {
-    ollama?: AIProviderConfig;
-    openai?: AIProviderConfig;
-    huggingface?: AIProviderConfig;
-  };
-  routing?: {
-    development?: string;
-    staging?: string;
-    production?: string;
-  };
-  features?: {
-    streaming?: boolean;
-    caching?: boolean;
-    rateLimiting?: boolean;
-    fallback?: boolean;
-  };
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface DevelopmentConfig {
-  ports?: {
-    frontend?: number;
-    backend?: number;
-    proxy?: number;
-    ollama?: number;
-  };
-  hotReload?: {
-    enabled?: boolean;
-    typeGeneration?: boolean;
-    aiModels?: boolean;
-  };
-  ssl?: boolean;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface BuildConfig {
-  target?: string;
-  sourcemap?: boolean;
-  minify?: boolean;
-  splitting?: boolean;
-  outDir?: string;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface DeploymentConfig {
-  platform?: "vercel" | "netlify" | "aws" | "gcp" | "docker";
-  regions?: string[];
-  environment?: Record<string, string>;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export type PluginConfig = string | [string, Record<string, any>];
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface FarmConfig {
-  // Project metadata
-  name: string;
-  projectName?: string;
-  version?: string;
-  description?: string;
-
-  // Template and features
-  template: TemplateName;
-  features: FeatureName[];
-
-  // Core configurations
-  database: DatabaseConfig | DatabaseType;
-  ai?: AIConfig;
-  development?: DevelopmentConfig;
-  build?: BuildConfig;
-  deployment?: DeploymentConfig;
-
-  // Development options
-  typescript?: boolean;
-  docker?: boolean;
-  testing?: boolean;
-  git?: boolean;
-  install?: boolean;
-
-  // Environment
-  environment?: EnvironmentName;
-
-  // Plugin system
-  plugins?: PluginConfig[];
-
-  // Framework metadata
-  farmVersion?: string;
-
-  // CLI options that might be passed through
-  interactive?: boolean;
-  verbose?: boolean;
-}
-
-// =============================================================================
-// TEMPLATE CONTEXT TYPES
-// =============================================================================
-
-/**
- * Template context that gets passed to Handlebars templates
- * This extends FarmConfig with additional computed properties
- * @deprecated Moved to `@farm/types` package
- */
-export interface TemplateContext extends FarmConfig {
-  // The config property allows templates to access the full config
-  config?: TemplateContext;
-
-  // Additional computed properties that might be added by the template processor
-  [key: string]: any;
-}
-
-// =============================================================================
-// CLI COMMAND TYPES
-// =============================================================================
-/**
- * Options for the `create` command
- * This interface defines the options that can be passed to the `create` command.
- * It includes template selection, features, database type, and various flags
-
- */
-export interface CreateCommandOptions {
-  template?: TemplateName;
-  features?: FeatureName[];
-  database?: DatabaseType;
-  typescript?: boolean;
-  docker?: boolean;
-  testing?: boolean;
-  git?: boolean;
-  install?: boolean;
-  interactive?: boolean;
-  verbose?: boolean;
-  preflight?: boolean;
-}
-
-// =============================================================================
-// TEMPLATE PROCESSING TYPES
-// =============================================================================
-
-export interface TemplateFile {
-  src: string;
-  dest: string;
-  condition?: (context: TemplateContext) => boolean;
-  sourcePath?: string; // Allow legacy property for compatibility
-  targetPath?: string; // Allow legacy property for compatibility
-  transform?: boolean;
-}
-
-export interface TemplateDirectory {
-  src: string;
-  dest: string;
-  condition?: (context: TemplateContext) => boolean;
-  sourcePath?: string; // Allow legacy property for compatibility
-  targetPath?: string; // Allow legacy property for compatibility
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface TemplateDefinition {
-  name: TemplateName;
-  description: string;
-  features: FeatureName[];
-  files: TemplateFile[];
-  directories: TemplateDirectory[];
-  postProcess?: (context: TemplateContext, outputPath: string) => Promise<void>;
-  // Allow extra fields for template registry compatibility
-  supportedFeatures?: FeatureName[];
-  defaultFeatures?: FeatureName[];
-  supportedDatabases?: DatabaseType[];
-  defaultDatabase?: DatabaseType;
-  [key: string]: any; // Allow any additional custom fields
-}
-
-// =============================================================================
-// ERROR TYPES
-// =============================================================================
-
-export class TemplateProcessingError extends Error {
-  constructor(
-    message: string,
-    public templatePath?: string,
-    public outputPath?: string,
-    public originalError?: Error
-  ) {
-    super(message);
-    this.name = "TemplateProcessingError";
-  }
-}
-
-export class ConfigurationValidationError extends Error {
-  constructor(
-    message: string,
-    public field?: string,
-    public value?: any
-  ) {
-    super(message);
-    this.name = "ConfigurationValidationError";
-  }
-}
-
-// =============================================================================
-// UTILITY TYPES
-// =============================================================================
+// Re-export some types with legacy names for compatibility
+import type {
+  DatabaseConfig as SharedDatabaseConfig,
+  DatabaseType as SharedDatabaseType,
+} from "@farm-framework/types";
 
 /**
  * Type guard to check if a value is a valid database type
  */
-export function isDatabaseType(value: any): value is DatabaseType {
+export function isDatabaseType(value: any): value is SharedDatabaseType {
   return (
     typeof value === "string" &&
     ["mongodb", "postgresql", "mysql", "sqlite", "sqlserver"].includes(value)
@@ -284,97 +63,35 @@ export function isDatabaseType(value: any): value is DatabaseType {
 }
 
 /**
- * Type guard to check if a value is a valid feature name
- */
-export function isFeatureName(value: any): value is FeatureName {
-  return (
-    typeof value === "string" &&
-    [
-      "auth",
-      "ai",
-      "realtime",
-      "payments",
-      "email",
-      "storage",
-      "search",
-      "analytics",
-    ].includes(value)
-  );
-}
-
-/**
- * Type guard to check if a value is a valid template name
- */
-export function isTemplateName(value: any): value is TemplateName {
-  return (
-    typeof value === "string" &&
-    [
-      "basic",
-      "ai-chat",
-      "ai-dashboard",
-      "ecommerce",
-      "cms",
-      "api-only",
-    ].includes(value)
-  );
-}
-
-/**
  * Normalize database configuration to a consistent format
  */
-export function normalizeDatabaseConfig(
-  database: DatabaseConfig | DatabaseType
-): DatabaseConfig {
+export function normalizeDatabaseConfig(database: any): SharedDatabaseConfig {
   if (typeof database === "string") {
-    return { type: database };
+    return { type: database as SharedDatabaseType, url: "" }; // Provide default url
   }
-  return database;
+  if (database && typeof database === "object" && database.type) {
+    return database as SharedDatabaseConfig;
+  }
+  // Default fallback
+  return { type: "mongodb", url: "" };
 }
 
 /**
- * Create a template context from CLI options and project name
+ * Extract database type from database config (handles both string and object formats)
  */
-export function createTemplateContext(
-  projectName: string,
-  options: CreateCommandOptions
-): TemplateContext {
-  return {
-    name: projectName,
-    projectName,
-    template: options.template || "basic",
-    features: options.features || [],
-    database: options.database || "mongodb",
-    typescript: options.typescript !== false, // Default to true
-    docker: options.docker !== false, // Default to true
-    testing: options.testing !== false, // Default to true
-    git: options.git !== false, // Default to true
-    install: options.install !== false, // Default to true
-    environment: "development",
-    farmVersion: "1.0.0", // This should come from package.json
+export function getDatabaseType(database: any): SharedDatabaseType {
+  if (typeof database === "string") {
+    return database as SharedDatabaseType;
+  }
+  if (database && typeof database === "object" && database.type) {
+    return database.type as SharedDatabaseType;
+  }
+  return "mongodb"; // default fallback
+}
 
-    // AI configuration based on template
-    ...(options.template?.includes("ai") && {
-      ai: {
-        providers: {
-          ollama: {
-            enabled: true,
-            models: ["llama3.1"],
-            defaultModel: "llama3.1",
-            autoStart: true,
-            autoPull: ["llama3.1"],
-          },
-        },
-        routing: {
-          development: "ollama",
-          production: "openai",
-        },
-        features: {
-          streaming: true,
-          caching: true,
-          rateLimiting: true,
-          fallback: true,
-        },
-      },
-    }),
-  };
+/**
+ * Extract database type as string for templates
+ */
+export function getDatabaseTypeString(database: any): string {
+  return getDatabaseType(database);
 }

@@ -1,7 +1,8 @@
 // tools/dev-server/src/service-configs.ts
 import { readFileSync } from "fs";
 import { join } from "path";
-import type { ServiceConfig, FarmConfig } from "./types.js";
+import type { ServiceConfig } from "./types.js";
+import type { FarmConfig } from "@farm-framework/types";
 import { Logger } from "./logger.js";
 
 export class ServiceConfigManager {

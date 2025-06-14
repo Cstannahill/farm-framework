@@ -317,3 +317,14 @@ export interface CostAnalysis {
   };
   suggestions?: OptimizationSuggestion[];
 }
+
+// Cost Analysis Types
+export interface AnalysisOptions {
+  timeRange: {
+    start: Date;
+    end: Date;
+  };
+  groupBy?: "hour" | "day" | "week" | "month";
+  includeProjections?: boolean;
+  includeSuggestions?: boolean;
+}

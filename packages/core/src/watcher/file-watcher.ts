@@ -4,22 +4,14 @@ import { promises as fs } from "fs";
 import path from "path";
 import { CodeGenerator } from "../codegen/generator";
 import { debounce } from "lodash";
-import type { FarmConfig } from "@farm-framework/types";
+import type {
+  FarmConfig,
+  FileChangeEvent,
+  RegenerationResult,
+  RegenerationPlan,
+  WatcherStatus,
+} from "@farm-framework/types";
 import chokidar from "chokidar";
-
-export interface FileChangeEvent {
-  type: "change" | "add" | "unlink";
-  path: string;
-  timestamp: number;
-  affectedSystems: string[];
-}
-
-export interface RegenerationResult {
-  success: boolean;
-  changedFiles: string[];
-  errors: string[];
-  duration: number;
-}
 
 export class FarmFileWatcher extends EventEmitter {
   private watchers = new Map<string, chokidar.FSWatcher>();
@@ -514,19 +506,4 @@ export class FarmFileWatcher extends EventEmitter {
       queuedChanges: this.regenerationQueue.length,
     };
   }
-}
-
-interface RegenerationPlan {
-  fullRegeneration: boolean;
-  changedModels: Set<string>;
-  changedRoutes: Set<string>;
-  affectedTypes: Set<string>;
-  affectedApiMethods: Set<string>;
-}
-
-interface WatcherStatus {
-  isWatching: boolean;
-  activeWatchers: string[];
-  isRegenerating: boolean;
-  queuedChanges: number;
 }

@@ -8,11 +8,11 @@ import { Logger } from "./logger.js";
 import { HealthChecker } from "./health-checker.js";
 import type {
   DevServerOptions,
-  FarmConfig,
   DevServerState,
   ServiceStatus,
   ServiceConfig,
 } from "./types.js";
+import type { FarmConfig } from "@farm-framework/types";
 
 // Adjust DevServerEvents type to match EventMap constraint
 interface DevServerEvents {

@@ -1,5 +1,18 @@
 // tools/dev-server/src/types.ts
 import type { ChildProcess } from "child_process";
+import type {
+  FarmConfig,
+  TemplateType,
+  FeatureType,
+  DatabaseConfig,
+  AIConfig,
+  OllamaConfig,
+  OpenAIConfig,
+  HuggingFaceConfig,
+  DevelopmentConfig,
+  PluginConfig,
+  ValidationResult,
+} from "@farm-framework/types";
 
 // Service configuration types
 export interface ServiceCommand {
@@ -67,136 +80,6 @@ export interface DevServerOptions {
   skipHealthCheck?: boolean;
   services?: string[];
 }
-
-// FARM configuration types (from existing types package)
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface FarmConfig {
-  name?: string;
-  template: TemplateType;
-  features?: FeatureType[];
-  database?: DatabaseConfig;
-  ai?: AIConfig;
-  development?: DevelopmentConfig;
-  plugins?: PluginConfig[];
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export type TemplateType =
-  | "basic"
-  | "ai-chat"
-  | "ai-dashboard"
-  | "ecommerce"
-  | "cms"
-  | "api-only";
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export type FeatureType =
-  | "auth"
-  | "ai"
-  | "realtime"
-  | "payments"
-  | "email"
-  | "storage"
-  | "search"
-  | "analytics";
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface DatabaseConfig {
-  type: "mongodb" | "postgresql" | "mysql" | "sqlite";
-  url?: string;
-  options?: Record<string, any>;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface AIConfig {
-  providers?: {
-    ollama?: OllamaConfig;
-    openai?: OpenAIConfig;
-    huggingface?: HuggingFaceConfig;
-  };
-  routing?: {
-    development?: string;
-    staging?: string;
-    production?: string;
-  };
-  features?: {
-    streaming?: boolean;
-    caching?: boolean;
-    rateLimiting?: boolean;
-    fallback?: boolean;
-  };
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface OllamaConfig {
-  enabled: boolean;
-  url?: string;
-  models: string[];
-  defaultModel: string;
-  autoStart?: boolean;
-  autoPull?: string[];
-  gpu?: boolean;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface OpenAIConfig {
-  enabled: boolean;
-  apiKey?: string;
-  models: string[];
-  defaultModel: string;
-  rateLimiting?: {
-    requestsPerMinute?: number;
-    tokensPerMinute?: number;
-  };
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface HuggingFaceConfig {
-  enabled: boolean;
-  token?: string;
-  models: string[];
-  device?: "auto" | "cpu" | "cuda";
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface DevelopmentConfig {
-  ports?: {
-    frontend?: number;
-    backend?: number;
-    proxy?: number;
-    database?: number;
-    ollama?: number;
-  };
-  hotReload?: {
-    enabled?: boolean;
-    typeGeneration?: boolean;
-    aiModels?: boolean;
-  };
-  ssl?: boolean;
-}
-
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export type PluginConfig = string | [string, Record<string, any>];
 
 // Development server events
 export interface DevServerEvents {
@@ -335,15 +218,7 @@ export type Awaitable<T> = T | Promise<T>;
 
 export type EventHandler<T extends keyof DevServerEvents> = DevServerEvents[T];
 
-// Configuration validation
-/**
- * @deprecated Moved to `@farm/types` package
- */
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
+// Configuration validation - imported from @farm-framework/types
 
 // Service dependency graph
 export interface ServiceDependency {
