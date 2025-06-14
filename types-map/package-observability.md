@@ -5,23 +5,32 @@
 - **Name:** observability
 
 ## \U0001F4C1 Local Types Summary
-- `DashboardTemplate` – `packages/observability/src/exporters/dashboard.ts`
-- `TraceData` – `packages/observability/src/core/collector.ts`
-- `CollectorOptions` – `packages/observability/src/core/collector.ts`
-- `CostDataPoint` – `packages/observability/src/cost/predictor.ts`
-- `CostPrediction` – `packages/observability/src/cost/predictor.ts`
-- `GrowthFactor` – `packages/observability/src/cost/predictor.ts`
-- `PredictorConfig` – `packages/observability/src/cost/predictor.ts`
-- `TrendAnalysis` – `packages/observability/src/cost/predictor.ts`
-- `ModelUsageAnalysis` – `packages/observability/src/cost/predictor.ts`
-- `TrafficPattern` – `packages/observability/src/cost/predictor.ts`
-- `AnalysisOptions` – `packages/observability/src/cost/analyzer.ts`
-- `ProviderOptions` – `packages/observability/src/providers/base.ts`
-- `ConsoleProviderOptions` – `packages/observability/src/providers/console.ts`
-- `CustomProviderConfig` – `packages/observability/src/providers/custom.ts`
-- `UptraceConfig` – `packages/observability/src/providers/uptrace.ts`
-- `RuleEvaluationResult` – `packages/observability/src/alerts/rules.ts`
-- `RuleContext` – `packages/observability/src/alerts/rules.ts`
+- `packages/observability/src/exporters/dashboard.ts`
+  - `DashboardTemplate`
+- `packages/observability/src/core/collector.ts`
+  - `TraceData`
+  - `CollectorOptions`
+- `packages/observability/src/cost/predictor.ts`
+  - `CostDataPoint`
+  - `CostPrediction`
+  - `GrowthFactor`
+  - `PredictorConfig`
+  - `TrendAnalysis`
+  - `ModelUsageAnalysis`
+  - `TrafficPattern`
+- `packages/observability/src/cost/analyzer.ts`
+  - `AnalysisOptions`
+- `packages/observability/src/providers/base.ts`
+  - `ProviderOptions`
+- `packages/observability/src/providers/console.ts`
+  - `ConsoleProviderOptions`
+- `packages/observability/src/providers/custom.ts`
+  - `CustomProviderConfig`
+- `packages/observability/src/providers/uptrace.ts`
+  - `UptraceConfig`
+- `packages/observability/src/alerts/rules.ts`
+  - `RuleEvaluationResult`
+  - `RuleContext`
 
 ## \U0001F501 Shared Type Cross-Reference
 - **Matches in `@farm-framework/types`:**
