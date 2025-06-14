@@ -2,6 +2,8 @@
  * FARM Configuration Types
  */
 import type { DatabaseConfig } from "./database.js";
+import type { DeploymentConfig } from "./deployment.js";
+import type { ObservabilityConfig } from "./observability.js";
 
 export interface FarmConfig {
   // Project metadata
@@ -16,9 +18,12 @@ export interface FarmConfig {
   // Core system configurations
   database: DatabaseConfig;
   ai?: AIConfig;
+  auth?: AuthConfig;
+  cache?: CacheConfig;
   development?: DevelopmentConfig;
   build?: BuildConfig;
   deployment?: DeploymentConfig;
+  observability?: ObservabilityConfig;
 
   // Plugin system
   plugins?: PluginConfig[];
@@ -48,6 +53,7 @@ export interface AIConfig {
     ollama?: OllamaConfig;
     openai?: OpenAIConfig;
     huggingface?: HuggingFaceConfig;
+    anthropic?: AnthropicConfig;
   };
   routing: {
     development?: string;
@@ -65,6 +71,7 @@ export interface AIConfig {
 export interface OllamaConfig {
   enabled: boolean;
   url?: string;
+  baseUrl?: string;
   models: string[];
   defaultModel: string;
   autoStart?: boolean;
@@ -88,6 +95,41 @@ export interface HuggingFaceConfig {
   token?: string;
   models: string[];
   device?: "auto" | "cpu" | "cuda";
+}
+
+export interface AnthropicConfig {
+  enabled: boolean;
+  apiKey?: string;
+  models: string[];
+  defaultModel: string;
+  rateLimiting?: {
+    requestsPerMinute?: number;
+    tokensPerMinute?: number;
+  };
+}
+
+export interface AuthConfig {
+  enabled?: boolean;
+  provider?: "jwt" | "oauth" | "custom";
+  jwt?: {
+    secret?: string;
+    expiresIn?: string;
+  };
+  oauth?: {
+    providers?: string[];
+  };
+}
+
+export interface CacheConfig {
+  enabled?: boolean;
+  type?: "redis" | "memory" | "file";
+  redis?: {
+    url?: string;
+    host?: string;
+    port?: number;
+    password?: string;
+  };
+  ttl?: number;
 }
 
 export interface DevelopmentConfig {
@@ -117,12 +159,7 @@ export interface BuildConfig {
   minify?: boolean;
   splitting?: boolean;
   outDir?: string;
-}
-
-export interface DeploymentConfig {
-  platform: "vercel" | "netlify" | "aws" | "gcp" | "docker";
-  regions?: string[];
-  environment?: Record<string, string>;
+  args?: Record<string, any>;
 }
 
 export type PluginConfig = string | [string, Record<string, any>];

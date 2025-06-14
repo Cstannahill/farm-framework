@@ -4,6 +4,8 @@
     { "path": "./packages/types" },
     { "path": "./packages/type-sync" },
     { "path": "./packages/core" },
+    { "path": "./packages/observability" },
+    { "path": "./packages/deployment" },
     { "path": "./packages/cli" },
     { "path": "./packages/ui-components" },
     { "path": "./tools/cli" }

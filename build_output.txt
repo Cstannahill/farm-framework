@@ -1,0 +1,302 @@
+npm warn Unknown project config "prefer-frozen-lockfile". This will stop working in the next major version of npm.
+npm warn Unknown project config "auto-install-peers". This will stop working in the next major version of npm.
+npm warn Unknown project config "link-workspace-packages". This will stop working in the next major version of npm.
+npm warn Unknown project config "prefer-workspace-packages". This will stop working in the next major version of npm.
+npm warn Unknown project config "hoist-pattern". This will stop working in the next major version of npm.
+
+> build
+> pnpm build:ts && pnpm build:bundle
+
+
+> @0.1.0 build:ts S:\Code\farm-framework
+> tsc -b tsconfig.build.json --pretty
+
+[96mpackages/deployment/src/recipes/railway/railway-recipe.ts[0m:[93m526[0m:[93m11[0m - [91merror[0m[90m TS2416: [0mProperty 'needsDatabase' in type 'RailwayRecipe' is not assignable to the same property in base type 'BaseRecipe'.
+  Type '(plan: DeploymentPlan) => boolean' is not assignable to type '(config: FarmConfig) => boolean'.
+    Types of parameters 'plan' and 'config' are incompatible.
+      Type 'FarmConfig' is missing the following properties from type 'DeploymentPlan': id, platform, region, environment, and 7 more.
+
+[7m526[0m   private needsDatabase(plan: DeploymentPlan): boolean {
+[7m   [0m [91m          ~~~~~~~~~~~~~[0m
+
+[96mpackages/deployment/src/recipes/railway/railway-recipe.ts[0m:[93m533[0m:[93m17[0m - [91merror[0m[90m TS2416: [0mProperty 'estimateCost' in type 'RailwayRecipe' is not assignable to the same property in base type 'DeployRecipe'.
+  Type '(config: FarmConfig, services: DeploymentService[]) => Promise<CostEstimate>' is not assignable to type '(plan: DeploymentPlan) => Promise<CostEstimate>'.
+    Target signature provides too few arguments. Expected 2 or more, but got 1.
+
+[7m533[0m   private async estimateCost(
+[7m   [0m [91m                ~~~~~~~~~~~~[0m
+
+[96mpackages/deployment/src/recipes/registry.ts[0m:[93m16[0m:[93m19[0m - [91merror[0m[90m TS2345: [0mArgument of type 'RailwayRecipe' is not assignable to parameter of type 'DeployRecipe'.
+  Property 'estimateCost' is private in type 'RailwayRecipe' but not in type 'DeployRecipe'.
+
+[7m16[0m     this.register(new RailwayRecipe());
+[7m  [0m [91m                  ~~~~~~~~~~~~~~~~~~~[0m
+
+[96mpackages/deployment/src/rollback/manager.ts[0m:[93m260[0m:[93m19[0m - [91merror[0m[90m TS2339: [0mProperty 'preserveData' does not exist on type 'Snapshot'.
+
+[7m260[0m     if (!snapshot.preserveData) {
+[7m   [0m [91m                  ~~~~~~~~~~~~[0m
+
+[96mpackages/deployment/src/utils/git.ts[0m:[93m67[0m:[93m9[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 3 of 4, '(command: string, options?: ExecSyncOptions | undefined): string | Buffer<ArrayBufferLike>', gave the following error.
+    Type 'boolean' is not assignable to type 'string'.
+
+[7m67[0m         shell: true,
+[7m  [0m [91m        ~~~~~[0m
+
+
+[96mpackages/deployment/src/utils/region-analyzer.ts[0m:[93m46[0m:[93m11[0m - [91merror[0m[90m TS2564: [0mProperty 'regionData' has no initializer and is not definitely assigned in the constructor.
+
+[7m46[0m   private regionData: Map<DeploymentRegion, RegionCapabilities>;
+[7m  [0m [91m          ~~~~~~~~~~[0m
+
+[96mpackages/deployment/src/utils/region-analyzer.ts[0m:[93m47[0m:[93m11[0m - [91merror[0m[90m TS2564: [0mProperty 'latencyData' has no initializer and is not definitely assigned in the constructor.
+
+[7m47[0m   private latencyData: Map<string, Map<DeploymentRegion, number>>;
+[7m  [0m [91m          ~~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m13[0m:[93m8[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module '@farm-framework/observability'. 'S:/Code/farm-framework/packages/observability/dist/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/farm-framework__observability` if it exists or add a new declaration (.d.ts) file containing `declare module '@farm-framework/observability';`
+
+[7m13[0m } from "@farm-framework/observability";
+[7m  [0m [91m       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m14[0m:[93m31[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module '@farm-framework/deployment'. 'S:/Code/farm-framework/packages/deployment/dist/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/farm-framework__deployment` if it exists or add a new declaration (.d.ts) file containing `declare module '@farm-framework/deployment';`
+
+[7m14[0m import { CostEstimator } from "@farm-framework/deployment";
+[7m  [0m [91m                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m90[0m:[93m11[0m - [91merror[0m[90m TS18046: [0m'cost' is of type 'unknown'.
+
+[7m90[0m       if (cost.monthly > 0) {
+[7m  [0m [91m          ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m91[0m:[93m29[0m - [91merror[0m[90m TS18046: [0m'cost' is of type 'unknown'.
+
+[7m91[0m         const optimizable = cost.optimizable
+[7m  [0m [91m                            ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m95[0m:[93m41[0m - [91merror[0m[90m TS18046: [0m'cost' is of type 'unknown'.
+
+[7m95[0m           `  ${category.padEnd(12)}: $${cost.monthly.toFixed(2).padStart(8)} - ${cost.description}${optimizable}`
+[7m  [0m [91m                                        ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m95[0m:[93m82[0m - [91merror[0m[90m TS18046: [0m'cost' is of type 'unknown'.
+
+[7m95[0m           `  ${category.padEnd(12)}: $${cost.monthly.toFixed(2).padStart(8)} - ${cost.description}${optimizable}`
+[7m  [0m [91m                                                                                 ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m104[0m:[93m40[0m - [91merror[0m[90m TS7006: [0mParameter 'comp' implicitly has an 'any' type.
+
+[7m104[0m       costEstimate.comparison.forEach((comp) => {
+[7m   [0m [91m                                       ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m120[0m:[93m42[0m - [91merror[0m[90m TS7006: [0mParameter 'suggestion' implicitly has an 'any' type.
+
+[7m120[0m       costEstimate.optimization.forEach((suggestion) => {
+[7m   [0m [91m                                         ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m205[0m:[93m41[0m - [91merror[0m[90m TS18046: [0m'data' is of type 'unknown'.
+
+[7m205[0m           `  ${provider.padEnd(12)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
+[7m   [0m [91m                                        ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m205[0m:[93m83[0m - [91merror[0m[90m TS18046: [0m'data' is of type 'unknown'.
+
+[7m205[0m           `  ${provider.padEnd(12)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
+[7m   [0m [91m                                                                                  ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m216[0m:[93m38[0m - [91merror[0m[90m TS18046: [0m'data' is of type 'unknown'.
+
+[7m216[0m           `  ${model.padEnd(15)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
+[7m   [0m [91m                                     ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m216[0m:[93m80[0m - [91merror[0m[90m TS18046: [0m'data' is of type 'unknown'.
+
+[7m216[0m           `  ${model.padEnd(15)}: $${data.totalCost.toFixed(2).padStart(8)} (${data.requestCount.toLocaleString()} requests)`
+[7m   [0m [91m                                                                               ~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m227[0m:[93m30[0m - [91merror[0m[90m TS18046: [0m'projection' is of type 'unknown'.
+
+[7m227[0m           const confidence = projection.confidence
+[7m   [0m [91m                             ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m228[0m:[93m21[0m - [91merror[0m[90m TS18046: [0m'projection' is of type 'unknown'.
+
+[7m228[0m             ? ` (${(projection.confidence * 100).toFixed(0)}% confidence)`
+[7m   [0m [91m                    ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m231[0m:[93m44[0m - [91merror[0m[90m TS18046: [0m'projection' is of type 'unknown'.
+
+[7m231[0m             `  ${timeframe.padEnd(12)}: $${projection.estimated.toFixed(2)}${confidence}`
+[7m   [0m [91m                                           ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m241[0m:[93m49[0m - [91merror[0m[90m TS7006: [0mParameter 'suggestion' implicitly has an 'any' type.
+
+[7m241[0m       analysis.suggestions.slice(0, 3).forEach((suggestion, index) => {
+[7m   [0m [91m                                                ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m241[0m:[93m61[0m - [91merror[0m[90m TS7006: [0mParameter 'index' implicitly has an 'any' type.
+
+[7m241[0m       analysis.suggestions.slice(0, 3).forEach((suggestion, index) => {
+[7m   [0m [91m                                                            ~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m322[0m:[93m43[0m - [91merror[0m[90m TS7006: [0mParameter 'suggestion' implicitly has an 'any' type.
+
+[7m322[0m     optimizationPlan.suggestions.forEach((suggestion, index) => {
+[7m   [0m [91m                                          ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m322[0m:[93m55[0m - [91merror[0m[90m TS7006: [0mParameter 'index' implicitly has an 'any' type.
+
+[7m322[0m     optimizationPlan.suggestions.forEach((suggestion, index) => {
+[7m   [0m [91m                                                      ~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m366[0m:[93m8[0m - [91merror[0m[90m TS7006: [0mParameter 's' implicitly has an 'any' type.
+
+[7m366[0m       (s) => s.difficulty === "easy" && s.impact !== "low"
+[7m   [0m [91m       ~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m371[0m:[93m26[0m - [91merror[0m[90m TS7006: [0mParameter 'suggestion' implicitly has an 'any' type.
+
+[7m371[0m       quickWins.forEach((suggestion, index) => {
+[7m   [0m [91m                         ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m371[0m:[93m38[0m - [91merror[0m[90m TS7006: [0mParameter 'index' implicitly has an 'any' type.
+
+[7m371[0m       quickWins.forEach((suggestion, index) => {
+[7m   [0m [91m                                     ~~~~~[0m
+
+[96mpackages/cli/src/commands/cost.ts[0m:[93m453[0m:[93m18[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ provider: string; model: string; operation: string; tokens: { prompt: number; completion: number; total: number; input: number; output: number; }; cost: { amount: number; currency: string; }; duration: number; timestamp: number; }' is not assignable to parameter of type 'AIMetrics'.
+  Type '{ provider: string; model: string; operation: string; tokens: { prompt: number; completion: number; total: number; input: number; output: number; }; cost: { amount: number; currency: string; }; duration: number; timestamp: number; }' is missing the following properties from type 'AIMetrics': requestCount, totalCost, avgLatency, errorRate
+
+[7m453[0m     metrics.push({
+[7m   [0m [91m                 ~[0m
+[7m454[0m       provider: Math.random() > 0.6 ? "openai" : "anthropic",
+[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[7m...[0m 
+[7m469[0m       timestamp: now - i * 60 * 60 * 1000, // Hourly data
+[7m   [0m [91m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[7m470[0m     });
+[7m   [0m [91m~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m4[0m:[93m44[0m - [91merror[0m[90m TS7016: [0mCould not find a declaration file for module '@farm-framework/deployment'. 'S:/Code/farm-framework/packages/deployment/dist/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/farm-framework__deployment` if it exists or add a new declaration (.d.ts) file containing `declare module '@farm-framework/deployment';`
+
+[7m4[0m import { DeployEngine, DeployWizard } from "@farm-framework/deployment";
+[7m [0m [91m                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m65[0m:[93m32[0m - [91merror[0m[90m TS7006: [0mParameter 'update' implicitly has an 'any' type.
+
+[7m65[0m     deployEngine.on("status", (update) => {
+[7m  [0m [91m                               ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m69[0m:[93m34[0m - [91merror[0m[90m TS7006: [0mParameter 'update' implicitly has an 'any' type.
+
+[7m69[0m     deployEngine.on("progress", (update) => {
+[7m  [0m [91m                                 ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m75[0m:[93m31[0m - [91merror[0m[90m TS7006: [0mParameter 'error' implicitly has an 'any' type.
+
+[7m75[0m     deployEngine.on("error", (error) => {
+[7m  [0m [91m                              ~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m84[0m:[93m25[0m - [91merror[0m[90m TS2339: [0mProperty 'platform' does not exist on type 'DevCommandOptions'.
+
+[7m84[0m       platform: options.platform,
+[7m  [0m [91m                        ~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m85[0m:[93m28[0m - [91merror[0m[90m TS2339: [0mProperty 'environment' does not exist on type 'DevCommandOptions'.
+
+[7m85[0m       environment: options.environment || "production",
+[7m  [0m [91m                           ~~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m86[0m:[93m37[0m - [91merror[0m[90m TS2339: [0mProperty 'region' does not exist on type 'DevCommandOptions'.
+
+[7m86[0m       region: Array.isArray(options.region)
+[7m  [0m [91m                                    ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m87[0m:[93m19[0m - [91merror[0m[90m TS2339: [0mProperty 'region' does not exist on type 'DevCommandOptions'.
+
+[7m87[0m         ? options.region
+[7m  [0m [91m                  ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m88[0m:[93m19[0m - [91merror[0m[90m TS2339: [0mProperty 'region' does not exist on type 'DevCommandOptions'.
+
+[7m88[0m         : options.region
+[7m  [0m [91m                  ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m89[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'region' does not exist on type 'DevCommandOptions'.
+
+[7m89[0m           ? [options.region]
+[7m  [0m [91m                     ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m91[0m:[93m20[0m - [91merror[0m[90m TS2339: [0mProperty 'yes' does not exist on type 'DevCommandOptions'.
+
+[7m91[0m       yes: options.yes,
+[7m  [0m [91m                   ~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m92[0m:[93m24[0m - [91merror[0m[90m TS2339: [0mProperty 'preview' does not exist on type 'DevCommandOptions'.
+
+[7m92[0m       preview: options.preview,
+[7m  [0m [91m                       ~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m93[0m:[93m27[0m - [91merror[0m[90m TS2339: [0mProperty 'production' does not exist on type 'DevCommandOptions'.
+
+[7m93[0m       production: options.production,
+[7m  [0m [91m                          ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m94[0m:[93m23[0m - [91merror[0m[90m TS2339: [0mProperty 'branch' does not exist on type 'DevCommandOptions'.
+
+[7m94[0m       branch: options.branch,
+[7m  [0m [91m                      ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m97[0m:[93m23[0m - [91merror[0m[90m TS2339: [0mProperty 'dryRun' does not exist on type 'DevCommandOptions'.
+
+[7m97[0m       dryRun: options.dryRun,
+[7m  [0m [91m                      ~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m98[0m:[93m20[0m - [91merror[0m[90m TS2339: [0mProperty 'gpu' does not exist on type 'DevCommandOptions'.
+
+[7m98[0m       gpu: options.gpu,
+[7m  [0m [91m                   ~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m100[0m:[93m24[0m - [91merror[0m[90m TS2339: [0mProperty 'domains' does not exist on type 'DevCommandOptions'.
+
+[7m100[0m         typeof options.domains === "string"
+[7m   [0m [91m                       ~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m101[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'domains' does not exist on type 'DevCommandOptions'.
+
+[7m101[0m           ? options.domains.split(",")
+[7m   [0m [91m                    ~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m102[0m:[93m21[0m - [91merror[0m[90m TS2339: [0mProperty 'domains' does not exist on type 'DevCommandOptions'.
+
+[7m102[0m           : options.domains,
+[7m   [0m [91m                    ~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m103[0m:[93m32[0m - [91merror[0m[90m TS2339: [0mProperty 'skipHealth' does not exist on type 'DevCommandOptions'.
+
+[7m103[0m       skipHealthCheck: options.skipHealth,
+[7m   [0m [91m                               ~~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m104[0m:[93m26[0m - [91merror[0m[90m TS2339: [0mProperty 'skipBuild' does not exist on type 'DevCommandOptions'.
+
+[7m104[0m       skipBuild: options.skipBuild,
+[7m   [0m [91m                         ~~~~~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m105[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'force' does not exist on type 'DevCommandOptions'.
+
+[7m105[0m       force: options.force,
+[7m   [0m [91m                     ~~~~~[0m
+
+[96mpackages/cli/src/commands/deploy.ts[0m:[93m146[0m:[93m32[0m - [91merror[0m[90m TS7006: [0mParameter 'error' implicitly has an 'any' type.
+
+[7m146[0m         result.errors.forEach((error) => {
+[7m   [0m [91m                               ~~~~~[0m
+
+
+Found 53 errors.
+
+ ELIFECYCLE  Command failed with exit code 1.

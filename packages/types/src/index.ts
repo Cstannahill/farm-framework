@@ -5,15 +5,86 @@ export * from "./ai.js";
 export * from "./database.js";
 export * from "./errors.js";
 export * from "./auth.js";
-export * from "./deployment.js";
+
+// Deployment types (explicit exports to avoid conflicts)
+export type {
+  Platform,
+  DeploymentRegion,
+  DeploymentStrategy,
+  ServiceType,
+  DeploymentEnvironment,
+  ResourceLimits,
+  ProjectAnalysis,
+  PlatformScore,
+  PlatformRecommendation,
+  DeploymentService,
+  VolumeMount,
+  HealthCheckConfig,
+  DeploymentPlan,
+  CostItem,
+  CostEstimate,
+  DeployOptions,
+  DeployContext,
+  DeploymentResult,
+  DeploymentError,
+  ErrorDiagnosis,
+  DeploymentHealthCheck,
+  DeploymentHealthStatus,
+  DeploymentHealthReport,
+  Snapshot,
+  RollbackOptions,
+  DeploymentStep,
+  ProgressUpdate,
+  RailwayConfig,
+  RailwayService,
+  FlyConfig,
+  VercelConfig,
+  DeploymentMetrics,
+  DeployRecipe,
+  DeploymentConfig,
+} from "./deployment.js";
 
 // API Client Types
 export * from "./api-client.js";
 
-// Observability Types
+// Telemetry and Cost Types
 export * from "./telemetry.js";
 export * from "./cost.js";
-export * from "./observability.js";
+
+// Observability Types (explicit exports to avoid conflicts)
+export type {
+  Alert,
+  AlertAction,
+  AlertSeverity,
+  AlertNotification,
+  NotificationResult,
+  AlertChannelConfig,
+  AlertChannel,
+  AlertRule,
+  AlertCondition,
+  AlertConfig,
+  AlertContext,
+  ExportOptions,
+  CSVExportOptions,
+  DashboardExportOptions,
+  ExportedDashboard,
+  DashboardWidgetConfig,
+  ObservabilityConfig,
+  TelemetryConfig,
+  ExporterConfig,
+  ExportFormat,
+  DashboardWidget,
+  DashboardLayout,
+  HealthStatus as ObservabilityHealthStatus,
+  HealthCheck as ObservabilityHealthCheck,
+  PDFExportOptions,
+  ExportedPDF,
+  AlertSummary,
+  CollectorOptions,
+  PredictorConfig,
+  CustomTelemetryProviderConfig,
+  CostTrackingConfig,
+} from "./observability.js";
 
 // CLI types (separate to avoid conflicts)
 export type {
@@ -64,6 +135,7 @@ export type {
   BuildCommandOptions,
   MigrateOptions,
   DevCommandOptions,
+  DeployCommandOptions,
   GenerateCommandOptions,
   ConfigOptions,
   ConfigLoadOptions,

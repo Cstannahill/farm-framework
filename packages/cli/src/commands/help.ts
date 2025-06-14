@@ -27,6 +27,10 @@ export function showHelp(topic?: string): void {
       case "examples":
         showExampleHelp();
         break;
+      case "deploy":
+      case "deployment":
+        showDeploymentHelp();
+        break;
       default:
         console.error(`Unknown help topic: ${topic}`);
         showGeneralHelp();
@@ -49,6 +53,7 @@ function showGeneralHelp(): void {
     "create <name>     Create a new FARM application",
     "dev               Start development server",
     "build             Build for production",
+    "deploy            Deploy to cloud platforms",
     "generate          Generate code components",
     "help <topic>      Show detailed help",
   ];
@@ -59,6 +64,7 @@ function showGeneralHelp(): void {
   const helpTopics = [
     "farm help templates    Available project templates",
     "farm help features     Available feature flags",
+    "farm help deployment   Deployment platforms and commands",
     "farm help examples     Usage examples",
   ];
   console.log(format.bulletList(helpTopics, "info"));
@@ -327,6 +333,100 @@ function showExampleHelp(): void {
     "Combine --no-install with --no-interactive for CI environments",
     "Template auto-enables related features (e.g., ai-chat enables ai feature)",
     "Use farm help <topic> for detailed information on specific topics",
+  ];
+  console.log(format.bulletList(tips, "info"));
+  console.log();
+}
+
+function showDeploymentHelp(): void {
+  console.log(styles.title(`\n${icons.rocket} FARM Deployment Help`));
+  console.log(styles.muted("Zero-configuration cloud deployment\n"));
+
+  console.log(styles.subtitle("🚀 Quick Deployment:"));
+  console.log(styles.muted("─".repeat(40)));
+  const quickDeploy = [
+    "farm deploy                    # Auto-detect best platform",
+    "farm deploy wizard             # Interactive setup wizard",
+    "farm deploy --platform railway # Deploy to specific platform",
+  ];
+  console.log(format.bulletList(quickDeploy, "command"));
+
+  console.log(styles.subtitle("\n🎯 Supported Platforms:"));
+  console.log(styles.muted("─".repeat(40)));
+  const platforms = [
+    "railway    - Full-stack with GPU support for AI workloads",
+    "fly        - Global edge deployment with GPU support",
+    "vercel     - Serverless frontend with API routes",
+    "aws        - Enterprise cloud with full AWS ecosystem",
+    "gcp        - Google Cloud with AI/ML services",
+  ];
+  console.log(format.bulletList(platforms, "info"));
+
+  console.log(styles.subtitle("\n⚙️  Main Deploy Commands:"));
+  console.log(styles.muted("─".repeat(40)));
+  const commands = [
+    "farm deploy                    # Deploy with auto-detection",
+    "farm deploy list               # List all deployments",
+    "farm deploy status <id>        # Check deployment status",
+    "farm deploy logs <id>          # View deployment logs",
+    "farm deploy rollback <id>      # Rollback deployment",
+    "farm deploy cost estimate      # Estimate costs",
+    "farm deploy wizard             # Interactive setup",
+  ];
+  console.log(format.bulletList(commands, "command"));
+
+  console.log(styles.subtitle("\n🔧 Common Options:"));
+  console.log(styles.muted("─".repeat(40)));
+  const options = [
+    "--platform <platform>         # Specify deployment platform",
+    "--environment <env>           # Target environment (dev/staging/prod)",
+    "--region <region>             # Deployment region",
+    "--gpu                         # Enable GPU support for AI workloads",
+    "--preview                     # Deploy as preview/staging",
+    "--yes                         # Skip confirmation prompts",
+    "--dry-run                     # Show what would be deployed",
+    "--verbose                     # Enable detailed logging",
+  ];
+  console.log(format.bulletList(options, "info"));
+
+  console.log(styles.subtitle("\n📊 Examples:"));
+  console.log(styles.muted("─".repeat(40)));
+  const examples = [
+    "farm deploy --platform railway --gpu --region us-west-1",
+    "farm deploy --preview --branch feature/new-ai-model",
+    "farm deploy --production --yes --domains api.myapp.com",
+    "farm deploy rollback prod-123 --yes",
+  ];
+  console.log(format.bulletList(examples, "command"));
+
+  console.log(styles.subtitle("\n💰 Cost Management:"));
+  console.log(styles.muted("─".repeat(40)));
+  const costCommands = [
+    "farm deploy cost estimate     # Get cost estimates before deploying",
+    "farm deploy cost current      # View current monthly costs",
+    "farm deploy cost optimize     # Get optimization recommendations",
+  ];
+  console.log(format.bulletList(costCommands, "command"));
+
+  console.log(styles.subtitle("\n🎯 AI-Optimized Features:"));
+  console.log(styles.muted("─".repeat(40)));
+  const aiFeatures = [
+    "Automatic GPU detection and allocation for AI workloads",
+    "Intelligent platform recommendations based on AI requirements",
+    "Cost optimization for AI model serving",
+    "Automatic Ollama setup and model provisioning",
+    "Edge deployment optimization for AI inference",
+  ];
+  console.log(format.bulletList(aiFeatures, "info"));
+
+  console.log(styles.subtitle("\n💡 Pro Tips:"));
+  console.log(styles.muted("─".repeat(40)));
+  const tips = [
+    "Use 'farm deploy wizard' for first-time deployment setup",
+    "Enable --gpu flag for applications using local AI models",
+    "Use --dry-run to preview deployment changes safely",
+    "Set up custom domains with --domains for production",
+    "Monitor costs regularly with 'farm deploy cost current'",
   ];
   console.log(format.bulletList(tips, "info"));
   console.log();

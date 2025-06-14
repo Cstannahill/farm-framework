@@ -54,6 +54,28 @@ export interface DevCommandOptions {
   "skip-health-check"?: boolean;
 }
 
+export interface DeployCommandOptions {
+  platform?: "railway" | "fly" | "vercel" | "aws" | "gcp";
+  environment?: "development" | "staging" | "production" | "preview";
+  region?: string | string[];
+  yes?: boolean;
+  preview?: boolean;
+  production?: boolean;
+  branch?: string;
+  config?: string;
+  verbose?: boolean;
+  dryRun?: boolean;
+  watch?: boolean;
+  gpu?: boolean;
+  domains?: string | string[];
+  env?: Record<string, string>;
+  skipHealth?: boolean;
+  rollback?: string;
+  snapshot?: string;
+  skipBuild?: boolean;
+  force?: boolean;
+}
+
 export interface GenerateCommandOptions {
   type: "model" | "route" | "page" | "component" | "api";
   name: string;

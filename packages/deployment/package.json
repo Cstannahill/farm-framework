@@ -1,0 +1,65 @@
+{
+  "name": "@farm-framework/deployment",
+  "version": "0.1.0",
+  "description": "Revolutionary deployment system for FARM applications",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:bundle": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "deployment",
+    "farm",
+    "railway",
+    "vercel",
+    "fly",
+    "aws",
+    "gcp",
+    "platform",
+    "zero-config"
+  ],
+  "author": "FARM Framework Team",
+  "license": "MIT",
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "dependencies": {
+    "@farm-framework/types": "workspace:*",
+    "@farm-framework/core": "workspace:*",
+    "@farm-framework/observability": "workspace:*",
+    "chalk": "^5.3.0",
+    "figlet": "^1.7.0",
+    "gradient-string": "^2.0.2",
+    "inquirer": "^9.2.12",
+    "cli-progress": "^3.12.0",
+    "commander": "^11.1.0",
+    "execa": "^8.0.1",
+    "yaml": "^2.3.4",
+    "zod": "^3.22.4",
+    "dotenv": "^16.3.1",
+    "semver": "^7.5.4"
+  },
+  "devDependencies": {
+    "@types/figlet": "^1.5.8",
+    "@types/inquirer": "^9.0.7",
+    "@types/cli-progress": "^3.11.5",
+    "@types/semver": "^7.5.6",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}

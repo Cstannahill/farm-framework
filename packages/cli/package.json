@@ -23,6 +23,8 @@
     "@farm-framework/core": "^0.1.0",
     "@farm-framework/types": "^0.1.0",
     "@farm-framework/dev-server": "^0.1.0",
+    "@farm-framework/deployment": "^0.1.0",
+    "@farm-framework/observability": "^0.1.0",
     "@inquirer/prompts": "^7.5.3",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",

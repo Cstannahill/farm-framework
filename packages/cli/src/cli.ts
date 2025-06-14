@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { createCreateCommand } from "./commands/create.js";
 import { createDevCommand } from "./commands/dev.js";
 import { createBuildCommand } from "./commands/build.js";
+import { createDeployCommand } from "./commands/deploy.js";
 import { createGenerateCommand } from "./commands/generate.js";
 import { createValidateCommands } from "./commands/validate";
 import { registerTypeCommands } from "./commands/types/index.js";
@@ -35,6 +36,7 @@ export function createCLI(): Command {
   program.addCommand(createCreateCommand());
   program.addCommand(createDevCommand());
   program.addCommand(createBuildCommand());
+  program.addCommand(createDeployCommand());
   program.addCommand(createGenerateCommand());
   program.addCommand(createAddUICommand());
   program.addCommand(createDatabaseCommands());

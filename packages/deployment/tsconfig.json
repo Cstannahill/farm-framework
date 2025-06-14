@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist/ts",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowJs": false,
+    "baseUrl": ".",
+    "paths": {
+      "@farm-framework/types": ["../types/src"],
+      "@farm-framework/types/*": ["../types/src/*"],
+      "@farm-framework/core": ["../core/src"],
+      "@farm-framework/core/*": ["../core/src/*"],
+      "@farm-framework/observability": ["../observability/src"],
+      "@farm-framework/observability/*": ["../observability/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts"],
+  "references": [
+    { "path": "../types" },
+    { "path": "../core" },
+    { "path": "../observability" }
+  ]
+}

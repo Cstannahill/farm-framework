@@ -44,6 +44,10 @@ export const icons = {
   book: chalk.cyan("📚"),
   gear: chalk.gray("⚙️"),
   checklist: chalk.blue("📋"),
+  wizard: chalk.magenta("🧙"),
+  money: chalk.yellow("💰"),
+  chart: chalk.cyan("📊"),
+  target: chalk.green("🎯"),
 } as const;
 
 /**
