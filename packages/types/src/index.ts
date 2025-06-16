@@ -5,6 +5,7 @@ export * from "./ai.js";
 export * from "./database.js";
 export * from "./errors.js";
 export * from "./auth.js";
+export * from "./code-intelligence.js";
 
 // Deployment types (explicit exports to avoid conflicts)
 export type {

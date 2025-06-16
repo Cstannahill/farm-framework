@@ -1,0 +1,70 @@
+{
+  "name": "@farm-framework/code-intelligence",
+  "version": "0.1.0",
+  "description": "AI-powered code intelligence with semantic search and natural language querying",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "python",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ai": "bash test-ai-feature.sh",
+    "test:explanation": "npm run build && node dist/test/test-explanation.js",
+    "test:vector": "npm run build && node dist/test/test-vector-db.js",
+    "demo": "npm run build && node dist/test/demo.js",
+    "demo:vector": "npm run build && node dist/test/test-vector-db.js",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@farm-framework/core": "workspace:*",
+    "@farm-framework/observability": "workspace:*",
+    "@farm-framework/types": "workspace:*",
+    "glob": "^10.4.5",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "@types/ws": "^8.5.5",
+    "eslint": "^8.50.0",
+    "rimraf": "^5.0.5",
+    "tsup": "^7.2.0",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6"
+  },
+  "keywords": [
+    "code-intelligence",
+    "semantic-search",
+    "ai",
+    "embeddings",
+    "farm-framework"
+  ],
+  "author": "FARM Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farm-framework/farm-framework.git",
+    "directory": "packages/code-intelligence"
+  }
+}
