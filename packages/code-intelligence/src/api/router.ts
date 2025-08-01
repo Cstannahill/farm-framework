@@ -1,3 +1,10 @@
+// API router for code intelligence - compatible with Express/Fastify
+import type {
+  QueryRequest,
+  QueryResponse,
+  ExplanationResponse,
+  IndexStatus,
+} from "../types/index";
 import { CodeIntelligenceServer } from "../server";
 
 export interface APIRouterConfig {
@@ -22,188 +29,320 @@ export class CodeIntelligenceAPIRouter {
   }
 
   /**
-   * Register routes with FastAPI app or Express-like framework
+   * Register routes with FastAPI app
    */
   registerRoutes(app: any): void {
-    // Apply middleware
-    if (this.config.auth?.enabled) {
-      app.use(createAuthMiddleware(this.config.auth.apiKey || ""));
-    }
-
-    if (this.config.rateLimit) {
-      app.use(createRateLimitMiddleware(this.config.rateLimit));
-    }
-
-    app.use(createCorsMiddleware());
-
-    // Health check endpoint
-    app.get("/health", async (req: any, res: any) => {
-      res.json({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        version: "1.0.0"
-      });
-    });
-
     // Query endpoint
-    app.post("/query", async (req: any, res: any) => {
+    app.post("/api/code-intelligence/query", async (request: any) => {
       try {
+        const queryRequest: QueryRequest = await request.json();
+
         // Validate request
-        const queryRequest = this.validateQueryRequest(req.body);
-        
+        this.validateQueryRequest(queryRequest);
+
         // Execute query
         const response = await this.server.query(queryRequest);
-        
-        res.json(response);
+
+        return {
+          status: "success",
+          data: response,
+        };
       } catch (error) {
-        console.error("Query error:", error);
-        res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal server error"
-        });
+        console.error("Query endpoint error:", error);
+        return {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
       }
     });
 
     // Explain endpoint
-    app.post("/explain", async (req: any, res: any) => {
+    app.post("/api/code-intelligence/explain", async (request: any) => {
       try {
-        const { entityName, options } = req.body;
-        
+        const {
+          entityName,
+          includeExamples = true,
+          includeTests = true,
+        } = await request.json();
+
         if (!entityName) {
-          return res.status(400).json({ error: "entityName is required" });
+          throw new Error("entityName is required");
         }
 
-        const response = await this.server.explainEntity(entityName, options || {});
-        res.json(response);
-      } catch (error) {
-        console.error("Explain error:", error);
-        res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal server error"
+        const response = await this.server.explain(entityName, {
+          includeExamples,
+          includeTests,
         });
+
+        return {
+          status: "success",
+          data: response,
+        };
+      } catch (error) {
+        console.error("Explain endpoint error:", error);
+        return {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
       }
     });
 
     // Status endpoint
-    app.get("/status", async (req: any, res: any) => {
+    app.get("/api/code-intelligence/status", async () => {
       try {
         const status = await this.server.getStatus();
-        res.json(status);
+
+        return {
+          status: "success",
+          data: status,
+        };
       } catch (error) {
-        console.error("Status error:", error);
-        res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal server error"
-        });
+        console.error("Status endpoint error:", error);
+        return {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
       }
     });
 
-    // Index endpoint
-    app.post("/index", async (req: any, res: any) => {
+    // Reindex endpoint
+    app.post("/api/code-intelligence/reindex", async () => {
       try {
-        const { files } = req.body;
-        
-        if (!Array.isArray(files)) {
-          return res.status(400).json({ error: "files array is required" });
+        const result = await this.server.reindex();
+
+        return {
+          status: "success",
+          data: result,
+        };
+      } catch (error) {
+        console.error("Reindex endpoint error:", error);
+        return {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    });
+
+    // Search entities shortcut
+    app.get("/api/code-intelligence/search/:pattern", async (request: any) => {
+      try {
+        const { pattern } = request.params;
+        const { maxResults = 10 } = request.query;
+
+        const entities = await this.server.searchEntities(
+          pattern,
+          parseInt(maxResults)
+        );
+
+        return {
+          status: "success",
+          data: entities,
+        };
+      } catch (error) {
+        console.error("Search endpoint error:", error);
+        return {
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    });
+
+    // Find usages shortcut
+    app.get(
+      "/api/code-intelligence/usages/:entityName",
+      async (request: any) => {
+        try {
+          const { entityName } = request.params;
+
+          const usages = await this.server.findUsages(entityName);
+
+          return {
+            status: "success",
+            data: usages,
+          };
+        } catch (error) {
+          console.error("Usages endpoint error:", error);
+          return {
+            status: "error",
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
         }
-
-        await this.server.indexFiles(files);
-        res.json({ success: true, message: `Indexed ${files.length} files` });
-      } catch (error) {
-        console.error("Index error:", error);
-        res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal server error"
-        });
       }
+    );
+
+    // WebSocket endpoint for streaming
+    app.websocket("/api/code-intelligence/stream", (websocket: any) => {
+      websocket.accept();
+
+      websocket.on("message", async (data: string) => {
+        try {
+          const request = JSON.parse(data);
+
+          // Stream results as they're found
+          for await (const result of this.server.streamQuery(request)) {
+            await websocket.send(
+              JSON.stringify({
+                type: "result",
+                data: result,
+              })
+            );
+          }
+
+          await websocket.send(JSON.stringify({ type: "complete" }));
+        } catch (error) {
+          await websocket.send(
+            JSON.stringify({
+              type: "error",
+              error: error instanceof Error ? error.message : "Unknown error",
+            })
+          );
+        }
+      });
+
+      websocket.on("close", () => {
+        console.log("WebSocket connection closed");
+      });
     });
 
-    // Reset endpoint
-    app.post("/reset", async (req: any, res: any) => {
-      try {
-        await this.server.reset();
-        res.json({ success: true, message: "Index reset successfully" });
-      } catch (error) {
-        console.error("Reset error:", error);
-        res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal server error"
-        });
-      }
-    });
+    console.log("✅ Code Intelligence API routes registered");
   }
 
-  private validateQueryRequest(body: any): any {
-    if (!body.query || typeof body.query !== "string") {
-      throw new Error("Query string is required");
+  private validateQueryRequest(request: QueryRequest): void {
+    if (!request.query) {
+      throw new Error("query is required");
     }
 
-    return {
-      query: body.query,
-      maxResults: body.maxResults || 10,
-      includeContext: body.includeContext || false,
-      filters: body.filters || {},
-      options: body.options || {}
-    };
+    if (
+      request.maxResults &&
+      (request.maxResults < 1 || request.maxResults > 100)
+    ) {
+      throw new Error("maxResults must be between 1 and 100");
+    }
+
+    // Validate filters if present
+    if (request.filters) {
+      if (
+        request.filters.entityTypes &&
+        !Array.isArray(request.filters.entityTypes)
+      ) {
+        throw new Error("filters.entityTypes must be an array");
+      }
+
+      if (
+        request.filters.filePatterns &&
+        !Array.isArray(request.filters.filePatterns)
+      ) {
+        throw new Error("filters.filePatterns must be an array");
+      }
+
+      if (
+        request.filters.languages &&
+        !Array.isArray(request.filters.languages)
+      ) {
+        throw new Error("filters.languages must be an array");
+      }
+    }
   }
 
-  private authenticateRequest(apiKey: string): boolean {
-    return apiKey === this.config.auth?.apiKey;
+  private authenticateRequest(request: any): boolean {
+    if (!this.config.auth?.enabled) {
+      return true;
+    }
+
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return false;
+    }
+
+    const token = authHeader.substring(7);
+    return token === this.config.auth.apiKey;
   }
 
   private checkRateLimit(clientId: string): boolean {
-    // Simple in-memory rate limiting
-    // In production, use Redis or similar
+    // TODO: Implement rate limiting
+    // For now, always allow
     return true;
   }
 }
 
+// Middleware functions
 export function createAuthMiddleware(apiKey: string) {
   return (request: any, response: any, next: any) => {
-    const providedKey = request.headers["x-api-key"] || request.headers["authorization"]?.replace("Bearer ", "");
-    
-    if (!providedKey || providedKey !== apiKey) {
-      return response.status(401).json({ error: "Unauthorized: Invalid API key" });
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return response.status(401).json({
+        status: "error",
+        error: "Authorization header required",
+      });
     }
-    
+
+    const token = authHeader.substring(7);
+    if (token !== apiKey) {
+      return response.status(401).json({
+        status: "error",
+        error: "Invalid API key",
+      });
+    }
+
     next();
   };
 }
 
-export function createRateLimitMiddleware(config: { requests: number; window: number }) {
-  const clients = new Map<string, { count: number; resetTime: number }>();
-  
+export function createRateLimitMiddleware(config: {
+  requests: number;
+  window: number;
+}) {
+  const requests = new Map<string, number[]>();
+
   return (request: any, response: any, next: any) => {
-    const clientId = request.ip || request.connection.remoteAddress || "unknown";
+    const clientId = request.ip || "unknown";
     const now = Date.now();
-    
-    let clientData = clients.get(clientId);
-    
-    if (!clientData || now > clientData.resetTime) {
-      clientData = {
-        count: 0,
-        resetTime: now + config.window
-      };
-      clients.set(clientId, clientData);
+    const windowStart = now - config.window * 1000;
+
+    // Get or initialize request history for this client
+    if (!requests.has(clientId)) {
+      requests.set(clientId, []);
     }
-    
-    if (clientData.count >= config.requests) {
+
+    const clientRequests = requests.get(clientId)!;
+
+    // Remove old requests outside the window
+    const validRequests = clientRequests.filter((time) => time > windowStart);
+    requests.set(clientId, validRequests);
+
+    // Check rate limit
+    if (validRequests.length >= config.requests) {
       return response.status(429).json({
+        status: "error",
         error: "Rate limit exceeded",
-        resetTime: new Date(clientData.resetTime).toISOString()
       });
     }
-    
-    clientData.count++;
+
+    // Add current request
+    validRequests.push(now);
+    requests.set(clientId, validRequests);
+
     next();
   };
 }
 
 export function createCorsMiddleware() {
   return (request: any, response: any, next: any) => {
-    response.header("Access-Control-Allow-Origin", "*");
-    response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-api-key");
-    
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    );
+    response.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+
     if (request.method === "OPTIONS") {
-      return response.sendStatus(200);
+      return response.status(200).end();
     }
-    
+
     next();
   };
 }

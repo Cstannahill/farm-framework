@@ -1,7 +1,11 @@
 // AI-powered code explanation engine
 import * as fs from "fs/promises";
 import * as path from "path";
-import type { CodeEntity, ExplanationResponse, CodeExample } from "../types/index";
+import type {
+  CodeEntity,
+  ExplanationResponse,
+  EntityType,
+} from "../types/index";
 
 export interface AIProvider {
   generateExplanation(prompt: string, context: string): Promise<string>;
@@ -16,7 +20,11 @@ export class CodeExplanationEngine {
   private codeParser: CodeParser;
   private projectRoot: string;
 
-  constructor(aiProvider: AIProvider, codeParser: CodeParser, projectRoot: string) {
+  constructor(
+    aiProvider: AIProvider,
+    codeParser: CodeParser,
+    projectRoot: string
+  ) {
     this.aiProvider = aiProvider;
     this.codeParser = codeParser;
     this.projectRoot = projectRoot;
@@ -41,13 +49,15 @@ export class CodeExplanationEngine {
       throw new Error(`Entity '${entityName}' not found in codebase`);
     }
 
-    console.log(`✅ Found ${entity.entityType}: ${entity.name} in ${entity.filePath}`);
+    console.log(
+      `✅ Found ${entity.entityType}: ${entity.name} in ${entity.filePath}`
+    );
 
     // Generate AI explanation
     const explanation = await this.generateExplanation(entity, options);
 
     // Find examples if requested
-    let examples: CodeExample[] = [];
+    let examples: any[] = [];
     if (options.includeExamples) {
       examples = await this.findUsageExamples(entity);
     }
@@ -74,10 +84,11 @@ export class CodeExplanationEngine {
           const entities = await this.codeParser.parseFile(filePath, content);
 
           // Look for exact name match or similar
-          const found = entities.find((e) =>
-            e.name === entityName ||
-            e.name.toLowerCase() === entityName.toLowerCase() ||
-            e.name.includes(entityName)
+          const found = entities.find(
+            (e) =>
+              e.name === entityName ||
+              e.name.toLowerCase() === entityName.toLowerCase() ||
+              e.name.includes(entityName)
           );
 
           if (found) {
@@ -98,99 +109,95 @@ export class CodeExplanationEngine {
    */
   private async generateExplanation(
     entity: CodeEntity,
-    options: {
-      includeExamples?: boolean;
-      includeTests?: boolean;
-      includeContext?: boolean;
-    }
+    options: any
   ): Promise<string> {
     const prompt = this.buildExplanationPrompt(entity, options);
 
     console.log(`🤖 Generating AI explanation for ${entity.name}...`);
 
-    const explanation = await this.aiProvider.generateExplanation(prompt, entity.content);
+    const explanation = await this.aiProvider.generateExplanation(
+      prompt,
+      entity.content
+    );
+
     return explanation;
   }
 
   /**
    * Build a comprehensive prompt for AI explanation
    */
-  private buildExplanationPrompt(
-    entity: CodeEntity,
-    options: {
-      includeExamples?: boolean;
-      includeTests?: boolean;
-      includeContext?: boolean;
-    }
-  ): string {
-    const parts = [
-      `Please explain this ${entity.entityType} called "${entity.name}":`,
-      "",
-      "Code:",
-      "```" + (entity.metadata.language || "typescript"),
-      entity.content,
-      "```",
-      "",
-    ];
+  private buildExplanationPrompt(entity: CodeEntity, options: any): string {
+    const contextInfo = [
+      `Entity Type: ${entity.entityType}`,
+      `Name: ${entity.name}`,
+      `File: ${entity.filePath}`,
+      `Language: ${entity.metadata.language || "typescript"}`,
+    ].join("\n");
 
-    if (entity.docstring) {
-      parts.push("Documentation:", entity.docstring, "");
-    }
+    return `Please provide a clear, comprehensive explanation of this ${entity.entityType}:
 
-    if (entity.signature) {
-      parts.push("Signature:", entity.signature, "");
-    }
+Context:
+${contextInfo}
 
-    parts.push(
-      "Please provide:",
-      "1. A clear explanation of what this code does",
-      "2. Key parameters and return values (if applicable)",
-      "3. Any important patterns or techniques used",
-      "4. Potential use cases or examples"
-    );
+Code:
+\`\`\`${entity.metadata.language || "typescript"}
+${entity.content}
+\`\`\`
 
-    if (options.includeContext) {
-      parts.push("5. How this fits into the larger codebase");
-    }
+Please explain:
+1. **Purpose**: What this code does and why it exists
+2. **Functionality**: How it works step by step
+3. **Parameters**: Input parameters and their purposes${entity.entityType === "function" ? "" : " (if applicable)"}
+4. **Return Value**: What it returns${entity.entityType === "function" ? "" : " (if applicable)"}
+5. **Dependencies**: Key dependencies and relationships
+6. **Usage Pattern**: How this should typically be used
+7. **Important Notes**: Any important considerations, side effects, or gotchas
 
-    return parts.join("\n");
+Make the explanation accessible to developers who may not be familiar with this specific code.`;
   }
 
   /**
    * Find usage examples of the entity in the codebase
    */
-  private async findUsageExamples(entity: CodeEntity): Promise<CodeExample[]> {
-    const examples: CodeExample[] = [];
+  private async findUsageExamples(entity: CodeEntity): Promise<any[]> {
+    console.log(`🔍 Finding usage examples for ${entity.name}...`);
+
+    const examples: any[] = [];
     const searchPatterns = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"];
 
     for (const pattern of searchPatterns) {
       const files = await this.globFiles(pattern);
 
-      for (const filePath of files) {
-        // Skip the file where the entity is defined
-        if (filePath === entity.filePath) continue;
-
+      for (const filePath of files.slice(0, 10)) {
+        // Limit to first 10 files for performance
         try {
           const content = await fs.readFile(filePath, "utf-8");
-          const lines = content.split("\n");
 
-          lines.forEach((line, index) => {
-            // Simple search for entity name usage
-            if (line.includes(entity.name) && examples.length < 5) {
-              const context = this.extractUsageContext(lines, index);
+          // Simple text search for entity name usage
+          if (content.includes(entity.name) && filePath !== entity.filePath) {
+            const lines = content.split("\n");
+            const usageLines = lines
+              .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+              .filter(
+                ({ line }) =>
+                  line.includes(entity.name) && !line.startsWith("//")
+              );
+
+            if (usageLines.length > 0) {
               examples.push({
+                file: path.relative(this.projectRoot, filePath),
+                line: usageLines[0].number,
+                code: this.extractUsageContext(lines, usageLines[0].number - 1),
                 description: `Usage in ${path.basename(filePath)}`,
-                code: context,
-                file: filePath,
-                line: index + 1,
               });
             }
-          });
+          }
         } catch (error) {
-          // Skip files that can't be read
           continue;
         }
       }
+
+      if (examples.length >= 3) break; // Limit to 3 examples
     }
 
     return examples;
@@ -199,64 +206,61 @@ export class CodeExplanationEngine {
   /**
    * Extract context around a usage line
    */
-  private extractUsageContext(lines: string[], targetLine: number): string {
-    const start = Math.max(0, targetLine - 2);
-    const end = Math.min(lines.length, targetLine + 3);
-    return lines.slice(start, end).join("\n");
+  private extractUsageContext(lines: string[], lineIndex: number): string {
+    const start = Math.max(0, lineIndex - 2);
+    const end = Math.min(lines.length, lineIndex + 3);
+
+    return lines
+      .slice(start, end)
+      .map((line, i) => `${start + i + 1}: ${line}`)
+      .join("\n");
   }
 
   /**
    * Calculate rough complexity score
    */
-  private calculateComplexity(entity: CodeEntity): number {
-    let complexity = 1;
+  private calculateComplexity(entity: CodeEntity): "low" | "medium" | "high" {
+    const content = entity.content;
+    const lines = content.split("\n").length;
+    const complexity = (content.match(/if|for|while|switch|catch/g) || [])
+      .length;
 
-    // Simple complexity calculation based on content
-    const content = entity.content.toLowerCase();
-
-    // Control flow statements
-    complexity += (content.match(/\b(if|else|for|while|switch|case)\b/g) || []).length;
-
-    // Function calls
-    complexity += (content.match(/\w+\(/g) || []).length * 0.5;
-
-    // Nested structures
-    complexity += (content.match(/\{/g) || []).length * 0.3;
-
-    return Math.round(complexity);
+    if (lines > 50 || complexity > 10) return "high";
+    if (lines > 20 || complexity > 5) return "medium";
+    return "low";
   }
 
   /**
    * Simple glob file matching (simplified implementation)
    */
   private async globFiles(pattern: string): Promise<string[]> {
-    // Mock implementation - would use actual glob library in production
     const files: string[] = [];
 
     async function walkDir(dir: string): Promise<void> {
       try {
-        const items = await fs.readdir(dir, { withFileTypes: true });
+        const entries = await fs.readdir(dir, { withFileTypes: true });
 
-        for (const item of items) {
-          const fullPath = path.join(dir, item.name);
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
 
-          if (item.isDirectory() && !item.name.startsWith(".") && item.name !== "node_modules") {
-            await walkDir(fullPath);
-          } else if (item.isFile()) {
-            // Simple pattern matching
-            if (pattern.includes("*.ts") && fullPath.endsWith(".ts")) {
-              files.push(fullPath);
-            } else if (pattern.includes("*.tsx") && fullPath.endsWith(".tsx")) {
-              files.push(fullPath);
-            } else if (pattern.includes("*.js") && fullPath.endsWith(".js")) {
-              files.push(fullPath);
-            } else if (pattern.includes("*.jsx") && fullPath.endsWith(".jsx")) {
+          if (entry.isDirectory()) {
+            // Skip common directories to ignore
+            if (
+              !["node_modules", ".git", "dist", ".next", ".nuxt"].includes(
+                entry.name
+              )
+            ) {
+              await walkDir(fullPath);
+            }
+          } else if (entry.isFile()) {
+            // Simple pattern matching for TypeScript/JavaScript files
+            if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
               files.push(fullPath);
             }
           }
         }
       } catch (error) {
-        // Skip directories that can't be read
+        // Skip directories we can't read
       }
     }
 

@@ -1,7 +1,7 @@
+import { CodeEntity, EntityType, CodePosition } from "../types/index";
 // Simple TypeScript/JavaScript code parser using AST
 import * as ts from "typescript";
 import * as path from "path";
-import type { CodeEntity, EntityType } from "../types/index";
 
 export class TypeScriptParser {
   /**
@@ -43,23 +43,48 @@ export class TypeScriptParser {
   ): void {
     switch (node.kind) {
       case ts.SyntaxKind.FunctionDeclaration:
-        this.extractFunction(node as ts.FunctionDeclaration, entities, content, filePath);
+        this.extractFunction(
+          node as ts.FunctionDeclaration,
+          entities,
+          content,
+          filePath
+        );
         break;
 
       case ts.SyntaxKind.ClassDeclaration:
-        this.extractClass(node as ts.ClassDeclaration, entities, content, filePath);
+        this.extractClass(
+          node as ts.ClassDeclaration,
+          entities,
+          content,
+          filePath
+        );
         break;
 
       case ts.SyntaxKind.InterfaceDeclaration:
-        this.extractInterface(node as ts.InterfaceDeclaration, entities, content, filePath);
+        this.extractInterface(
+          node as ts.InterfaceDeclaration,
+          entities,
+          content,
+          filePath
+        );
         break;
 
       case ts.SyntaxKind.TypeAliasDeclaration:
-        this.extractTypeAlias(node as ts.TypeAliasDeclaration, entities, content, filePath);
+        this.extractTypeAlias(
+          node as ts.TypeAliasDeclaration,
+          entities,
+          content,
+          filePath
+        );
         break;
 
       case ts.SyntaxKind.VariableStatement:
-        this.extractVariable(node as ts.VariableStatement, entities, content, filePath);
+        this.extractVariable(
+          node as ts.VariableStatement,
+          entities,
+          content,
+          filePath
+        );
         break;
 
       case ts.SyntaxKind.ArrowFunction:
@@ -78,7 +103,9 @@ export class TypeScriptParser {
     }
 
     // Continue visiting child nodes
-    ts.forEachChild(node, (child) => this.visitNode(child, entities, content, filePath));
+    ts.forEachChild(node, (child) =>
+      this.visitNode(child, entities, content, filePath)
+    );
   }
 
   /**
@@ -101,7 +128,7 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "function" as EntityType,
+      entityType: EntityType.Function,
       filePath,
       position,
       content: codeContent,
@@ -109,15 +136,16 @@ export class TypeScriptParser {
       docstring,
       dependencies: [],
       references: [],
-      complexity: this.calculateComplexity(codeContent),
-      tokens: codeContent.split(/\s+/).length,
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         async: this.isAsync(node),
         exported: this.isExported(node),
         parameters: this.getParameters(node),
       },
-      relationships: [],
     });
   }
 
@@ -140,27 +168,32 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "class" as EntityType,
+      entityType: EntityType.Class,
       filePath,
       position,
       content: codeContent,
       docstring,
       dependencies: [],
       references: [],
-      complexity: this.calculateComplexity(codeContent),
-      tokens: codeContent.split(/\s+/).length,
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
         extends: this.getExtendsClause(node),
         implements: this.getImplementsClause(node),
       },
-      relationships: [],
     });
 
-    // Extract methods from the class
+    // Extract methods
     node.members.forEach((member) => {
-      if (ts.isMethodDeclaration(member) && member.name) {
+      if (
+        ts.isMethodDeclaration(member) &&
+        member.name &&
+        ts.isIdentifier(member.name)
+      ) {
         const methodName = member.name.getText();
         const methodPosition = this.getPosition(member, content);
         const methodContent = this.getNodeContent(member, content);
@@ -169,24 +202,24 @@ export class TypeScriptParser {
         entities.push({
           id: `${filePath}:${name}.${methodName}:${methodPosition.line}`,
           name: `${name}.${methodName}`,
-          entityType: "method" as EntityType,
+          entityType: EntityType.Method,
           filePath,
           position: methodPosition,
           content: methodContent,
           signature: methodSignature,
           dependencies: [],
           references: [],
-          complexity: this.calculateComplexity(methodContent),
-          tokens: methodContent.split(/\s+/).length,
+          complexity: 0,
+          tokens: 0,
+          embedding: [],
+          relationships: [],
           metadata: {
             language: this.getLanguage(filePath),
-            async: this.isAsync(member),
             className: name,
+            async: this.isAsync(member),
             static: this.hasModifier(member, ts.SyntaxKind.StaticKeyword),
             private: this.hasModifier(member, ts.SyntaxKind.PrivateKeyword),
-            protected: this.hasModifier(member, ts.SyntaxKind.ProtectedKeyword),
           },
-          relationships: [],
         });
       }
     });
@@ -209,21 +242,22 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "interface" as EntityType,
+      entityType: EntityType.Interface,
       filePath,
       position,
       content: codeContent,
       docstring,
       dependencies: [],
       references: [],
-      complexity: this.calculateComplexity(codeContent),
-      tokens: codeContent.split(/\s+/).length,
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
         extends: this.getInterfaceExtends(node),
       },
-      relationships: [],
     });
   }
 
@@ -244,20 +278,21 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "type" as EntityType,
+      entityType: EntityType.Type,
       filePath,
       position,
       content: codeContent,
       docstring,
       dependencies: [],
       references: [],
-      complexity: this.calculateComplexity(codeContent),
-      tokens: codeContent.split(/\s+/).length,
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
       },
-      relationships: [],
     });
   }
 
@@ -270,30 +305,40 @@ export class TypeScriptParser {
     content: string,
     filePath: string
   ): void {
-    node.declarationList.declarations.forEach((decl) => {
-      if (ts.isIdentifier(decl.name)) {
-        const name = decl.name.getText();
-        const position = this.getPosition(decl, content);
+    node.declarationList.declarations.forEach((declaration) => {
+      if (ts.isIdentifier(declaration.name)) {
+        const name = declaration.name.getText();
+        const position = this.getPosition(declaration, content);
         const codeContent = this.getNodeContent(node, content);
+
+        // Check if it's a component (starts with capital letter and has JSX)
+        const isComponent =
+          /^[A-Z]/.test(name) &&
+          (codeContent.includes("jsx") ||
+            codeContent.includes("tsx") ||
+            codeContent.includes("React.") ||
+            codeContent.includes("return (") ||
+            codeContent.includes("return<"));
 
         entities.push({
           id: `${filePath}:${name}:${position.line}`,
           name,
-          entityType: "variable" as EntityType,
+          entityType: isComponent ? EntityType.Component : EntityType.Variable,
           filePath,
           position,
           content: codeContent,
           dependencies: [],
           references: [],
-          complexity: this.calculateComplexity(codeContent),
-          tokens: codeContent.split(/\s+/).length,
+          complexity: 0,
+          tokens: 0,
+          embedding: [],
+          relationships: [],
           metadata: {
             language: this.getLanguage(filePath),
             exported: this.isExported(node),
             const: this.hasKeyword(node, ts.SyntaxKind.ConstKeyword),
-            let: this.hasKeyword(node, ts.SyntaxKind.LetKeyword),
+            isComponent,
           },
-          relationships: [],
         });
       }
     });
@@ -303,58 +348,73 @@ export class TypeScriptParser {
    * Extract arrow function from variable declaration
    */
   private extractArrowFunction(
-    varDecl: ts.VariableDeclaration,
-    funcNode: ts.ArrowFunction | ts.FunctionExpression,
+    declaration: ts.VariableDeclaration,
+    func: ts.ArrowFunction | ts.FunctionExpression,
     entities: CodeEntity[],
     content: string,
     filePath: string
   ): void {
-    if (!ts.isIdentifier(varDecl.name)) return;
+    if (!ts.isIdentifier(declaration.name)) return;
 
-    const name = varDecl.name.getText();
-    const position = this.getPosition(varDecl, content);
-    const codeContent = this.getNodeContent(funcNode, content);
+    const name = declaration.name.getText();
+    const position = this.getPosition(declaration, content);
+    const codeContent = this.getNodeContent(declaration.parent.parent, content); // Get the whole variable statement
+
+    // Check if it's a React component
+    const isComponent =
+      /^[A-Z]/.test(name) &&
+      (codeContent.includes("jsx") ||
+        codeContent.includes("tsx") ||
+        codeContent.includes("React.") ||
+        codeContent.includes("return (") ||
+        codeContent.includes("return<"));
 
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "function" as EntityType,
+      entityType: isComponent ? EntityType.Component : EntityType.Function,
       filePath,
       position,
       content: codeContent,
       dependencies: [],
       references: [],
-      complexity: this.calculateComplexity(codeContent),
-      tokens: codeContent.split(/\s+/).length,
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
-        async: this.isAsync(funcNode),
+        async: this.isAsync(func),
         arrow: true,
+        isComponent,
       },
-      relationships: [],
     });
   }
 
-  private getPosition(node: ts.Node, content: string) {
+  // Helper methods
+
+  private getPosition(node: ts.Node, content: string): CodePosition {
     const sourceFile = node.getSourceFile();
-    const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-    return {
-      line: line + 1,
-      column: character,
-    };
+    const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+      node.getStart()
+    );
+    return { line: line + 1, column: character + 1 };
   }
 
   private getNodeContent(node: ts.Node, content: string): string {
-    return node.getText();
+    const sourceFile = node.getSourceFile();
+    return content.substring(node.getStart(sourceFile), node.getEnd());
   }
 
   private getLanguage(filePath: string): string {
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(filePath);
     switch (ext) {
       case ".ts":
+        return "typescript";
       case ".tsx":
         return "typescript";
       case ".js":
+        return "javascript";
       case ".jsx":
         return "javascript";
       default:
@@ -363,88 +423,96 @@ export class TypeScriptParser {
   }
 
   private getFunctionSignature(node: ts.FunctionDeclaration): string {
-    return node.getText().split("{")[0].trim() + " {";
+    const sourceFile = node.getSourceFile();
+    const signatureEnd = node.body
+      ? node.body.getStart(sourceFile)
+      : node.getEnd();
+    return node
+      .getSourceFile()
+      .text.substring(node.getStart(sourceFile), signatureEnd)
+      .trim();
   }
 
   private getMethodSignature(node: ts.MethodDeclaration): string {
-    return node.getText().split("{")[0].trim() + " {";
+    const sourceFile = node.getSourceFile();
+    const signatureEnd = node.body
+      ? node.body.getStart(sourceFile)
+      : node.getEnd();
+    return node
+      .getSourceFile()
+      .text.substring(node.getStart(sourceFile), signatureEnd)
+      .trim();
   }
 
   private getDocstring(node: ts.Node, content: string): string | undefined {
-    // Look for JSDoc comments before the node
     const sourceFile = node.getSourceFile();
-    const fullText = sourceFile.getFullText();
-    const nodeStart = node.getFullStart();
-    
-    // Simple regex to find JSDoc comments
-    const beforeNode = fullText.substring(0, nodeStart);
-    const jsdocMatch = beforeNode.match(/\/\*\*[\s\S]*?\*\/\s*$/);
-    
-    if (jsdocMatch) {
-      return jsdocMatch[0].trim();
+    const comments = ts.getLeadingCommentRanges(content, node.getFullStart());
+
+    if (comments && comments.length > 0) {
+      const lastComment = comments[comments.length - 1];
+      const commentText = content.substring(lastComment.pos, lastComment.end);
+
+      // Clean up JSDoc comments
+      return commentText
+        .replace(/\/\*\*|\*\/|\*/g, "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join("\n");
     }
 
     return undefined;
   }
 
   private isAsync(node: ts.Node): boolean {
-    return this.hasModifier(node, ts.SyntaxKind.AsyncKeyword);
+    return !!(
+      ts.getCombinedModifierFlags(node as any) & ts.ModifierFlags.Async
+    );
   }
 
   private isExported(node: ts.Node): boolean {
-    return this.hasModifier(node, ts.SyntaxKind.ExportKeyword);
+    return !!(
+      ts.getCombinedModifierFlags(node as any) & ts.ModifierFlags.Export
+    );
   }
 
-  private hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
-    return ts.canHaveModifiers(node) && 
-           ts.getModifiers(node)?.some(mod => mod.kind === kind) || false;
+  private hasModifier(node: ts.Node, modifier: ts.SyntaxKind): boolean {
+    // TypeScript AST nodes may not have 'modifiers' property, so cast to any
+    const modifiers = (node as any).modifiers;
+    return Array.isArray(modifiers)
+      ? modifiers.some((mod: any) => mod.kind === modifier)
+      : false;
   }
 
-  private hasKeyword(node: ts.VariableStatement, kind: ts.SyntaxKind): boolean {
-    return node.declarationList.flags === ts.NodeFlags.Const && kind === ts.SyntaxKind.ConstKeyword ||
-           node.declarationList.flags === ts.NodeFlags.Let && kind === ts.SyntaxKind.LetKeyword;
+  private hasKeyword(node: ts.Node, keyword: ts.SyntaxKind): boolean {
+    // Returns true if the node is a const variable declaration
+    const flags = (node as any).declarationList?.flags;
+    return !!(flags && flags & ts.NodeFlags.Const);
   }
 
-  private getParameters(node: ts.FunctionDeclaration | ts.MethodDeclaration): string[] {
-    return node.parameters.map(param => param.name.getText());
+  private getParameters(node: ts.FunctionDeclaration): string[] {
+    return node.parameters.map((param) => param.name.getText());
   }
 
   private getExtendsClause(node: ts.ClassDeclaration): string | undefined {
-    const heritageClause = node.heritageClauses?.find(
-      clause => clause.token === ts.SyntaxKind.ExtendsKeyword
-    );
-    return heritageClause?.types[0]?.expression.getText();
+    return node.heritageClauses
+      ?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
+      ?.types[0]?.expression.getText();
   }
 
   private getImplementsClause(node: ts.ClassDeclaration): string[] {
-    const implementsClause = node.heritageClauses?.find(
-      clause => clause.token === ts.SyntaxKind.ImplementsKeyword
+    return (
+      node.heritageClauses
+        ?.find((clause) => clause.token === ts.SyntaxKind.ImplementsKeyword)
+        ?.types.map((type) => type.expression.getText()) || []
     );
-    return implementsClause?.types.map(type => type.expression.getText()) || [];
   }
 
   private getInterfaceExtends(node: ts.InterfaceDeclaration): string[] {
-    const extendsClause = node.heritageClauses?.find(
-      clause => clause.token === ts.SyntaxKind.ExtendsKeyword
+    return (
+      node.heritageClauses
+        ?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
+        ?.types.map((type) => type.expression.getText()) || []
     );
-    return extendsClause?.types.map(type => type.expression.getText()) || [];
-  }
-
-  private calculateComplexity(content: string): number {
-    let complexity = 1;
-
-    // Simple complexity calculation
-    const lowerContent = content.toLowerCase();
-
-    // Control flow statements
-    complexity += (lowerContent.match(/\b(if|else|for|while|switch|case)\b/g) || []).length;
-
-    // Function calls
-    complexity += (content.match(/\w+\(/g) || []).length * 0.5;
-
-    // Nested structures
-    complexity += (content.match(/\{/g) || []).length * 0.3;
-
-    return Math.round(complexity);
   }
 }

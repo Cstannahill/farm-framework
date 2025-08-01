@@ -1,3 +1,4 @@
+// Ollama AI provider for code intelligence
 import type { AIProvider } from "../explanation/engine";
 
 export interface OllamaConfig {
@@ -25,9 +26,7 @@ export class OllamaProvider implements AIProvider {
     } catch (error) {
       console.error("Ollama API error:", error);
       throw new Error(
-        `Failed to generate explanation: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+        `Failed to generate explanation: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
@@ -106,9 +105,7 @@ Format your response in clear, readable Markdown with appropriate headers and bu
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -117,13 +114,10 @@ Format your response in clear, readable Markdown with appropriate headers and bu
 
       const data = await response.json();
       const models = data.models || [];
-      
-      // Check if our configured model is available
-      return models.some((model: any) => 
-        model.name === this.model || model.name.startsWith(this.model.split(':')[0])
-      );
-    } catch (error) {
-      console.error("Failed to check Ollama availability:", error);
+
+      // Check if our model is available
+      return models.some((model: any) => model.name === this.model);
+    } catch {
       return false;
     }
   }
@@ -135,19 +129,18 @@ Format your response in clear, readable Markdown with appropriate headers and bu
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.statusText}`);
+        return [];
       }
 
       const data = await response.json();
-      return (data.models || []).map((model: any) => model.name);
-    } catch (error) {
-      console.error("Failed to get available models:", error);
+      const models = data.models || [];
+
+      return models.map((model: any) => model.name);
+    } catch {
       return [];
     }
   }
@@ -156,50 +149,17 @@ Format your response in clear, readable Markdown with appropriate headers and bu
    * Download a model if it's not available
    */
   async pullModel(modelName?: string): Promise<boolean> {
-    const model = modelName || this.model;
+    const targetModel = modelName || this.model;
 
     try {
-      console.log(`🔄 Pulling model: ${model}...`);
-
       const response = await fetch(`${this.baseUrl}/api/pull`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: model }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: targetModel }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to pull model: ${response.statusText}`);
-      }
-
-      // Stream the response to show progress
-      const reader = response.body?.getReader();
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = new TextDecoder().decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim());
-          
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line);
-              if (data.status) {
-                console.log(`📦 ${data.status}`);
-              }
-            } catch {
-              // Ignore invalid JSON lines
-            }
-          }
-        }
-      }
-
-      console.log(`✅ Model ${model} pulled successfully`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to pull model ${model}:`, error);
+      return response.ok;
+    } catch {
       return false;
     }
   }

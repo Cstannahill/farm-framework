@@ -1,3 +1,4 @@
+// Configuration for code intelligence package
 interface IntelligenceConfig {
   enabled?: boolean;
   indexing?: {
@@ -48,17 +49,6 @@ export interface CodeIntelligenceConfig {
   privacy: PrivacyConfig;
   vectorPath: string;
   api: APIConfig;
-  projectRoot?: string;
-  vector?: {
-    provider: string;
-    model: string;
-    dimensions: number;
-    apiKey?: string;
-    embeddingModel?: string;
-    collectionName?: string;
-    persistPath?: string;
-    device?: string;
-  };
 }
 
 export interface IndexingConfig {
@@ -69,22 +59,15 @@ export interface IndexingConfig {
   batchSize: number;
   maxFileSize: number;
   respectGitignore: boolean;
-  indexOnStart?: boolean;
-  watchFiles?: boolean;
-  fileExtensions?: string[];
-  batchUpdates?: boolean;
-  batchDelay?: number;
 }
 
 export interface AIConfig {
-  provider: "local" | "openai" | "anthropic" | "azure" | "ollama" | "mock";
+  provider: "local" | "openai" | "anthropic" | "azure";
   model: string;
   temperature: number;
   maxTokens: number;
   apiKey?: string;
   endpoint?: string;
-  ollamaUrl?: string;
-  timeout?: number;
 }
 
 export interface PerformanceConfig {
@@ -113,7 +96,7 @@ export interface APIConfig {
 
 export interface RateLimitConfig {
   requests: number;
-  window: number;
+  window: number; // in seconds
 }
 
 export interface AuthConfig {
@@ -200,6 +183,7 @@ export function createCodeIntelligenceConfig(
   overrides: Partial<IntelligenceConfig> = {}
 ): CodeIntelligenceConfig {
   const defaultConfig = createDefaultConfig();
+
   // Apply overrides to the default configuration
   return mergeIntelligenceConfig(defaultConfig, overrides);
 }
@@ -231,16 +215,20 @@ function mergeIntelligenceConfig(
     result.performance = {
       ...result.performance,
       cacheSize: perfOverrides.cacheSize ?? result.performance.cacheSize,
-      parallelism: perfOverrides.maxConcurrency ?? result.performance.parallelism,
-      indexingTimeout: perfOverrides.timeout ?? result.performance.indexingTimeout,
+      parallelism:
+        perfOverrides.maxConcurrency ?? result.performance.parallelism,
+      indexingTimeout:
+        perfOverrides.timeout ?? result.performance.indexingTimeout,
     };
   }
 
   if (overrides.privacy) {
     result.privacy = {
       ...result.privacy,
-      sanitizeSecrets: overrides.privacy.sanitize ?? result.privacy.sanitizeSecrets,
-      excludeSensitive: overrides.privacy.excludeSecrets ?? result.privacy.excludeSensitive,
+      sanitizeSecrets:
+        overrides.privacy.sanitize ?? result.privacy.sanitizeSecrets,
+      excludeSensitive:
+        overrides.privacy.excludeSecrets ?? result.privacy.excludeSensitive,
     };
   }
 
@@ -267,6 +255,7 @@ export function mergeConfig(
   override: Partial<CodeIntelligenceConfig>
 ): CodeIntelligenceConfig {
   const defaultConfig = createDefaultConfig();
+
   return {
     ...defaultConfig,
     ...base,

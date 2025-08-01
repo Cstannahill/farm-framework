@@ -1,3 +1,4 @@
+// Client-specific types
 export interface CodeIntelligenceClientConfig {
   baseUrl?: string;
   timeout?: number;

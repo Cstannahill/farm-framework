@@ -1,11 +1,12 @@
-import type { 
-  VectorStore, 
-  VectorDocument, 
-  VectorQuery, 
-  VectorSearchResult, 
-  VectorStoreConfig, 
-  VectorStoreStats, 
-  EmbeddingProvider 
+// ChromaDB vector store implementation
+import type {
+  VectorStore,
+  VectorDocument,
+  VectorQuery,
+  VectorSearchResult,
+  VectorStoreConfig,
+  VectorStoreStats,
+  EmbeddingProvider,
 } from "./types";
 import type { CodeEntity } from "../types/index";
 
@@ -34,12 +35,14 @@ export class ChromaDBVectorStore implements VectorStore {
     try {
       // Initialize ChromaDB client
       this.client = await this.createChromaClient();
-      
+
       // Create or get collection
       this.collection = await this.getOrCreateCollection(collectionName);
-      
+
       this.isInitialized = true;
-      console.log(`✅ ChromaDB vector store initialized with collection: ${collectionName}`);
+      console.log(
+        `✅ ChromaDB vector store initialized with collection: ${collectionName}`
+      );
     } catch (error) {
       console.error(`Failed to initialize ChromaDB: ${error}`);
       throw error;
@@ -51,7 +54,9 @@ export class ChromaDBVectorStore implements VectorStore {
 
     try {
       await this.client.deleteCollection(this.config.collectionName);
-      this.collection = await this.getOrCreateCollection(this.config.collectionName);
+      this.collection = await this.getOrCreateCollection(
+        this.config.collectionName
+      );
       console.log(`🔄 Reset collection: ${this.config.collectionName}`);
     } catch (error) {
       console.error(`Failed to reset collection: ${error}`);
@@ -80,6 +85,7 @@ export class ChromaDBVectorStore implements VectorStore {
         const batch = documents.slice(i, i + this.config.batchSize);
         await this.addBatch(batch);
       }
+
       console.log(`📦 Added ${documents.length} documents to vector store`);
     } catch (error) {
       console.error(`Failed to add documents: ${error}`);
@@ -96,9 +102,10 @@ export class ChromaDBVectorStore implements VectorStore {
       // Delete existing documents first
       const ids = documents.map((doc) => doc.id);
       await this.delete(ids);
-      
+
       // Add updated documents
       await this.add(documents);
+
       console.log(`🔄 Updated ${documents.length} documents in vector store`);
     } catch (error) {
       console.error(`Failed to update documents: ${error}`);
@@ -126,8 +133,8 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      const results = await this.collection.get({ ids });
-      return this.parseGetResults(results);
+      const result = await this.collection.get({ ids });
+      return this.parseGetResults(result);
     } catch (error) {
       console.error(`Failed to get documents: ${error}`);
       throw error;
@@ -140,12 +147,16 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      if (query.vector) {
-        return await this.similaritySearch(query.vector, query.limit, query.filters);
-      } else if (query.text) {
+      if (query.text) {
         return await this.textSearch(query.text, query.limit, query.filters);
+      } else if (query.vector) {
+        return await this.similaritySearch(
+          query.vector,
+          query.limit,
+          query.filters
+        );
       } else {
-        throw new Error("Query must have either vector or text");
+        throw new Error("Query must contain either text or vector");
       }
     } catch (error) {
       console.error(`Failed to search: ${error}`);
@@ -154,8 +165,8 @@ export class ChromaDBVectorStore implements VectorStore {
   }
 
   async similaritySearch(
-    vector: number[], 
-    limit: number = 10, 
+    vector: number[],
+    limit: number = 10,
     filters?: Record<string, any>
   ): Promise<VectorSearchResult[]> {
     if (!this.isInitialized) {
@@ -163,12 +174,16 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      const results = await this.collection.query({
+      const queryParams: any = {
         queryEmbeddings: [vector],
         nResults: limit,
-        where: filters,
-      });
+      };
 
+      if (filters) {
+        queryParams.where = filters;
+      }
+
+      const results = await this.collection.query(queryParams);
       return this.parseQueryResults(results);
     } catch (error) {
       console.error(`Failed to perform similarity search: ${error}`);
@@ -177,8 +192,8 @@ export class ChromaDBVectorStore implements VectorStore {
   }
 
   async textSearch(
-    text: string, 
-    limit: number = 10, 
+    text: string,
+    limit: number = 10,
     filters?: Record<string, any>
   ): Promise<VectorSearchResult[]> {
     if (!this.isInitialized) {
@@ -186,17 +201,9 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      // Generate embedding for the text
-      const embedding = await this.embeddingProvider.generateEmbedding(text);
-      
-      // Perform vector search
-      const vectorResults = await this.similaritySearch(embedding, limit, filters);
-      
-      // Also perform text matching for hybrid results
-      const textResults = await this.performTextMatching(text, limit, filters);
-      
-      // Combine and rerank results
-      return this.combineAndRerankResults(vectorResults, textResults, limit);
+      // Generate embedding for query text
+      const queryVector = await this.embeddingProvider.generateEmbedding(text);
+      return await this.similaritySearch(queryVector, limit, filters);
     } catch (error) {
       console.error(`Failed to perform text search: ${error}`);
       throw error;
@@ -204,9 +211,9 @@ export class ChromaDBVectorStore implements VectorStore {
   }
 
   async hybridSearch(
-    text: string, 
-    vector?: number[], 
-    limit: number = 10, 
+    text: string,
+    vector?: number[],
+    limit: number = 10,
     filters?: Record<string, any>
   ): Promise<VectorSearchResult[]> {
     if (!this.isInitialized) {
@@ -214,15 +221,21 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      // Use provided vector or generate from text
-      const searchVector = vector || await this.embeddingProvider.generateEmbedding(text);
-      
-      // Perform vector search
-      const vectorResults = await this.similaritySearch(searchVector, limit, filters);
-      
-      // Perform text search
-      const textResults = await this.performTextMatching(text, limit, filters);
-      
+      // If no vector provided, generate from text
+      if (!vector) {
+        vector = await this.embeddingProvider.generateEmbedding(text);
+      }
+
+      // Perform similarity search
+      const vectorResults = await this.similaritySearch(
+        vector,
+        limit * 2,
+        filters
+      );
+
+      // Also perform text matching for reranking
+      const textResults = await this.performTextMatching(text, filters);
+
       // Combine and rerank results
       return this.combineAndRerankResults(vectorResults, textResults, limit);
     } catch (error) {
@@ -237,11 +250,11 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      const results = await this.collection.count();
-      return results;
+      const result = await this.collection.count();
+      return result;
     } catch (error) {
-      console.error(`Failed to get count: ${error}`);
-      throw error;
+      console.error(`Failed to count documents: ${error}`);
+      return 0;
     }
   }
 
@@ -251,15 +264,16 @@ export class ChromaDBVectorStore implements VectorStore {
     }
 
     try {
-      const totalDocuments = await this.count();
-      
+      const count = await this.count();
+      const collections = await this.client.listCollections();
+
       return {
-        totalDocuments,
-        totalVectors: totalDocuments,
+        totalDocuments: count,
+        totalVectors: count,
         dimensions: this.embeddingProvider.getDimensions(),
-        diskUsage: 0, // Would need to calculate actual usage
-        memoryUsage: 0, // Would need to calculate actual usage
-        collections: [this.config.collectionName],
+        diskUsage: 0, // ChromaDB doesn't expose this easily
+        memoryUsage: 0, // ChromaDB doesn't expose this easily
+        collections: collections.map((col: any) => col.name),
         lastUpdated: new Date(),
       };
     } catch (error) {
@@ -269,209 +283,289 @@ export class ChromaDBVectorStore implements VectorStore {
   }
 
   async close(): Promise<void> {
-    if (this.client && this.client.close) {
-      await this.client.close();
+    if (this.isInitialized) {
+      // ChromaDB client doesn't need explicit closing
+      this.isInitialized = false;
+      console.log("🔐 ChromaDB vector store closed");
     }
-    this.isInitialized = false;
   }
 
   private async createChromaClient(): Promise<any> {
-    // Mock ChromaDB client - would use actual ChromaDB in production
-    return this.createMockCollection();
-  }
-
-  private async getOrCreateCollection(collectionName: string): Promise<any> {
-    // Mock implementation
-    return this.createMockCollection();
-  }
-
-  private createMockCollection(): any {
-    // Mock collection for development/testing
-    const documents = new Map<string, VectorDocument>();
-    
+    // Mock ChromaDB client implementation
+    // In production, this would import and configure the real ChromaDB client
     return {
-      async add(data: any) {
-        const { ids, documents: docs, metadatas, embeddings } = data;
-        for (let i = 0; i < ids.length; i++) {
-          documents.set(ids[i], {
-            id: ids[i],
-            content: docs[i],
-            vector: embeddings[i],
-            metadata: metadatas[i],
-          });
-        }
+      listCollections: async () => [{ name: this.config.collectionName }],
+
+      deleteCollection: async (name: string) => {
+        console.log(`Deleting collection: ${name}`);
       },
-      
-      async delete(data: any) {
-        const { ids } = data;
-        ids.forEach((id: string) => documents.delete(id));
+
+      getOrCreateCollection: async (params: any) => {
+        console.log(`Getting or creating collection: ${params.name}`);
+        return this.createMockCollection();
       },
-      
-      async get(data: any) {
-        const { ids } = data;
-        const results = ids.map((id: string) => documents.get(id)).filter(Boolean);
-        return {
-          ids: results.map((doc: any) => doc?.id),
-          documents: results.map((doc: any) => doc?.content),
-          metadatas: results.map((doc: any) => doc?.metadata),
-          embeddings: results.map((doc: any) => doc?.vector),
-        };
-      },
-      
-      async query(data: any) {
-        const { queryEmbeddings, nResults } = data;
-        const allDocs = Array.from(documents.values());
-        
-        // Simple mock similarity calculation
-        const results = allDocs
-          .map(doc => ({
-            doc,
-            distance: Math.random(), // Mock distance
-          }))
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, nResults);
-          
-        return {
-          ids: [results.map(r => r.doc.id)],
-          documents: [results.map(r => r.doc.content)],
-          metadatas: [results.map(r => r.doc.metadata)],
-          distances: [results.map(r => r.distance)],
-        };
-      },
-      
-      async count() {
-        return documents.size;
-      }
     };
   }
 
-  private async addBatch(batch: VectorDocument[]): Promise<void> {
+  private async getOrCreateCollection(name: string): Promise<any> {
+    const collectionParams = {
+      name,
+      metadata: {
+        description: "FARM Code Intelligence Vector Store",
+        model: this.embeddingProvider.getModel(),
+        dimensions: this.embeddingProvider.getDimensions(),
+      },
+    };
+
+    return await this.client.getOrCreateCollection(collectionParams);
+  }
+
+  private createMockCollection(): any {
+    // Mock collection implementation
+    return {
+      add: async (params: any) => {
+        console.log(`Adding ${params.ids.length} documents to collection`);
+      },
+
+      delete: async (params: any) => {
+        console.log(`Deleting ${params.ids.length} documents from collection`);
+      },
+
+      get: async (params: any) => {
+        console.log(`Getting ${params.ids.length} documents from collection`);
+        return {
+          ids: params.ids,
+          documents: params.ids.map(() => "mock document"),
+          metadatas: params.ids.map(() => ({ mock: true })),
+          embeddings: params.ids.map(() =>
+            Array.from({ length: this.embeddingProvider.getDimensions() }, () =>
+              Math.random()
+            )
+          ),
+        };
+      },
+
+      query: async (params: any) => {
+        console.log(`Querying collection with ${params.nResults} results`);
+        const numResults = Math.min(params.nResults, 5);
+        return {
+          ids: [Array.from({ length: numResults }, (_, i) => `result_${i}`)],
+          distances: [Array.from({ length: numResults }, () => Math.random())],
+          documents: [
+            Array.from({ length: numResults }, () => "mock document"),
+          ],
+          metadatas: [
+            Array.from({ length: numResults }, () => ({ mock: true })),
+          ],
+          embeddings: [
+            Array.from({ length: numResults }, () =>
+              Array.from(
+                { length: this.embeddingProvider.getDimensions() },
+                () => Math.random()
+              )
+            ),
+          ],
+        };
+      },
+
+      count: async () => 42, // Mock count
+    };
+  }
+
+  private async addBatch(documents: VectorDocument[]): Promise<void> {
     // Generate embeddings for documents that don't have them
-    const textsToEmbed: string[] = [];
-    const indices: number[] = [];
-    
-    batch.forEach((doc, index) => {
-      if (!doc.vector) {
-        textsToEmbed.push(doc.content);
-        indices.push(index);
+    const documentsToEmbed = documents.filter((doc) => !doc.vector);
+    const texts = documentsToEmbed.map((doc) => doc.content);
+
+    let embeddings: number[][] = [];
+    if (texts.length > 0) {
+      embeddings = await this.embeddingProvider.generateBatchEmbeddings(texts);
+    }
+
+    // Prepare data for ChromaDB
+    const ids = documents.map((doc) => doc.id);
+    const docTexts = documents.map((doc) => doc.content);
+    const metadatas = documents.map((doc) => doc.metadata);
+    const vectors = documents.map((doc, i) => {
+      if (doc.vector) {
+        return doc.vector;
+      } else {
+        const embeddingIndex = documentsToEmbed.indexOf(doc);
+        return embeddings[embeddingIndex];
       }
     });
 
-    if (textsToEmbed.length > 0) {
-      const embeddings = await this.embeddingProvider.generateBatchEmbeddings(textsToEmbed);
-      indices.forEach((batchIndex, embeddingIndex) => {
-        batch[batchIndex].vector = embeddings[embeddingIndex];
-      });
-    }
-
     // Add to collection
     await this.collection.add({
-      ids: batch.map(doc => doc.id),
-      documents: batch.map(doc => doc.content),
-      metadatas: batch.map(doc => doc.metadata),
-      embeddings: batch.map(doc => doc.vector),
+      ids,
+      documents: docTexts,
+      metadatas,
+      embeddings: vectors,
     });
   }
 
   private parseQueryResults(results: any): VectorSearchResult[] {
-    const { ids, documents, metadatas, distances } = results;
-    
-    return ids[0].map((id: string, index: number) => ({
-      entity: this.metadataToEntity(metadatas[0][index]),
-      score: 1 - distances[0][index], // Convert distance to similarity score
-      distance: distances[0][index],
-      metadata: metadatas[0][index],
-    }));
+    const searchResults: VectorSearchResult[] = [];
+
+    for (let i = 0; i < results.ids[0].length; i++) {
+      const entity: CodeEntity = {
+        id: results.metadatas[0][i].entityId,
+        name: results.metadatas[0][i].name || "Unknown",
+        entityType: results.metadatas[0][i].entityType,
+        filePath: results.metadatas[0][i].filePath,
+        content: results.documents[0][i],
+        docstring: results.metadatas[0][i].docstring || "",
+        signature: results.metadatas[0][i].signature || "",
+        dependencies: results.metadatas[0][i].dependencies || [],
+        references: results.metadatas[0][i].references || [],
+        complexity: results.metadatas[0][i].complexity || 0,
+        tokens: results.metadatas[0][i].tokens || 0,
+        embedding: results.embeddings?.[0]?.[i] || [],
+        relationships: results.metadatas[0][i].relationships || [],
+        position: {
+          line: results.metadatas[0][i].startLine || 0,
+          column: 1,
+          endLine: results.metadatas[0][i].endLine || 0,
+          endColumn: 1,
+        },
+        metadata: results.metadatas[0][i].metadata || {},
+      };
+
+      searchResults.push({
+        entity,
+        score: 1 - results.distances[0][i], // Convert distance to similarity score
+        distance: results.distances[0][i],
+        metadata: results.metadatas[0][i],
+      });
+    }
+
+    return searchResults;
   }
 
   private parseGetResults(results: any): VectorDocument[] {
-    const { ids, documents, metadatas, embeddings } = results;
-    
-    return ids.map((id: string, index: number) => ({
-      id,
-      content: documents[index],
-      vector: embeddings[index],
-      metadata: metadatas[index],
-    }));
+    const documents: VectorDocument[] = [];
+
+    for (let i = 0; i < results.ids.length; i++) {
+      documents.push({
+        id: results.ids[i],
+        content: results.documents[i],
+        vector: results.embeddings?.[i],
+        metadata: results.metadatas[i],
+      });
+    }
+
+    return documents;
   }
 
   private async performTextMatching(
-    text: string, 
-    limit: number, 
+    text: string,
     filters?: Record<string, any>
   ): Promise<VectorSearchResult[]> {
     // Simple text matching implementation
-    // In production, this would use full-text search capabilities
-    const allDocs = await this.collection.get({});
-    
-    return allDocs.documents
-      .map((doc: string, index: number) => ({
-        entity: this.metadataToEntity(allDocs.metadatas[index]),
-        score: this.calculateTextSimilarity(text, doc),
-        distance: 1 - this.calculateTextSimilarity(text, doc),
-        metadata: allDocs.metadatas[index],
-      }))
-      .filter((result: VectorSearchResult) => result.score > 0.1)
-      .sort((a: VectorSearchResult, b: VectorSearchResult) => b.score - a.score)
-      .slice(0, limit);
+    // In production, this could use BM25 or other text search algorithms
+    try {
+      const allDocs = await this.collection.get({ where: filters });
+
+      if (!allDocs || !allDocs.documents || allDocs.documents.length === 0) {
+        return [];
+      }
+
+      const matches = allDocs.documents
+        .map((doc: string, index: number) => ({
+          index,
+          score: this.calculateTextSimilarity(
+            text.toLowerCase(),
+            doc.toLowerCase()
+          ),
+          document: doc,
+          metadata: allDocs.metadatas[index],
+        }))
+        .filter((match: any) => match.score > 0)
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 10);
+
+      return matches.map((match: any) => ({
+        entity: this.metadataToEntity(match.metadata, match.document),
+        score: match.score,
+        distance: 1 - match.score,
+        metadata: match.metadata,
+      }));
+    } catch (error) {
+      console.error("Error in performTextMatching:", error);
+      return [];
+    }
   }
 
-  private calculateTextSimilarity(query: string, document: string): number {
-    // Simple text similarity based on common words
-    const queryWords = query.toLowerCase().split(/\s+/);
-    const docWords = document.toLowerCase().split(/\s+/);
-    
-    const intersection = queryWords.filter(word => docWords.includes(word));
-    const union = [...new Set([...queryWords, ...docWords])];
-    
-    return intersection.length / union.length;
+  private calculateTextSimilarity(query: string, text: string): number {
+    const queryWords = query.split(/\s+/);
+    const textWords = text.split(/\s+/);
+
+    const matches = queryWords.filter((word) =>
+      textWords.some(
+        (textWord) => textWord.includes(word) || word.includes(textWord)
+      )
+    );
+
+    return matches.length / queryWords.length;
   }
 
   private combineAndRerankResults(
-    vectorResults: VectorSearchResult[], 
-    textResults: VectorSearchResult[], 
+    vectorResults: VectorSearchResult[],
+    textResults: VectorSearchResult[],
     limit: number
   ): VectorSearchResult[] {
-    // Combine results and remove duplicates
-    const combined = new Map<string, VectorSearchResult>();
-    
-    vectorResults.forEach(result => {
-      combined.set(result.entity.id, result);
+    // Simple combination strategy - in production, you might use more sophisticated reranking
+    const combinedResults = new Map<string, VectorSearchResult>();
+
+    // Add vector results with higher weight
+    vectorResults.forEach((result) => {
+      combinedResults.set(result.entity.id, {
+        ...result,
+        score: result.score * 0.7, // Weight vector search
+      });
     });
-    
-    textResults.forEach(result => {
-      const existing = combined.get(result.entity.id);
+
+    // Add or boost text results
+    textResults.forEach((result) => {
+      const existing = combinedResults.get(result.entity.id);
       if (existing) {
-        // Combine scores (weighted average)
-        existing.score = (existing.score * 0.7) + (result.score * 0.3);
+        // Boost existing result
+        existing.score = existing.score + result.score * 0.3;
       } else {
-        combined.set(result.entity.id, result);
+        // Add new result
+        combinedResults.set(result.entity.id, {
+          ...result,
+          score: result.score * 0.3, // Weight text search
+        });
       }
     });
-    
-    return Array.from(combined.values())
+
+    return Array.from(combinedResults.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
   }
 
-  private metadataToEntity(metadata: any): CodeEntity {
-    // Convert metadata back to CodeEntity
-    // This is a simplified conversion - would need proper mapping
+  private metadataToEntity(metadata: any, content: string): CodeEntity {
     return {
-      id: metadata.entityId,
-      filePath: metadata.filePath,
-      entityType: metadata.entityType,
-      name: metadata.name || '',
-      content: metadata.content || '',
-      dependencies: [],
-      references: [],
-      complexity: metadata.complexity || 0,
-      tokens: metadata.tokens || 0,
-      metadata: metadata,
-      relationships: [],
+      id: metadata.entityId || `entity_${Date.now()}`,
+      name: metadata.name || "Unknown",
+      entityType: metadata.entityType || "function",
+      filePath: metadata.filePath || "",
+      content,
+      dependencies: metadata.dependencies || [],
+      references: metadata.references || [],
+      complexity: metadata.complexity || 1,
+      tokens: metadata.tokens || content.length,
+      metadata: {
+        language: metadata.language || "typescript",
+        ...metadata,
+      },
+      relationships: metadata.relationships || [],
       position: {
-        line: metadata.line || 0,
-        column: metadata.column || 0,
+        line: metadata.startLine || 0,
+        column: metadata.startColumn || 0,
+        endLine: metadata.endLine || 0,
+        endColumn: metadata.endColumn || 0,
       },
     };
   }

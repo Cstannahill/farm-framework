@@ -1,3 +1,4 @@
+// Vector database interfaces and types for semantic search
 import type { CodeEntity } from "../types/index";
 
 export interface VectorSearchResult {
@@ -37,19 +38,41 @@ export interface EmbeddingProvider {
 }
 
 export interface VectorStore {
+  // Collection management
   initialize(collectionName: string): Promise<void>;
   reset(): Promise<void>;
   exists(collectionName: string): Promise<boolean>;
+
+  // Document operations
   add(documents: VectorDocument[]): Promise<void>;
   update(documents: VectorDocument[]): Promise<void>;
   delete(ids: string[]): Promise<void>;
   get(ids: string[]): Promise<VectorDocument[]>;
+
+  // Search operations
   search(query: VectorQuery): Promise<VectorSearchResult[]>;
-  similaritySearch(vector: number[], limit?: number, filters?: Record<string, any>): Promise<VectorSearchResult[]>;
-  textSearch(text: string, limit?: number, filters?: Record<string, any>): Promise<VectorSearchResult[]>;
-  hybridSearch(text: string, vector?: number[], limit?: number, filters?: Record<string, any>): Promise<VectorSearchResult[]>;
+  similaritySearch(
+    vector: number[],
+    limit?: number,
+    filters?: Record<string, any>
+  ): Promise<VectorSearchResult[]>;
+  textSearch(
+    text: string,
+    limit?: number,
+    filters?: Record<string, any>
+  ): Promise<VectorSearchResult[]>;
+  hybridSearch(
+    text: string,
+    vector?: number[],
+    limit?: number,
+    filters?: Record<string, any>
+  ): Promise<VectorSearchResult[]>;
+
+  // Analytics
   count(): Promise<number>;
   getStats(): Promise<VectorStoreStats>;
+
+  // Cleanup
   close(): Promise<void>;
 }
 

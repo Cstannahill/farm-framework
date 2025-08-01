@@ -1,14 +1,15 @@
-import type { 
-  QueryResponse, 
-  ExplanationResponse, 
-  IndexStatus, 
-  CodeIntelligenceClientConfig, 
-  ClientQueryRequest, 
-  ClientExplainRequest, 
-  ClientSearchOptions 
+import type {
+  QueryRequest,
+  QueryResponse,
+  ExplanationResponse,
+  IndexStatus,
+  CodeIntelligenceClientConfig,
+  ClientQueryRequest,
+  ClientExplainRequest,
+  ClientSearchOptions,
 } from "../types/index";
 
-export class CodeIntelligenceAPIClient {
+export class CodeIntelligenceClient {
   private baseUrl: string;
   private timeout: number;
   private apiKey?: string;
@@ -17,7 +18,8 @@ export class CodeIntelligenceAPIClient {
   private cacheEnabled: boolean;
 
   constructor(config: CodeIntelligenceClientConfig = {}) {
-    this.baseUrl = config.baseUrl || "http://localhost:8000";
+    this.baseUrl =
+      config.baseUrl || "http://localhost:8001/api/code-intelligence";
     this.timeout = config.timeout || 30000;
     this.apiKey = config.apiKey;
     this.retries = config.retries || 3;
@@ -29,23 +31,34 @@ export class CodeIntelligenceAPIClient {
    * Execute a natural language query against the codebase
    */
   async query(
-    request: ClientQueryRequest, 
+    request: ClientQueryRequest,
     options: ClientSearchOptions = {}
   ): Promise<QueryResponse> {
     const cacheKey = this.getCacheKey("query", request);
-    
+
     if (this.cacheEnabled && this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.makeRequest<QueryResponse>("/query", {
-      method: "POST",
-      body: JSON.stringify(request),
-      timeout: options.timeout,
-      signal: options.signal,
-    });
+    const queryRequest: QueryRequest = {
+      query: request.query,
+      maxResults: request.maxResults || 5,
+      includeContext: request.includeContext || false,
+      filters: request.filters,
+      options: {
+        useAiSynthesis: true,
+        includeRelationships: true,
+      },
+    };
 
-    if (this.cacheEnabled && !response.error) {
+    const response = await this.makeRequest<QueryResponse>(
+      "/query",
+      "POST",
+      queryRequest,
+      options
+    );
+
+    if (this.cacheEnabled && response) {
       this.cache.set(cacheKey, response);
     }
 
@@ -57,17 +70,18 @@ export class CodeIntelligenceAPIClient {
    */
   async explain(request: ClientExplainRequest): Promise<ExplanationResponse> {
     const cacheKey = this.getCacheKey("explain", request);
-    
+
     if (this.cacheEnabled && this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.makeRequest<ExplanationResponse>("/explain", {
-      method: "POST",
-      body: JSON.stringify(request),
-    });
+    const response = await this.makeRequest<ExplanationResponse>(
+      "/explain",
+      "POST",
+      request
+    );
 
-    if (this.cacheEnabled && response.entity) {
+    if (this.cacheEnabled && response) {
       this.cache.set(cacheKey, response);
     }
 
@@ -78,92 +92,94 @@ export class CodeIntelligenceAPIClient {
    * Get current status of the code intelligence index
    */
   async getStatus(): Promise<IndexStatus> {
-    return this.makeRequest<IndexStatus>("/status", {
-      method: "GET",
-    });
+    return this.makeRequest<IndexStatus>("/status", "GET");
   }
 
   /**
    * Trigger a full reindex of the codebase
    */
   async reindex(): Promise<{ message: string; taskId: string }> {
-    return this.makeRequest<{ message: string; taskId: string }>("/reindex", {
-      method: "POST",
-    });
-  }
-
-  /**
-   * Reset the code intelligence index
-   */
-  async reset(): Promise<{ success: boolean; message: string }> {
-    this.clearCache();
-    return this.makeRequest<{ success: boolean; message: string }>("/reset", {
-      method: "POST",
-    });
+    return this.makeRequest<{ message: string; taskId: string }>(
+      "/reindex",
+      "POST"
+    );
   }
 
   /**
    * Stream query results for real-time feedback
    */
-  async* streamQuery(
-    request: ClientQueryRequest, 
+  async *streamQuery(
+    request: ClientQueryRequest,
     options: ClientSearchOptions = {}
   ): AsyncGenerator<any, void, unknown> {
-    const response = await fetch(`${this.baseUrl}/query/stream`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.apiKey && { "Authorization": `Bearer ${this.apiKey}` }),
-      },
-      body: JSON.stringify(request),
-      signal: options.signal,
+    const url = new URL("/stream", this.baseUrl);
+
+    // Convert HTTP URL to WebSocket URL
+    const wsUrl = url.toString().replace(/^http/, "ws");
+
+    const ws = new WebSocket(wsUrl);
+
+    const results: any[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      ws.onopen = () => {
+        ws.send(JSON.stringify(request));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === "result") {
+            results.push(data.data);
+          } else if (data.type === "complete") {
+            ws.close();
+            resolve();
+          } else if (data.type === "error") {
+            ws.close();
+            reject(new Error(data.error));
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        reject(error);
+      };
+
+      if (options.signal) {
+        options.signal.addEventListener("abort", () => {
+          ws.close();
+          reject(new Error("Request aborted"));
+        });
+      }
+
+      setTimeout(() => {
+        if (ws.readyState !== WebSocket.CLOSED) {
+          ws.close();
+          reject(new Error("Request timeout"));
+        }
+      }, options.timeout || this.timeout);
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error("Response body is not readable");
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const data = JSON.parse(line);
-              yield data;
-            } catch (error) {
-              console.warn("Failed to parse stream data:", line);
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
+    // Yield all collected results
+    for (const result of results) {
+      yield result;
     }
   }
 
   /**
    * Search for entities by name or pattern
    */
-  async searchEntities(pattern: string, maxResults: number = 10): Promise<QueryResponse> {
+  async searchEntities(
+    pattern: string,
+    maxResults = 10
+  ): Promise<QueryResponse> {
     return this.query({
-      query: `search entities matching "${pattern}"`,
+      query: `find entities matching "${pattern}"`,
       maxResults,
-      filters: {},
+      includeContext: false,
     });
   }
 
@@ -175,7 +191,6 @@ export class CodeIntelligenceAPIClient {
       query: `find all usages of ${entityName}`,
       maxResults: 50,
       includeContext: true,
-      filters: {},
     });
   }
 
@@ -184,10 +199,9 @@ export class CodeIntelligenceAPIClient {
    */
   async getArchitecture(): Promise<QueryResponse> {
     return this.query({
-      query: "analyze architecture patterns and structure",
+      query: "show architecture overview",
       maxResults: 20,
       includeContext: true,
-      filters: {},
     });
   }
 
@@ -209,92 +223,62 @@ export class CodeIntelligenceAPIClient {
   }
 
   private async makeRequest<T>(
-    endpoint: string, 
-    options: {
-      method: string;
-      body?: string;
-      timeout?: number;
-      signal?: AbortSignal;
-    }
+    endpoint: string,
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    body?: any,
+    options: ClientSearchOptions = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const timeout = options.timeout || this.timeout;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
 
-    let lastError: Error | null = null;
+    if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+    }
 
-    for (let attempt = 0; attempt < this.retries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const requestInit: RequestInit = {
+      method,
+      headers,
+      signal: options.signal,
+      ...(body && { body: JSON.stringify(body) }),
+    };
 
-      // Combine timeout signal with any provided signal
-      const signal = options.signal 
-        ? this.combineSignals([controller.signal, options.signal])
-        : controller.signal;
-
+    for (let attempt = 0; attempt <= this.retries; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, options.timeout || this.timeout);
+
         const response = await fetch(url, {
-          method: options.method,
-          headers: {
-            "Content-Type": "application/json",
-            ...(this.apiKey && { "Authorization": `Bearer ${this.apiKey}` }),
-          },
-          body: options.body,
-          signal,
+          ...requestInit,
+          signal: options.signal || controller.signal,
         });
 
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const error = await response.text();
+          throw new Error(`HTTP ${response.status}: ${error}`);
         }
 
-        const data = await response.json();
-        return data;
-
+        return await response.json();
       } catch (error) {
-        clearTimeout(timeoutId);
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // Don't retry on client errors or abort
-        if (error instanceof Error) {
-          if (error.name === "AbortError" || 
-              (error.message.includes("HTTP 4") && !error.message.includes("HTTP 429"))) {
-            break;
-          }
+        if (attempt === this.retries) {
+          throw error;
         }
 
-        // Wait before retrying (exponential backoff)
-        if (attempt < this.retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-        }
+        // Exponential backoff
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
-    throw lastError || new Error("Request failed after retries");
+    throw new Error("Max retries exceeded");
   }
 
   private getCacheKey(operation: string, request: any): string {
     return `${operation}:${JSON.stringify(request)}`;
-  }
-
-  private combineSignals(signals: AbortSignal[]): AbortSignal {
-    const controller = new AbortController();
-
-    const onAbort = () => controller.abort();
-
-    signals.forEach(signal => {
-      if (signal.aborted) {
-        controller.abort();
-        return;
-      }
-      signal.addEventListener("abort", onAbort);
-    });
-
-    // Clean up listeners when the combined signal is aborted
-    controller.signal.addEventListener("abort", () => {
-      signals.forEach(signal => signal.removeEventListener("abort", onAbort));
-    });
-
-    return controller.signal;
   }
 }

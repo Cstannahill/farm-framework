@@ -1,4 +1,11 @@
-import type { QueryResponse, QueryPlan, QueryContext } from "../types/index";
+import type {
+  QueryRequest,
+  QueryResponse,
+  QueryPlan,
+  QueryContext,
+  SearchResult,
+} from "../types/index";
+import { EntityType } from "../types/index";
 
 export class CodeQueryEngine {
   private vectorStore: any;
@@ -16,40 +23,54 @@ export class CodeQueryEngine {
   /**
    * Execute a natural language query against the codebase
    */
-  async query(naturalQuery: string, context?: QueryContext): Promise<QueryResponse> {
+  async query(
+    naturalQuery: string,
+    context?: QueryContext
+  ): Promise<QueryResponse> {
+    const startTime = Date.now();
+
     try {
-      // Plan the query
+      // Generate query plan
       const plan = await this.queryPlanner.plan(naturalQuery, context);
-      
-      let response: QueryResponse;
 
       // Execute based on query type
+      let response: QueryResponse;
+
       switch (plan.queryType) {
         case "search":
-          response = await this.executeSearch(naturalQuery, plan, context);
+          response = await this.executeSearch(naturalQuery, plan);
           break;
         case "explain":
-          response = await this.executeExplain(naturalQuery, plan, context);
+          response = await this.executeExplain(naturalQuery, plan);
           break;
         case "analyze":
-          response = await this.executeAnalyze(naturalQuery, plan, context);
+          response = await this.executeAnalyze(naturalQuery, plan);
           break;
         case "generate":
-          response = await this.executeGenerate(naturalQuery, plan, context);
+          response = await this.executeGenerate(naturalQuery, plan);
           break;
         default:
-          response = await this.executeHybrid(naturalQuery, plan, context);
+          response = await this.executeHybrid(naturalQuery, plan);
       }
 
-      response.plan = plan;
+      // Add timing metrics
+      response.metrics = {
+        totalResults: response.metrics?.totalResults || 0,
+        ...response.metrics,
+        searchTime: Date.now() - startTime,
+        cacheHit: false,
+      };
+
       return response;
     } catch (error) {
+      console.error("Query execution failed:", error);
       return {
         results: [],
-        error: error instanceof Error ? error.message : "Unknown query error",
+        error: error instanceof Error ? error.message : "Unknown error",
+        plan: await this.queryPlanner.plan(naturalQuery, context),
         metrics: {
           totalResults: 0,
-          searchTime: 0,
+          searchTime: Date.now() - startTime,
           cacheHit: false,
         },
       };
@@ -58,43 +79,37 @@ export class CodeQueryEngine {
 
   private async executeSearch(
     query: string,
-    plan: QueryPlan,
-    context?: QueryContext
+    plan: QueryPlan
   ): Promise<QueryResponse> {
-    const startTime = Date.now();
+    // Generate query embedding
+    const queryEmbedding = await this.generateQueryEmbedding(query);
 
-    // Generate embedding for the query
-    const embedding = await this.generateQueryEmbedding(query);
-
-    // Search the vector store
-    const searchResults = await this.vectorStore.similaritySearch(
-      embedding,
+    // Search with filters
+    const results = await this.vectorStore.search(
+      queryEmbedding,
       plan.maxResults,
       plan.filters
     );
 
     // Enrich with context if requested
-    const enrichedResults = plan.includeContext
-      ? await this.enrichWithContext(searchResults)
-      : searchResults;
+    let enrichedResults = results;
+    if (plan.includeContext) {
+      enrichedResults = await this.enrichWithContext(results);
+    }
 
-    // Generate AI synthesis if requested
-    let synthesis;
+    // Synthesize response if requested
+    let synthesis: string | undefined;
     if (plan.useAiSynthesis) {
       synthesis = await this.synthesizeResponse(query, enrichedResults);
     }
 
     return {
-      results: enrichedResults.map((result: any) => ({
-        id: result.entity.id,
-        score: result.score,
-        entity: result.entity,
-        highlights: this.extractHighlights(query, result.entity.content),
-      })),
+      results: enrichedResults,
       synthesis,
+      plan,
       metrics: {
-        totalResults: enrichedResults.length,
-        searchTime: Date.now() - startTime,
+        totalResults: results.length,
+        searchTime: 0, // Will be set by caller
         cacheHit: false,
       },
     };
@@ -102,42 +117,42 @@ export class CodeQueryEngine {
 
   private async executeExplain(
     query: string,
-    plan: QueryPlan,
-    context?: QueryContext
+    plan: QueryPlan
   ): Promise<QueryResponse> {
-    const startTime = Date.now();
-
     // Extract entity name from query
     const entityName = this.extractEntityName(query);
-    if (!entityName) {
-      throw new Error("Could not identify entity to explain");
+
+    // Find entity
+    const entityResults = await this.findEntity(entityName);
+
+    if (entityResults.length === 0) {
+      return {
+        results: [],
+        plan,
+        error: `Entity '${entityName}' not found`,
+        metrics: {
+          totalResults: 0,
+          searchTime: 0,
+          cacheHit: false,
+        },
+      };
     }
 
-    // Find the entity
-    const entity = await this.findEntity(entityName);
-    if (!entity) {
-      throw new Error(`Entity '${entityName}' not found`);
-    }
-
-    // Build context
-    const entityContext = plan.includeContext
-      ? await this.buildEntityContext(entity)
-      : undefined;
+    // Get full context
+    const entity = entityResults[0];
+    const context = await this.buildEntityContext(entity);
 
     // Generate explanation
-    const explanation = await this.generateExplanation(entity, entityContext);
+    const explanation = await this.generateExplanation(entity, context);
 
     return {
-      results: [{
-        id: entity.id,
-        score: 1.0,
-        entity,
-        explanation,
-      }],
-      context: entityContext,
+      results: entityResults,
+      synthesis: explanation,
+      plan,
+      context,
       metrics: {
-        totalResults: 1,
-        searchTime: Date.now() - startTime,
+        totalResults: entityResults.length,
+        searchTime: 0,
         cacheHit: false,
       },
     };
@@ -145,27 +160,16 @@ export class CodeQueryEngine {
 
   private async executeAnalyze(
     query: string,
-    plan: QueryPlan,
-    context?: QueryContext
+    plan: QueryPlan
   ): Promise<QueryResponse> {
-    const startTime = Date.now();
-
-    // Use the analyzer to get insights
-    const analysis = await this.analyzer.analyzeCodebase({
-      includePatterns: true,
-      includeMetrics: true,
-      includeHotspots: true,
-    });
-
-    // Filter analysis based on query intent
-    const relevantFindings = this.filterAnalysisResults(analysis, query);
-
+    // TODO: Implement analysis queries
     return {
-      results: relevantFindings,
-      synthesis: `Analysis complete. Found ${relevantFindings.length} relevant insights.`,
+      results: [],
+      synthesis: "Analysis functionality coming soon",
+      plan,
       metrics: {
-        totalResults: relevantFindings.length,
-        searchTime: Date.now() - startTime,
+        totalResults: 0,
+        searchTime: 0,
         cacheHit: false,
       },
     };
@@ -173,40 +177,16 @@ export class CodeQueryEngine {
 
   private async executeGenerate(
     query: string,
-    plan: QueryPlan,
-    context?: QueryContext
+    plan: QueryPlan
   ): Promise<QueryResponse> {
-    const startTime = Date.now();
-
-    // Generate code or documentation based on query
-    const generatedContent = await this.aiProvider.generateExplanation(
-      `Generate code or documentation based on this request: ${query}`,
-      context?.selectedText || ""
-    );
-
+    // TODO: Implement generation queries
     return {
-      results: [{
-        id: `generated-${Date.now()}`,
-        score: 1.0,
-        entity: {
-          id: `generated-${Date.now()}`,
-          name: "Generated Content",
-          entityType: "generated" as any,
-          filePath: "generated",
-          content: generatedContent,
-          dependencies: [],
-          references: [],
-          complexity: 1,
-          tokens: generatedContent.split(' ').length,
-          metadata: { generated: true, language: "text" },
-          relationships: [],
-          position: { line: 1, column: 1 },
-        },
-      }],
-      synthesis: "Content generated based on your request.",
+      results: [],
+      synthesis: "Generation functionality coming soon",
+      plan,
       metrics: {
-        totalResults: 1,
-        searchTime: Date.now() - startTime,
+        totalResults: 0,
+        searchTime: 0,
         cacheHit: false,
       },
     };
@@ -214,258 +194,268 @@ export class CodeQueryEngine {
 
   private async executeHybrid(
     query: string,
-    plan: QueryPlan,
-    context?: QueryContext
+    plan: QueryPlan
   ): Promise<QueryResponse> {
-    // Combine search and analysis for complex queries
-    const searchResponse = await this.executeSearch(query, plan, context);
-    
-    // Add AI synthesis to interpret results
-    const synthesis = await this.synthesizeResponse(query, searchResponse.results);
-    
-    return {
-      ...searchResponse,
-      synthesis,
-    };
+    // Combine multiple strategies
+    return await this.executeSearch(query, plan);
   }
 
   private async generateQueryEmbedding(query: string): Promise<number[]> {
-    // Mock implementation - would use actual embedding service
-    return Array.from({ length: 384 }, () => Math.random());
+    // TODO: Generate embedding using sentence transformer or similar
+    // For now return mock embedding
+    return new Array(384).fill(0).map(() => Math.random());
   }
 
-  private async enrichWithContext(results: any[]): Promise<any[]> {
-    // Add related entities, dependencies, etc.
-    return results.map(result => ({
-      ...result,
-      relevantContext: [], // Would populate with related entities
-    }));
+  private async enrichWithContext(
+    results: SearchResult[]
+  ): Promise<SearchResult[]> {
+    // TODO: Add related entities, usage examples, etc.
+    return results;
   }
 
-  private async synthesizeResponse(query: string, results: any[]): Promise<string> {
-    if (results.length === 0) {
-      return "No relevant code found for your query.";
+  private async synthesizeResponse(
+    query: string,
+    results: SearchResult[]
+  ): Promise<string> {
+    if (!this.aiProvider) {
+      return "";
     }
 
+    // Build context from results
+    const context = results
+      .slice(0, 5)
+      .map(
+        (r) =>
+          `File: ${r.entity.filePath}\n` +
+          `Type: ${r.entity.entityType}\n` +
+          `Name: ${r.entity.name}\n` +
+          `\`\`\`${r.entity.metadata.language || "typescript"}\n${r.entity.content}\n\`\`\``
+      )
+      .join("\n\n");
+
+    // Generate synthesis
     const prompt = `
-Synthesize a response for the query: "${query}"
+Based on the following code context, answer this question: ${query}
 
-Based on these search results:
-${results.slice(0, 3).map((r, i) => 
-  `${i + 1}. ${r.entity.name} (${r.entity.entityType}) - ${r.entity.filePath}`
-).join('\n')}
+Context:
+${context}
 
-Provide a helpful summary and guidance.
+Provide a clear, concise answer that references specific code elements.
 `;
 
-    return await this.aiProvider.generateExplanation(prompt, "");
+    try {
+      return await this.aiProvider.generate(
+        prompt,
+        "You are a senior software architect analyzing code."
+      );
+    } catch (error) {
+      console.error("AI synthesis failed:", error);
+      return "";
+    }
   }
 
-  private extractEntityName(query: string): string | null {
-    // Simple extraction - would use more sophisticated NLP
-    const patterns = [
-      /explain\s+(\w+)/i,
-      /what\s+is\s+(\w+)/i,
-      /tell\s+me\s+about\s+(\w+)/i,
-      /describe\s+(\w+)/i,
-    ];
+  private extractEntityName(query: string): string {
+    // Simple extraction - could be more sophisticated
+    const match = query.match(/(?:explain|describe|what is|how does)\s+(\w+)/i);
+    return match ? match[1] : "";
+  }
 
-    for (const pattern of patterns) {
-      const match = query.match(pattern);
-      if (match) {
-        return match[1];
-      }
+  private async findEntity(entityName: string): Promise<SearchResult[]> {
+    if (!entityName) {
+      return [];
     }
 
-    return null;
+    // TODO: Search for entity by name
+    return [];
   }
 
-  private async findEntity(name: string): Promise<any> {
-    // Search for entity by name
-    const results = await this.vectorStore.textSearch(name, 1, {
-      exactMatch: true,
-    });
-
-    return results.length > 0 ? results[0].entity : null;
-  }
-
-  private async buildEntityContext(entity: any): Promise<any> {
-    // Build comprehensive context for the entity
+  private async buildEntityContext(entity: SearchResult): Promise<any> {
+    // TODO: Build comprehensive context
     return {
-      entity,
-      related: [], // Related entities
-      usages: [], // Usage examples
-      tests: [], // Test cases
-      documentation: [], // Documentation
+      entity: entity.entity,
+      related: [],
+      usages: [],
+      tests: [],
+      documentation: [],
     };
   }
 
-  private async generateExplanation(entity: any, context?: any): Promise<string> {
-    const prompt = `Explain the code entity: ${entity.name}`;
-    return await this.aiProvider.generateExplanation(prompt, entity.content);
-  }
-
-  private extractHighlights(query: string, content: string): string[] {
-    // Extract relevant snippets from content
-    const queryWords = query.toLowerCase().split(/\s+/);
-    const lines = content.split('\n');
-    
-    return lines
-      .filter(line => 
-        queryWords.some(word => line.toLowerCase().includes(word))
-      )
-      .slice(0, 3);
-  }
-
-  private filterAnalysisResults(analysis: any, query: string): any[] {
-    // Filter analysis results based on query intent
-    const results = [];
-
-    if (query.includes("pattern") || query.includes("architecture")) {
-      results.push(...analysis.patterns.map((p: any) => ({
-        id: `pattern-${p.type}`,
-        score: p.confidence,
-        entity: {
-          id: `pattern-${p.type}`,
-          name: `${p.type} Pattern`,
-          entityType: "pattern" as any,
-          filePath: "analysis",
-          content: `Architectural pattern: ${p.type}`,
-          dependencies: [],
-          references: [],
-          complexity: 1,
-          tokens: 10,
-          metadata: { pattern: true },
-          relationships: [],
-          position: { line: 1, column: 1 },
-        },
-      })));
+  private async generateExplanation(
+    entity: SearchResult,
+    context: any
+  ): Promise<string> {
+    if (!this.aiProvider) {
+      return `${entity.entity.name} is a ${entity.entity.entityType} in ${entity.entity.filePath}`;
     }
 
-    if (query.includes("issue") || query.includes("problem") || query.includes("improvement")) {
-      results.push(...analysis.improvements.map((i: any) => ({
-        id: `improvement-${i.type}`,
-        score: i.severity === "critical" ? 1.0 : 0.7,
-        entity: {
-          id: `improvement-${i.type}`,
-          name: `${i.type} Improvement`,
-          entityType: "improvement" as any,
-          filePath: "analysis",
-          content: i.description,
-          dependencies: [],
-          references: [],
-          complexity: 1,
-          tokens: 20,
-          metadata: { improvement: true, severity: i.severity },
-          relationships: [],
-          position: { line: 1, column: 1 },
-        },
-      })));
-    }
+    const prompt = `
+Explain this ${entity.entity.entityType} in detail:
 
-    return results;
+Name: ${entity.entity.name}
+File: ${entity.entity.filePath}
+Code:
+\`\`\`${entity.entity.metadata.language || "typescript"}
+${entity.entity.content}
+\`\`\`
+
+Provide a clear explanation of:
+1. What this code does
+2. How it works
+3. Key parameters and return values
+4. Usage patterns
+5. Any important relationships or dependencies
+`;
+
+    try {
+      return await this.aiProvider.generate(
+        prompt,
+        "You are a senior software architect explaining code to a colleague."
+      );
+    } catch (error) {
+      console.error("AI explanation failed:", error);
+      return `${entity.entity.name} is a ${entity.entity.entityType} in ${entity.entity.filePath}`;
+    }
   }
 }
 
 export class QueryPlanner {
-  private intentClassifier: any;
-  private filterExtractor: any;
+  private intentClassifier: IntentClassifier;
+  private filterExtractor: FilterExtractor;
 
   constructor() {
-    // Initialize intent classification and filter extraction
-    this.intentClassifier = this.createMockIntentClassifier();
-    this.filterExtractor = this.createMockFilterExtractor();
+    this.intentClassifier = new IntentClassifier();
+    this.filterExtractor = new FilterExtractor();
   }
 
   async plan(query: string, context?: QueryContext): Promise<QueryPlan> {
-    // Classify the intent
-    const queryType = this.classifyIntent(query);
-    
-    // Extract filters
-    const filters = this.extractFilters(query);
-    
-    // Determine search strategy
-    const searchStrategy = this.determineSearchStrategy(query, queryType);
-    
-    return {
-      queryType,
-      searchStrategy,
-      filters,
-      includeContext: context?.includeContext || this.shouldIncludeContext(query),
-      maxResults: context?.maxResults || this.determineMaxResults(query),
-      useAiSynthesis: this.shouldUseSynthesis(query),
-    };
-  }
+    // Classify query intent
+    const intent = await this.intentClassifier.classify(query);
 
-  private classifyIntent(query: string): string {
-    if (this.isExplainQuery(query)) return "explain";
-    if (this.isAnalyzeQuery(query)) return "analyze";
-    if (query.includes("generate") || query.includes("create")) return "generate";
-    return "search";
+    // Extract filters
+    const filters = await this.filterExtractor.extract(query);
+
+    // Determine strategy based on query patterns
+    if (this.isExplainQuery(query)) {
+      return {
+        queryType: "explain",
+        searchStrategy: "semantic",
+        filters,
+        includeContext: true,
+        maxResults: 10,
+        useAiSynthesis: true,
+      };
+    } else if (this.isAnalyzeQuery(query)) {
+      return {
+        queryType: "analyze",
+        searchStrategy: "hybrid",
+        filters,
+        includeContext: true,
+        maxResults: 20,
+        useAiSynthesis: true,
+      };
+    } else {
+      return {
+        queryType: "search",
+        searchStrategy: "semantic",
+        filters,
+        includeContext: false,
+        maxResults: context?.maxResults || 5,
+        useAiSynthesis: false,
+      };
+    }
   }
 
   private isExplainQuery(query: string): boolean {
-    const explainKeywords = ["explain", "what is", "how does", "tell me about", "describe"];
-    return explainKeywords.some(keyword => query.toLowerCase().includes(keyword));
+    const explainPatterns = [
+      /how does/i,
+      /explain/i,
+      /what is/i,
+      /describe/i,
+      /tell me about/i,
+    ];
+
+    return explainPatterns.some((pattern) => pattern.test(query));
   }
 
   private isAnalyzeQuery(query: string): boolean {
-    const analyzeKeywords = ["analyze", "analysis", "pattern", "architecture", "issues", "problems"];
-    return analyzeKeywords.some(keyword => query.toLowerCase().includes(keyword));
-  }
+    const analyzePatterns = [
+      /analyze/i,
+      /find issues/i,
+      /problems with/i,
+      /review/i,
+      /audit/i,
+    ];
 
-  private extractFilters(query: string): Record<string, any> {
+    return analyzePatterns.some((pattern) => pattern.test(query));
+  }
+}
+
+class IntentClassifier {
+  async classify(query: string): Promise<string> {
+    // TODO: Implement intent classification
+    // Could use a small ML model or rule-based approach
+    return "search";
+  }
+}
+
+class FilterExtractor {
+  async extract(query: string): Promise<Record<string, any>> {
     const filters: Record<string, any> = {};
-    
-    // Extract file type filters
-    const fileTypeMatch = query.match(/\.(ts|js|py|java|cpp|go)\b/);
-    if (fileTypeMatch) {
-      filters.language = fileTypeMatch[1];
+
+    // Extract entity types
+    const entityTypes = this.extractEntityTypes(query);
+    if (entityTypes.length > 0) {
+      filters.entityTypes = entityTypes;
     }
-    
-    // Extract entity type filters
-    if (query.includes("function")) filters.entityType = "function";
-    if (query.includes("class")) filters.entityType = "class";
-    if (query.includes("interface")) filters.entityType = "interface";
-    
+
+    // Extract languages
+    const languages = this.extractLanguages(query);
+    if (languages.length > 0) {
+      filters.languages = languages;
+    }
+
+    // Extract file patterns
+    const filePatterns = this.extractFilePatterns(query);
+    if (filePatterns.length > 0) {
+      filters.filePatterns = filePatterns;
+    }
+
     return filters;
   }
 
-  private determineSearchStrategy(query: string, queryType: string): string {
-    if (queryType === "explain" || queryType === "analyze") {
-      return "precise";
+  private extractEntityTypes(query: string): EntityType[] {
+    const types: EntityType[] = [];
+
+    if (/function/i.test(query)) types.push(EntityType.Function);
+    if (/class/i.test(query)) types.push(EntityType.Class);
+    if (/component/i.test(query)) types.push(EntityType.Component);
+    if (/hook/i.test(query)) types.push(EntityType.Hook);
+    if (/interface/i.test(query)) types.push(EntityType.Interface);
+    if (/type/i.test(query)) types.push(EntityType.Type);
+
+    return types;
+  }
+
+  private extractLanguages(query: string): string[] {
+    const languages: string[] = [];
+
+    if (/typescript|ts/i.test(query)) languages.push("typescript");
+    if (/javascript|js/i.test(query)) languages.push("javascript");
+    if (/python|py/i.test(query)) languages.push("python");
+    if (/react|jsx|tsx/i.test(query)) languages.push("typescript");
+
+    return languages;
+  }
+
+  private extractFilePatterns(query: string): string[] {
+    const patterns: string[] = [];
+
+    // Look for file extensions or patterns
+    const fileMatches = query.match(/\*?\*?\.[a-z]+/gi);
+    if (fileMatches) {
+      patterns.push(...fileMatches);
     }
-    
-    if (query.length > 50 || query.includes("similar to")) {
-      return "semantic";
-    }
-    
-    return "hybrid";
-  }
 
-  private shouldIncludeContext(query: string): boolean {
-    return query.includes("context") || query.includes("related") || query.includes("dependencies");
-  }
-
-  private determineMaxResults(query: string): number {
-    if (query.includes("all") || query.includes("everything")) return 50;
-    if (query.includes("few") || query.includes("some")) return 5;
-    return 10;
-  }
-
-  private shouldUseSynthesis(query: string): boolean {
-    return query.length > 20 || query.includes("explain") || query.includes("summarize");
-  }
-
-  private createMockIntentClassifier(): any {
-    return {
-      classify: (query: string) => this.classifyIntent(query)
-    };
-  }
-
-  private createMockFilterExtractor(): any {
-    return {
-      extract: (query: string) => this.extractFilters(query)
-    };
+    return patterns;
   }
 }

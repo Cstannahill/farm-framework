@@ -6,12 +6,13 @@ export * from "./search-engine";
 
 // Pre-configured setups for common use cases
 import { ChromaDBVectorStore } from "./chromadb";
-import { 
-  CodeEmbeddingProvider, 
-  GeneralEmbeddingProvider, 
+import {
+  CodeEmbeddingProvider,
+  GeneralEmbeddingProvider,
   FastEmbeddingProvider,
 } from "./embeddings";
 import { SemanticSearchEngine } from "./search-engine";
+import type { VectorStoreConfig } from "./types";
 
 export interface VectorSetupConfig {
   provider: "chromadb" | "pinecone" | "weaviate";
@@ -24,7 +25,9 @@ export interface VectorSetupConfig {
 /**
  * Create a complete semantic search setup with sensible defaults
  */
-export async function createSemanticSearch(config: VectorSetupConfig): Promise<SemanticSearchEngine> {
+export async function createSemanticSearch(
+  config: VectorSetupConfig
+): Promise<SemanticSearchEngine> {
   // Choose embedding provider based on model preference
   const embeddingProvider = (() => {
     switch (config.embeddingModel) {
@@ -39,11 +42,11 @@ export async function createSemanticSearch(config: VectorSetupConfig): Promise<S
   })();
 
   // Configure vector store
-  const vectorStoreConfig = {
+  const vectorStoreConfig: VectorStoreConfig = {
     provider: config.provider,
     collectionName: config.collectionName,
     dimensions: embeddingProvider.getDimensions(),
-    distance: "cosine" as const,
+    distance: "cosine",
     persistPath: config.persistPath,
     batchSize: 100,
     maxRetries: 3,
@@ -59,16 +62,20 @@ export async function createSemanticSearch(config: VectorSetupConfig): Promise<S
   })();
 
   // Create search engine
-  const searchEngine = new SemanticSearchEngine(vectorStore, embeddingProvider, {
-    embeddingModel: embeddingProvider.getModel(),
-    vectorStore: config.provider,
-    collectionName: config.collectionName,
-    indexBatchSize: 50,
-    searchLimit: 20,
-    minSimilarity: 0.3,
-    enableHybridSearch: true,
-    enableReranking: true,
-  });
+  const searchEngine = new SemanticSearchEngine(
+    vectorStore,
+    embeddingProvider,
+    {
+      embeddingModel: embeddingProvider.getModel(),
+      vectorStore: config.provider,
+      collectionName: config.collectionName,
+      indexBatchSize: 50,
+      searchLimit: 20,
+      minSimilarity: 0.3,
+      enableHybridSearch: true,
+      enableReranking: true,
+    }
+  );
 
   // Initialize everything
   await searchEngine.initialize();

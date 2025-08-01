@@ -1,3 +1,4 @@
+// Core entity types
 export interface CodeEntity {
   id: string;
   filePath: string;
@@ -26,7 +27,7 @@ export enum EntityType {
   Type = "type",
   Enum = "enum",
   Variable = "variable",
-  Module = "module"
+  Module = "module",
 }
 
 export interface EntityMetadata {
@@ -55,7 +56,7 @@ export enum RelationshipType {
   Contains = "contains",
   ContainedBy = "containedBy",
   Tests = "tests",
-  TestedBy = "testedBy"
+  TestedBy = "testedBy",
 }
 
 export interface CodePosition {
@@ -65,6 +66,7 @@ export interface CodePosition {
   endColumn?: number;
 }
 
+// Query types
 export interface QueryRequest {
   query: string;
   maxResults?: number;
@@ -109,8 +111,8 @@ export interface SearchResult {
 }
 
 export interface QueryPlan {
-  queryType: string;
-  searchStrategy: string;
+  queryType: string; // search, explain, analyze, generate
+  searchStrategy: string; // semantic, keyword, hybrid
   filters: Record<string, any>;
   includeContext: boolean;
   maxResults: number;
@@ -133,6 +135,7 @@ export interface QueryMetrics {
   cacheHit: boolean;
 }
 
+// Analysis types
 export interface CodebaseAnalysis {
   entityCount: number;
   relationshipCount: number;
@@ -211,6 +214,7 @@ export interface CircularDependency {
   suggestions: string[];
 }
 
+// Date and complexity range filters
 export interface DateRange {
   start: Date;
   end: Date;
@@ -221,12 +225,14 @@ export interface ComplexityRange {
   max: number;
 }
 
+// WebSocket types for real-time updates
 export interface IntelligenceWebSocketMessage {
   type: "entity_updated" | "index_progress" | "analysis_complete" | "error";
   data: any;
   timestamp: string;
 }
 
+// API response types
 export interface IndexStatus {
   indexedFiles: number;
   totalEntities: number;
@@ -291,6 +297,7 @@ export interface DataFlowEdge {
   type: "read" | "write" | "modify";
 }
 
+// Summary types for API responses
 export interface CodeEntitySummary {
   id: string;
   file: string;
@@ -300,12 +307,14 @@ export interface CodeEntitySummary {
   preview?: string;
 }
 
+// Client streaming types
 export interface StreamingQueryResponse {
   type: "result" | "synthesis" | "complete" | "error";
   data?: any;
   error?: string;
 }
 
+// Client-specific types
 export interface CodeIntelligenceClientConfig {
   baseUrl?: string;
   timeout?: number;

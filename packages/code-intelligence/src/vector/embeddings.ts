@@ -1,3 +1,4 @@
+// Sentence Transformer embedding provider for code intelligence
 import type { EmbeddingProvider } from "./types";
 
 export interface SentenceTransformerConfig {
@@ -12,11 +13,11 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
   private model: string;
   private maxLength: number;
   private batchSize: number;
-  private device: "cpu" | "cuda" | "mps";
+  private device: string;
   private normalize: boolean;
   private dimensions: number;
   private isInitialized = false;
-  
+
   // Python bridge for sentence transformers
   private pythonBridge: any;
 
@@ -26,7 +27,7 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
     this.batchSize = config.batchSize;
     this.device = config.device;
     this.normalize = config.normalize;
-    
+
     // Set dimensions based on model
     this.dimensions = this.getModelDimensions(config.model);
   }
@@ -37,7 +38,7 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
     try {
       // Initialize Python bridge
       this.pythonBridge = await this.createPythonBridge();
-      
+
       // Load the model
       await this.pythonBridge.loadModel(this.model, {
         device: this.device,
@@ -60,7 +61,7 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
     try {
       // Preprocess text for code content
       const processedText = this.preprocessText(text);
-      
+
       // Generate embedding via Python bridge
       const embedding = await this.pythonBridge.encode([processedText], {
         normalize: this.normalize,
@@ -80,16 +81,18 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
     }
 
     try {
-      const processedTexts = texts.map(text => this.preprocessText(text));
-      
-      // Process in batches
+      // Process texts in batches
       const results: number[][] = [];
-      for (let i = 0; i < processedTexts.length; i += this.batchSize) {
-        const batch = processedTexts.slice(i, i + this.batchSize);
-        const embeddings = await this.pythonBridge.encode(batch, {
+
+      for (let i = 0; i < texts.length; i += this.batchSize) {
+        const batch = texts.slice(i, i + this.batchSize);
+        const processedBatch = batch.map((text) => this.preprocessText(text));
+
+        const embeddings = await this.pythonBridge.encode(processedBatch, {
           normalize: this.normalize,
           convertToTensor: false,
         });
+
         results.push(...embeddings);
       }
 
@@ -109,46 +112,55 @@ export class SentenceTransformerProvider implements EmbeddingProvider {
   }
 
   private preprocessText(text: string): string {
-    // Clean up code text for better embeddings
+    // Clean and prepare text for embedding
     return text
-      .replace(/\s+/g, ' ')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/.*$/gm, '')
+      .replace(/\s+/g, " ") // Normalize whitespace
+      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove block comments
+      .replace(/\/\/.*$/gm, "") // Remove line comments
       .trim()
-      .slice(0, this.maxLength);
+      .substring(0, this.maxLength);
   }
 
   private getModelDimensions(model: string): number {
-    // Common model dimensions
+    // Map of common models to their embedding dimensions
     const modelDimensions: Record<string, number> = {
-      'all-MiniLM-L6-v2': 384,
-      'all-mpnet-base-v2': 768,
-      'code-search-net': 768,
-      'unixcoder-base': 768,
-      'codet5-base': 768,
+      "all-MiniLM-L6-v2": 384,
+      "all-MiniLM-L12-v2": 384,
+      "all-mpnet-base-v2": 768,
+      "paraphrase-MiniLM-L6-v2": 384,
+      "sentence-transformers/all-MiniLM-L6-v2": 384,
+      "sentence-transformers/all-mpnet-base-v2": 768,
+      "microsoft/codebert-base": 768,
+      "microsoft/unixcoder-base": 768,
     };
 
-    return modelDimensions[model] || 384;
+    return modelDimensions[model] || 768; // Default to 768 if unknown
   }
 
   private async createPythonBridge(): Promise<any> {
-    // Mock implementation - would use actual Python bridge in production
+    // Mock implementation - in production this would be a real Python bridge
     return {
-      async loadModel(model: string, options: any) {
-        console.log(`Loading model ${model} with options:`, options);
+      loadModel: async (model: string, config: any) => {
+        console.log(`Loading model: ${model}`);
+        // Simulate model loading
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       },
-      async encode(texts: string[], options: any) {
-        // Mock embeddings
-        return texts.map(() => Array.from({length: this.dimensions}, () => Math.random()));
-      }
+
+      encode: async (texts: string[], options: any) => {
+        console.log(`Encoding ${texts.length} texts`);
+        // Generate mock embeddings with correct dimensions
+        return texts.map(() =>
+          Array.from({ length: this.dimensions }, () => Math.random() - 0.5)
+        );
+      },
     };
   }
 }
 
-// Pre-configured embedding providers
+// Pre-configured providers for common use cases
 export const CodeEmbeddingProvider = (device: "cpu" | "cuda" = "cpu") =>
   new SentenceTransformerProvider({
-    model: "microsoft/unixcoder-base",
+    model: "microsoft/codebert-base",
     maxLength: 512,
     batchSize: 32,
     device,
@@ -159,7 +171,7 @@ export const GeneralEmbeddingProvider = (device: "cpu" | "cuda" = "cpu") =>
   new SentenceTransformerProvider({
     model: "all-mpnet-base-v2",
     maxLength: 512,
-    batchSize: 64,
+    batchSize: 32,
     device,
     normalize: true,
   });
@@ -168,7 +180,7 @@ export const FastEmbeddingProvider = (device: "cpu" | "cuda" = "cpu") =>
   new SentenceTransformerProvider({
     model: "all-MiniLM-L6-v2",
     maxLength: 256,
-    batchSize: 128,
+    batchSize: 64,
     device,
     normalize: true,
   });

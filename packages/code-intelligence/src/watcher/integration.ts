@@ -1,6 +1,6 @@
+// File watcher integration for code intelligence
 import type { CodeIntelligenceConfig } from "../config";
-import * as fs from "fs/promises";
-import * as path from "path";
+import type { CodeEntity } from "../types/index";
 
 export interface FileWatcherIntegration {
   start(): Promise<void>;
@@ -11,7 +11,7 @@ export interface FileWatcherIntegration {
 export class CodeIntelligenceWatcher {
   private config: CodeIntelligenceConfig;
   private watchers: Set<FileWatcherIntegration> = new Set();
-  private batchQueue: Map<string, { action: "add" | "delete"; timestamp: number }> = new Map();
+  private batchQueue: string[] = [];
   private batchTimer?: NodeJS.Timeout;
 
   constructor(config: CodeIntelligenceConfig) {
@@ -22,69 +22,46 @@ export class CodeIntelligenceWatcher {
    * Start file watching for incremental indexing
    */
   async start(watcher?: FileWatcherIntegration): Promise<void> {
-    console.log("👀 Starting file watching for incremental indexing...");
-
-    if (watcher) {
-      // Use provided watcher (e.g., VSCode file watcher)
-      this.watchers.add(watcher);
-      
-      watcher.on("change", (filePath: string) => {
-        this.handleFileChange(filePath);
-      });
-      
-      watcher.on("delete", (filePath: string) => {
-        this.handleFileDelete(filePath);
-      });
-      
-      await watcher.start();
-    } else {
-      // Use Node.js fs.watch as fallback
-      await this.startNodeWatcher();
+    if (!this.config.indexing.watch) {
+      console.log("File watching disabled in config");
+      return;
     }
 
-    console.log("✅ File watching started");
+    if (watcher) {
+      this.watchers.add(watcher);
+      await watcher.start();
+
+      watcher.on("file:changed", (filePath: string) => {
+        this.handleFileChange(filePath);
+      });
+
+      watcher.on("file:added", (filePath: string) => {
+        this.handleFileChange(filePath);
+      });
+
+      watcher.on("file:deleted", (filePath: string) => {
+        this.handleFileDelete(filePath);
+      });
+    }
+
+    console.log("✅ Code intelligence file watcher started");
   }
 
   /**
    * Stop all file watchers
    */
   async stop(): Promise<void> {
-    console.log("👀 Stopping file watchers...");
-
-    if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-      await this.processBatch(); // Process any remaining items
-    }
-
     for (const watcher of this.watchers) {
       await watcher.stop();
     }
-
     this.watchers.clear();
-    console.log("✅ File watchers stopped");
-  }
 
-  private async startNodeWatcher(): Promise<void> {
-    // Simple Node.js fs.watch implementation
-    const watchPath = this.config.projectRoot || process.cwd();
-    
-    const nodeWatcher: FileWatcherIntegration = {
-      start: async () => {
-        // In a real implementation, this would use fs.watch recursively
-        console.log(`👀 Watching ${watchPath} with Node.js fs.watch`);
-      },
-      
-      stop: async () => {
-        console.log("👀 Node.js watcher stopped");
-      },
-      
-      on: (event: string, callback: (...args: any[]) => void) => {
-        // Mock implementation - would wire up actual fs.watch events
-      }
-    };
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = undefined;
+    }
 
-    this.watchers.add(nodeWatcher);
-    await nodeWatcher.start();
+    console.log("🛑 Code intelligence file watcher stopped");
   }
 
   private handleFileChange(filePath: string): void {
@@ -94,10 +71,10 @@ export class CodeIntelligenceWatcher {
 
     console.log(`📝 File changed: ${filePath}`);
 
-    if (this.config.indexing?.batchUpdates) {
-      this.queueForBatchProcessing(filePath, "add");
+    if (this.config.indexing.incremental) {
+      this.queueForBatchProcessing(filePath);
     } else {
-      this.processFileImmediately(filePath, "add");
+      this.processFileImmediately(filePath);
     }
   }
 
@@ -106,140 +83,106 @@ export class CodeIntelligenceWatcher {
       return;
     }
 
-    console.log(`🗑️ File deleted: ${filePath}`);
-
-    if (this.config.indexing?.batchUpdates) {
-      this.queueForBatchProcessing(filePath, "delete");
-    } else {
-      this.processFileImmediately(filePath, "delete");
-    }
+    console.log(`🗑️  File deleted: ${filePath}`);
+    this.removeFromIndex(filePath);
   }
 
   private shouldIndexFile(filePath: string): boolean {
-    const ext = path.extname(filePath);
-    const allowedExtensions = this.config.indexing?.fileExtensions || [".ts", ".tsx", ".js", ".jsx"];
-    
-    if (!allowedExtensions.includes(ext)) {
-      return false;
+    // Check include patterns
+    if (this.config.indexing.include?.length) {
+      const shouldInclude = this.config.indexing.include.some((pattern) =>
+        this.matchesGlob(filePath, pattern)
+      );
+      if (!shouldInclude) {
+        return false;
+      }
     }
 
-    const excludePatterns = this.config.indexing?.exclude || [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/build/**",
-      "**/.git/**",
-    ];
+    // Check exclude patterns
+    if (this.config.indexing.exclude?.length) {
+      const shouldExclude = this.config.indexing.exclude.some((pattern) =>
+        this.matchesGlob(filePath, pattern)
+      );
+      if (shouldExclude) {
+        return false;
+      }
+    }
 
-    const relativePath = path.relative(process.cwd(), filePath);
-    return !excludePatterns.some(pattern => this.matchesGlob(relativePath, pattern));
+    return true;
   }
 
-  private queueForBatchProcessing(filePath: string, action: "add" | "delete"): void {
-    this.batchQueue.set(filePath, {
-      action,
-      timestamp: Date.now(),
-    });
+  private queueForBatchProcessing(filePath: string): void {
+    this.batchQueue.push(filePath);
 
-    // Clear existing timer and set a new one
+    // Debounce batch processing
     if (this.batchTimer) {
       clearTimeout(this.batchTimer);
     }
 
-    const batchDelay = this.config.indexing?.batchDelay || 1000; // 1 second default
     this.batchTimer = setTimeout(() => {
       this.processBatch();
-    }, batchDelay);
+    }, 1000); // 1 second debounce
   }
 
   private async processBatch(): Promise<void> {
-    if (this.batchQueue.size === 0) {
+    if (this.batchQueue.length === 0) {
       return;
     }
 
-    console.log(`📦 Processing batch of ${this.batchQueue.size} file changes...`);
+    const files = [...this.batchQueue];
+    this.batchQueue = [];
 
-    const items = Array.from(this.batchQueue.entries());
-    this.batchQueue.clear();
+    console.log(`🔄 Processing batch of ${files.length} files`);
 
-    // Group by action type
-    const toAdd = items.filter(([, item]) => item.action === "add").map(([path]) => path);
-    const toDelete = items.filter(([, item]) => item.action === "delete").map(([path]) => path);
+    // Group into batches based on config
+    const batchSize = this.config.indexing.batchSize || 10;
 
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      await this.processBatchFiles(batch);
+    }
+  }
+
+  private async processBatchFiles(files: string[]): Promise<void> {
+    console.log(`Processing files: ${files.join(", ")}`);
+
+    for (const file of files) {
+      await this.processFileImmediately(file);
+    }
+  }
+
+  private async processFileImmediately(filePath: string): Promise<void> {
     try {
-      // Process deletions first
-      if (toDelete.length > 0) {
-        await Promise.all(toDelete.map(filePath => this.removeFromIndex(filePath)));
-      }
+      console.log(`🔍 Indexing: ${filePath}`);
 
-      // Then process additions/updates
-      if (toAdd.length > 0) {
-        await this.processBatchFiles(toAdd);
-      }
+      // Mock entity extraction
+      const entities: CodeEntity[] = [];
 
-      console.log(`✅ Batch processing complete (${toAdd.length} added, ${toDelete.length} deleted)`);
+      // Add to index
+      await this.addToIndex(filePath, entities);
     } catch (error) {
-      console.error("❌ Batch processing failed:", error);
+      console.error(`Error processing ${filePath}:`, error);
     }
   }
 
-  private async processBatchFiles(filePaths: string[]): Promise<void> {
-    const fileContents = await Promise.all(
-      filePaths.map(async (filePath) => {
-        try {
-          const content = await fs.readFile(filePath, "utf-8");
-          return { path: filePath, content };
-        } catch (error) {
-          console.warn(`Failed to read ${filePath}:`, error);
-          return null;
-        }
-      })
-    );
-
-    const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
-    
-    if (validFiles.length > 0) {
-      await this.addToIndex(validFiles);
-    }
-  }
-
-  private async processFileImmediately(filePath: string, action: "add" | "delete"): Promise<void> {
-    try {
-      if (action === "add") {
-        const content = await fs.readFile(filePath, "utf-8");
-        await this.addToIndex([{ path: filePath, content }]);
-      } else {
-        await this.removeFromIndex(filePath);
-      }
-    } catch (error) {
-      console.error(`Failed to process ${filePath}:`, error);
-    }
-  }
-
-  private async addToIndex(files: Array<{ path: string; content: string }>): Promise<void> {
-    // This would interface with the semantic search engine
-    // For now, we'll just log the action
-    console.log(`📚 Adding ${files.length} files to index:`, files.map(f => f.path));
-    
-    // In real implementation:
-    // await this.semanticSearch.indexFiles(files);
+  private async addToIndex(
+    filePath: string,
+    entities: CodeEntity[]
+  ): Promise<void> {
+    console.log(`📚 Added ${entities.length} entities from ${filePath}`);
   }
 
   private async removeFromIndex(filePath: string): Promise<void> {
-    // This would interface with the semantic search engine
-    console.log(`🗑️ Removing ${filePath} from index`);
-    
-    // In real implementation:
-    // await this.semanticSearch.removeFile(filePath);
+    console.log(`🗑️  Removed entities from ${filePath}`);
   }
 
   private matchesGlob(filePath: string, pattern: string): boolean {
-    // Simple glob matching - in production, use a proper glob library
-    const regexPattern = pattern
-      .replace(/\*\*/g, ".*")
-      .replace(/\*/g, "[^/]*")
-      .replace(/\?/g, "[^/]");
-    
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(filePath);
+    // Simple glob matching
+    const regex = pattern
+      .replace(/\./g, "\\.")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
+
+    return new RegExp(`^${regex}$`).test(filePath);
   }
 }
