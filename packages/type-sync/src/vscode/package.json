@@ -1,0 +1,240 @@
+{
+  "name": "type-sync-vscode",
+  "displayName": "Type-Sync",
+  "description": "VS Code extension for FARM framework type synchronization",
+  "version": "0.0.1",
+  "publisher": "farm-framework",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "Snippets",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "typescript",
+    "fastapi",
+    "react",
+    "openapi",
+    "code-generation",
+    "farm"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "workspaceContains:type-sync.config.js",
+    "workspaceContains:type-sync.config.ts"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "type-sync.sync",
+        "title": "Sync Types",
+        "category": "Type-Sync",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "type-sync.watch",
+        "title": "Start Watching",
+        "category": "Type-Sync",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "type-sync.stopWatch",
+        "title": "Stop Watching",
+        "category": "Type-Sync",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "type-sync.configure",
+        "title": "Configure",
+        "category": "Type-Sync",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "type-sync.validate",
+        "title": "Validate Configuration",
+        "category": "Type-Sync",
+        "icon": "$(check)"
+      },
+      {
+        "command": "type-sync.clearCache",
+        "title": "Clear Cache",
+        "category": "Type-Sync",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "type-sync.showOutput",
+        "title": "Show Output",
+        "category": "Type-Sync",
+        "icon": "$(output)"
+      },
+      {
+        "command": "type-sync.generateClient",
+        "title": "Generate API Client",
+        "category": "Type-Sync",
+        "icon": "$(code)"
+      },
+      {
+        "command": "type-sync.analyzeSchema",
+        "title": "Analyze Schema",
+        "category": "Type-Sync",
+        "icon": "$(search)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "type-sync.sync"
+        },
+        {
+          "command": "type-sync.watch"
+        },
+        {
+          "command": "type-sync.stopWatch",
+          "when": "type-sync.watching"
+        },
+        {
+          "command": "type-sync.configure"
+        },
+        {
+          "command": "type-sync.validate"
+        },
+        {
+          "command": "type-sync.clearCache"
+        },
+        {
+          "command": "type-sync.showOutput"
+        },
+        {
+          "command": "type-sync.generateClient"
+        },
+        {
+          "command": "type-sync.analyzeSchema"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "type-sync.sync",
+          "when": "resourceExtname == .py",
+          "group": "type-sync"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "type-sync.sync",
+          "when": "resourceExtname == .py",
+          "group": "type-sync"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Type-Sync",
+      "properties": {
+        "type-sync.autoSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically sync types when Python files change"
+        },
+        "type-sync.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for sync operations"
+        },
+        "type-sync.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Default FastAPI server URL"
+        },
+        "type-sync.outputDir": {
+          "type": "string",
+          "default": "./src/types",
+          "description": "Default output directory for generated files"
+        },
+        "type-sync.generators": {
+          "type": "array",
+          "default": [
+            "typescript",
+            "api-client"
+          ],
+          "description": "Default generators to use",
+          "items": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "api-client",
+              "react-hooks",
+              "ai-hooks"
+            ]
+          }
+        },
+        "type-sync.enableCache": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable caching for generated files"
+        },
+        "type-sync.verboseLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging in output channel"
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "type-sync",
+        "owner": "type-sync",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^(WARNING|ERROR|INFO):\\s+(.*)$",
+          "severity": 1,
+          "message": 2
+        }
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "type-sync",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The type-sync command to run"
+          },
+          "args": {
+            "type": "array",
+            "description": "Additional arguments"
+          }
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "javascript",
+        "path": "./snippets/config.json"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/config.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@farm-framework/type-sync": "workspace:*"
+  }
+}

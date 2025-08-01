@@ -1,0 +1,416 @@
+// Optional Next.js integration - only works when Next.js is installed
+let NextConfig: any;
+try {
+  NextConfig = require("next").NextConfig;
+} catch {
+  // Next.js not available - provide basic interface
+  NextConfig = {};
+}
+import type { TypeSyncConfig } from "../config/validation";
+import { TypeSyncOrchestrator } from "../orchestrator";
+import { PerformanceMonitor } from "../monitoring/performance";
+import { promises as fs } from "fs";
+import path from "path";
+
+export interface NextJSTypeSyncOptions {
+  /**
+   * Enable/disable the plugin
+   */
+  enabled?: boolean;
+
+  /**
+   * API URL for type synchronization
+   */
+  apiUrl?: string;
+
+  /**
+   * Output directory for generated types
+   */
+  outputDir?: string;
+
+  /**
+   * Input configuration
+   */
+  input?: {
+    source?: string;
+    type?: string;
+  };
+
+  /**
+   * Watch for changes (simplified as boolean for Next.js integration)
+   */
+  watch?: boolean;
+
+  /**
+   * Verbose logging
+   */
+  verbose?: boolean;
+
+  /**
+   * Output configuration
+   */
+  output?: {
+    directory?: string;
+    generators?: any[];
+  };
+
+  /**
+   * Configuration file path
+   */
+  configFile?: string;
+
+  /**
+   * Run during development only
+   */
+  devOnly?: boolean;
+
+  /**
+   * Custom hook to run after type generation
+   */
+  onGenerated?: (results: any) => void;
+}
+
+// Simple stub for NextConfig since we don't have next dependency
+type NextConfig = Record<string, any>;
+
+/**
+ * Next.js plugin for type-sync integration
+ */
+export function withTypeSync(options: NextJSTypeSyncOptions = {}) {
+  return (nextConfig: NextConfig = {}): NextConfig => {
+    if (options.enabled === false) {
+      return nextConfig;
+    }
+
+    const typeSyncConfig = {
+      enabled: true,
+      watch: true,
+      verbose: false,
+      devOnly: false,
+      ...options,
+    };
+
+    return {
+      ...nextConfig,
+      webpack: (
+        config: any,
+        { buildId, dev, isServer, defaultLoaders, webpack }: any
+      ) => {
+        // Skip in production if devOnly is true
+        if (typeSyncConfig.devOnly && !dev) {
+          return typeof nextConfig.webpack === "function"
+            ? nextConfig.webpack(config, {
+                buildId,
+                dev,
+                isServer,
+                defaultLoaders,
+                webpack,
+              })
+            : config;
+        }
+
+        // Add TypeSync plugin
+        config.plugins = config.plugins || [];
+        config.plugins.push(
+          new TypeSyncNextPlugin(typeSyncConfig, { dev, isServer })
+        );
+
+        // Call the original webpack config function if it exists
+        if (typeof nextConfig.webpack === "function") {
+          return nextConfig.webpack(config, {
+            buildId,
+            dev,
+            isServer,
+            defaultLoaders,
+            webpack,
+          });
+        }
+
+        return config;
+      },
+    };
+  };
+}
+
+/**
+ * Internal Next.js plugin implementation
+ */
+class TypeSyncNextPlugin {
+  private options: NextJSTypeSyncOptions;
+  private nextContext: { dev: boolean; isServer: boolean };
+  private orchestrator?: TypeSyncOrchestrator;
+  private config?: TypeSyncConfig;
+  private performanceMonitor?: PerformanceMonitor;
+  private initialized = false;
+
+  constructor(
+    options: NextJSTypeSyncOptions,
+    nextContext: { dev: boolean; isServer: boolean }
+  ) {
+    this.options = options;
+    this.nextContext = nextContext;
+  }
+
+  apply(compiler: any) {
+    const pluginName = "TypeSyncNextPlugin";
+
+    // Only run on the client side to avoid duplicate execution
+    if (this.nextContext.isServer) {
+      return;
+    }
+
+    compiler.hooks.beforeCompile.tapAsync(
+      pluginName,
+      async (params: any, callback: Function) => {
+        try {
+          if (!this.initialized) {
+            await this.initialize(compiler.context);
+            this.initialized = true;
+          }
+
+          await this.runSync();
+          callback();
+        } catch (error) {
+          if (this.options.verbose) {
+            console.error("❌ TypeSync failed:", error);
+          }
+          // Don't fail the build, just log the error
+          callback();
+        }
+      }
+    );
+
+    if (this.options.watch && this.nextContext.dev) {
+      compiler.hooks.watchRun.tapAsync(
+        pluginName,
+        async (compiler: any, callback: Function) => {
+          try {
+            if (this.shouldRegenerate(compiler)) {
+              await this.runSync();
+            }
+            callback();
+          } catch (error) {
+            if (this.options.verbose) {
+              console.error("❌ TypeSync watch failed:", error);
+            }
+            callback();
+          }
+        }
+      );
+    }
+  }
+
+  private async initialize(context: string): Promise<void> {
+    try {
+      // Load configuration
+      if (this.options.configFile) {
+        const configPath = path.resolve(context, this.options.configFile);
+        const configContent = await fs.readFile(configPath, "utf-8");
+        this.config = JSON.parse(configContent);
+      } else {
+        this.config =
+          (await this.findAndLoadConfig(context)) || this.createDefaultConfig();
+      }
+
+      // Merge with inline options
+      this.config = { 
+        ...this.config, 
+        ...this.options,
+        apiUrl: this.options.apiUrl || this.config.apiUrl || "http://localhost:8000",
+        outputDir: this.options.outputDir || this.config.outputDir || "./src/generated"
+      };
+
+      // Initialize orchestrator
+      this.performanceMonitor = new PerformanceMonitor();
+      this.orchestrator = new TypeSyncOrchestrator();
+
+      if (this.options.verbose) {
+        console.log("🔄 TypeSync Next.js plugin initialized");
+      }
+    } catch (error) {
+      console.error("❌ Failed to initialize TypeSync Next.js plugin:", error);
+      throw error;
+    }
+  }
+
+  private async runSync(): Promise<void> {
+    if (!this.orchestrator) {
+      throw new Error("Orchestrator not initialized");
+    }
+
+    try {
+      if (this.options.verbose) {
+        console.log("🚀 Running type synchronization...");
+      }
+
+      const result = await this.orchestrator.sync();
+
+      if (result.success) {
+        if (this.options.verbose) {
+          console.log(
+            `✅ Generated ${result.generatedFiles?.length || 0} type files`
+          );
+        }
+
+        if (this.options.onGenerated) {
+          this.options.onGenerated(result);
+        }
+      } else {
+        console.warn("⚠️  Type synchronization completed with errors");
+        if (result.errors && this.options.verbose) {
+          result.errors.forEach((error) => console.error(`   ${error}`));
+        }
+      }
+    } catch (error) {
+      console.error("❌ Type synchronization failed:", error);
+      throw error;
+    }
+  }
+
+  private shouldRegenerate(compiler: any): boolean {
+    if (!this.config) return false;
+
+    const changedFiles = Object.keys(compiler.modifiedFiles || {});
+    const specPath = path.resolve(compiler.context, this.config.input?.source);
+
+    return changedFiles.some((file) => file === specPath);
+  }
+
+  private async findAndLoadConfig(
+    root: string
+  ): Promise<TypeSyncConfig | null> {
+    const configFiles = [
+      "type-sync.config.json",
+      ".type-sync.json",
+      "next.type-sync.json",
+    ];
+
+    for (const configFile of configFiles) {
+      const configPath = path.join(root, configFile);
+
+      try {
+        await fs.access(configPath);
+        const content = await fs.readFile(configPath, "utf-8");
+        return JSON.parse(content);
+      } catch {
+        // File doesn't exist, continue
+      }
+    }
+
+    return null;
+  }
+
+  private createDefaultConfig(): TypeSyncConfig {
+    return {
+      input: {
+        type: "openapi",
+        source: this.options.input?.source || "./public/openapi.json",
+      },
+      output: {
+        directory: this.options.output?.directory || "./types",
+        generators: ["typescript", "api-client"],
+        baseDir: this.options.output?.directory || "./types",
+        fileNaming: "camelCase" as const,
+        cleanBefore: true,
+        createIndex: true,
+        enableSourceMaps: false
+      },
+          },
+          {
+            type: "api-client",
+            options: {
+              filename: "api-client.ts",
+              clientName: "ApiClient",
+              includeTypes: true,
+            },
+          },
+        ],
+      },
+      cache: {
+        enabled: true,
+        directory: "./node_modules/.cache/type-sync",
+        timeout: 300000,
+        enableCompression: true,
+        enableMetrics: true,
+        maxSize: 100 * 1024 * 1024,
+        cleanupInterval: 3600000,
+      },
+    };
+  }
+}
+
+/**
+ * Utility function to create a type-safe Next.js API route handler
+ */
+export function createTypedApiHandler<TRequest, TResponse>(
+  handler: (req: TRequest) => Promise<TResponse> | TResponse
+) {
+  return async (req: any, res: any) => {
+    try {
+      const result = await handler(req.body);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("API handler error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  };
+}
+
+/**
+ * Utility function to create typed API client for Next.js
+ */
+export function createNextApiClient(baseUrl: string = "/api") {
+  return {
+    async request<TResponse>(
+      endpoint: string,
+      options: RequestInit = {}
+    ): Promise<TResponse> {
+      const url = `${baseUrl}${endpoint}`;
+      const response = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `API request failed: ${response.status} ${response.statusText}`
+        );
+      }
+
+      return response.json();
+    },
+
+    async get<TResponse>(endpoint: string): Promise<TResponse> {
+      return this.request<TResponse>(endpoint, { method: "GET" });
+    },
+
+    async post<TRequest, TResponse>(
+      endpoint: string,
+      data: TRequest
+    ): Promise<TResponse> {
+      return this.request<TResponse>(endpoint, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+
+    async put<TRequest, TResponse>(
+      endpoint: string,
+      data: TRequest
+    ): Promise<TResponse> {
+      return this.request<TResponse>(endpoint, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+
+    async delete<TResponse>(endpoint: string): Promise<TResponse> {
+      return this.request<TResponse>(endpoint, { method: "DELETE" });
+    },
+  };
+}
+
+export default withTypeSync;

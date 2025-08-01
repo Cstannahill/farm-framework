@@ -411,6 +411,7 @@ export class ChromaDBVectorStore implements VectorStore {
       const entity: CodeEntity = {
         id: results.metadatas[0][i].entityId,
         name: results.metadatas[0][i].name || "Unknown",
+
         entityType: results.metadatas[0][i].entityType,
         filePath: results.metadatas[0][i].filePath,
         content: results.documents[0][i],
@@ -429,6 +430,7 @@ export class ChromaDBVectorStore implements VectorStore {
           endColumn: 1,
         },
         metadata: results.metadatas[0][i].metadata || {},
+
       };
 
       searchResults.push({

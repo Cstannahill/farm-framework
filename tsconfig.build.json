@@ -8,6 +8,7 @@
     { "path": "./packages/deployment" },
     { "path": "./packages/code-intelligence" },
     { "path": "./packages/cli" },
+    { "path": "./packages/code-intelligence" },
     { "path": "./packages/ui-components" },
     { "path": "./tools/cli" }
   ]

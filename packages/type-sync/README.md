@@ -4,63 +4,664 @@
 
 `@farm/type-sync` provides automated TypeScript type generation and API client code for FARM applications. It extracts an OpenAPI schema from your FastAPI backend and generates strongly typed artifacts that keep your front‑end and back‑end in sync. The package can run incrementally, cache generated files, and watch for changes during development.
 
-## ✅ Completed Implementation
+## 🚀 Features
 
-### Core Components
+### Core Functionality
 
-1. **OpenAPI Extractor** (`extractors/openapi.ts`)
-   - Pulls the OpenAPI schema from a running or temporary FastAPI server
-   - Falls back to cached or static schemas when extraction fails
-   - Supports retries, health checks and startup timeouts
+- **OpenAPI Schema Extraction** - Automatically extracts schemas from FastAPI servers
+- **Multiple Generators** - TypeScript types, API clients, React hooks, and more
+- **Intelligent Caching** - Advanced caching with multiple strategies (LRU, LFU, TTL, adaptive)
+- **File Watching** - Real-time regeneration during development
+- **Performance Optimization** - Parallel processing and incremental generation
 
-2. **TypeSync Orchestrator** (`orchestrator.ts`)
-   - Coordinates the full sync cycle
-   - Manages generators, caching and performance metrics
-   - Runs generators in parallel when possible
+### Enhanced Capabilities
 
-3. **Generation Cache** (`cache.ts`)
-   - Stores generated artifacts keyed by schema hash
-   - Supports compression, expiration and cache metrics
+- **Interactive CLI** - Full-featured command-line interface with configuration wizard
+- **Template Engine** - Handlebars-based templating with custom helpers
+- **Plugin Architecture** - Extensible plugin system for custom transformations
+- **Build Tool Integration** - Vite, Webpack, and Next.js plugins
+- **VS Code Extension** - IDE integration with commands and IntelliSense
+- **CI/CD Integration** - GitHub Actions, pre-commit hooks, and automation
 
-4. **Generators** (`generators/*`)
-   - **TypeScriptGenerator** – emits raw TypeScript types
-   - **APIClientGenerator** – creates an axios based API client
-   - **ReactHookGenerator** – builds typed React Query hooks
-   - **AIHookGenerator** – optional hooks for AI endpoints
+### Built-in Templates
 
-5. **TypeSync Watcher** (`watcher.ts`)
-   - Watches Python source files and regenerates types on change
-   - Touches a timestamp file so the frontend dev server reloads
+- React Query hooks
+- Zustand stores
+- Redux Toolkit slices
+- Vue composables
+- Svelte stores
+- Express middleware
+- Python clients
+- GraphQL resolvers
+- Test fixtures
 
-6. **Type Differ** (`type-sync.ts`)
-   - Detects changes between previously generated schemas
-   - Provides simple diff utilities for debugging
+## 📦 Installation
 
-## Architecture
-
+```bash
+npm install @farm-framework/type-sync
+# or
+yarn add @farm-framework/type-sync
+# or
+pnpm add @farm-framework/type-sync
 ```
-┌─────────────────────────────┐
-│     TypeSync Orchestrator    │
-├─────────────────────────────┤
-│  ┌───────────────┐          │
-│  │ OpenAPI       │          │
-│  │ Extractor     │          │
-│  └───────────────┘          │
-│  ┌───────────────┐          │
-│  │ Generation    │          │
-│  │ Cache         │          │
-│  └───────────────┘          │
-│  ┌───────────────┐          │
-│  │  Generators   │─ Types   │
-│  │               │─ Client  │
-│  │               │─ Hooks   │
-│  │               │─ AIHooks │
-│  └───────────────┘          │
-│  ┌───────────────┐          │
-│  │   Watcher     │          │
-│  └───────────────┘          │
-└─────────────────────────────┘
+
+## 🎯 Quick Start
+
+### 1. Initialize Configuration
+
+```bash
+npx type-sync init
 ```
+
+This will create a `type-sync.config.js` file with interactive prompts.
+
+### 2. Basic Usage
+
+```javascript
+// type-sync.config.js
+export default {
+  serverUrl: "http://localhost:8000",
+  outputDir: "./src/types",
+  generators: ["typescript", "api-client", "react-hooks"],
+  watch: true,
+  cache: {
+    enabled: true,
+    directory: ".type-sync-cache",
+  },
+};
+```
+
+### 3. Run Type Synchronization
+
+```bash
+# One-time sync
+npx type-sync sync
+
+# Watch mode
+npx type-sync watch
+
+# With custom config
+npx type-sync sync --config custom.config.js
+```
+
+## 🛠️ Configuration
+
+### Complete Configuration Example
+
+```javascript
+export default {
+  // Server configuration
+  serverUrl: "http://localhost:8000",
+  schemaPath: "/openapi.json",
+
+  // Output configuration
+  outputDir: "./src/types",
+  cleanOutput: true,
+
+  // Generators
+  generators: ["typescript", "api-client", "react-hooks", "ai-hooks"],
+
+  // Generator options
+  generatorOptions: {
+    typescript: {
+      enumFormat: "union",
+      includeComments: true,
+      generateInterfaces: true,
+      generateEnums: true,
+      useReadonly: true,
+    },
+    "api-client": {
+      clientType: "axios",
+      includeAuth: true,
+      baseURL: "${serverUrl}",
+      timeout: 30000,
+      retries: 3,
+      validation: true,
+    },
+    "react-hooks": {
+      queryClient: "react-query",
+      includeInfiniteQueries: true,
+      includeOptimisticUpdates: true,
+      errorHandling: "throw",
+    },
+  },
+
+  // Caching
+  cache: {
+    enabled: true,
+    directory: ".type-sync-cache",
+    strategy: "adaptive",
+    maxSize: 100 * 1024 * 1024, // 100MB
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    compression: true,
+  },
+
+  // Performance
+  performance: {
+    enableParallel: true,
+    maxWorkers: 4,
+    enableIncremental: true,
+    memoryThreshold: 500 * 1024 * 1024, // 500MB
+  },
+
+  // Templates
+  templates: {
+    engine: "handlebars",
+    customTemplates: "./templates",
+    builtinTemplates: ["react-query-hooks", "zustand-store"],
+  },
+
+  // Plugins
+  plugins: [
+    "prettier",
+    "eslint",
+    {
+      name: "custom-header",
+      options: { header: "// Generated by type-sync" },
+    },
+  ],
+
+  // File watching
+  watch: {
+    enabled: true,
+    paths: ["**/*.py"],
+    ignored: ["**/migrations/**", "**/tests/**"],
+    debounce: 300,
+  },
+
+  // Error handling
+  errorHandling: {
+    onError: "continue",
+    maxRetries: 3,
+    retryDelay: 1000,
+    fallbackToCache: true,
+  },
+};
+```
+
+## 🔧 CLI Commands
+
+### Core Commands
+
+```bash
+# Synchronize types
+type-sync sync [options]
+
+# Initialize configuration
+type-sync init [options]
+
+# Watch for changes
+type-sync watch [options]
+
+# Validate configuration
+type-sync validate [options]
+
+# Generate specific types
+type-sync generate <generator> [options]
+
+# Analyze schema
+type-sync analyze [options]
+
+# Clean cache and output
+type-sync clean [options]
+```
+
+### Configuration Management
+
+```bash
+# Set configuration values
+type-sync config set <key> <value>
+
+# Get configuration values
+type-sync config get <key>
+
+# List all configuration
+type-sync config list
+
+# Validate configuration
+type-sync config validate
+```
+
+### Options
+
+```bash
+# Common options
+--config, -c     Configuration file path
+--output, -o     Output directory
+--server, -s     FastAPI server URL
+--watch, -w      Enable watch mode
+--cache          Enable/disable caching
+--parallel       Enable parallel processing
+--verbose, -v    Verbose logging
+--dry-run        Preview changes without writing files
+
+# Generator-specific options
+--generators     Comma-separated list of generators
+--typescript     TypeScript generator options
+--api-client     API client generator options
+--react-hooks    React hooks generator options
+```
+
+## 🎨 Templates
+
+### Using Built-in Templates
+
+```javascript
+// In your config
+export default {
+  generators: ["enhanced-typescript"],
+  generatorOptions: {
+    "enhanced-typescript": {
+      template: "react-query-hooks",
+      templateOptions: {
+        queryClient: "react-query",
+        includeInfiniteQueries: true,
+      },
+    },
+  },
+};
+```
+
+### Custom Templates
+
+```javascript
+// Create custom template
+const customTemplate = `
+{{#each operations}}
+export const {{pascalCase operationId}} = {
+  url: '{{path}}',
+  method: '{{method}}',
+  {{#if parameters}}
+  params: {{json parameters}},
+  {{/if}}
+};
+{{/each}}
+`;
+
+// Register template
+import { TemplateEngine } from "@farm-framework/type-sync";
+
+const engine = new TemplateEngine();
+engine.registerTemplate("custom-endpoints", customTemplate);
+```
+
+### Available Templates
+
+- `react-query-hooks` - React Query hooks
+- `zustand-store` - Zustand state management
+- `redux-toolkit-slice` - Redux Toolkit slices
+- `vue-composables` - Vue 3 Composition API
+- `svelte-stores` - Svelte stores
+- `express-middleware` - Express.js middleware
+- `python-client` - Python HTTP client
+- `graphql-resolvers` - GraphQL resolvers
+- `test-fixtures` - Test data fixtures
+
+## 🔌 Plugins
+
+### Built-in Plugins
+
+```javascript
+export default {
+  plugins: [
+    "prettier", // Format generated code
+    "eslint", // Lint generated code
+    "custom-header", // Add file headers
+    "schema-validation", // Validate schemas
+  ],
+};
+```
+
+### Creating Custom Plugins
+
+```javascript
+import { TypeSyncPlugin } from '@farm-framework/type-sync';
+
+const myPlugin: TypeSyncPlugin = {
+  name: 'my-plugin',
+  version: '1.0.0',
+
+  hooks: {
+    beforeSchemaLoad: async (context) => {
+      console.log('Loading schema...');
+    },
+
+    afterGeneration: async (context, result) => {
+      // Post-process generated files
+      result.files.forEach(file => {
+        file.content = file.content.replace(/TODO/g, 'FIXME');
+      });
+    }
+  }
+};
+
+// Register plugin
+export default {
+  plugins: [myPlugin]
+};
+```
+
+## 🏗️ Build Tool Integration
+
+### Vite
+
+```javascript
+// vite.config.js
+import { typeSyncPlugin } from "@farm-framework/type-sync/vite";
+
+export default {
+  plugins: [
+    typeSyncPlugin({
+      serverUrl: "http://localhost:8000",
+      outputDir: "./src/types",
+      watch: true,
+    }),
+  ],
+};
+```
+
+### Webpack
+
+```javascript
+// webpack.config.js
+const { TypeSyncWebpackPlugin } = require("@farm-framework/type-sync/webpack");
+
+module.exports = {
+  plugins: [
+    new TypeSyncWebpackPlugin({
+      serverUrl: "http://localhost:8000",
+      outputDir: "./src/types",
+    }),
+  ],
+};
+```
+
+### Next.js
+
+```javascript
+// next.config.js
+const { withTypeSync } = require("@farm-framework/type-sync/nextjs");
+
+module.exports = withTypeSync({
+  typeSync: {
+    serverUrl: "http://localhost:8000",
+    outputDir: "./src/types",
+  },
+});
+```
+
+## 🔄 CI/CD Integration
+
+### GitHub Actions
+
+```bash
+# Setup GitHub Actions workflow
+npx type-sync setup-ci github
+
+# Manual workflow creation
+```
+
+```yaml
+# .github/workflows/type-sync.yml
+name: Type Sync
+on:
+  push:
+    branches: [main]
+    paths: ["**/*.py"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  type-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - run: npm ci
+      - run: uvicorn main:app &
+      - run: npx type-sync sync
+      - run: npm run type-check
+```
+
+### Pre-commit Hooks
+
+```bash
+# Setup pre-commit hooks
+npx type-sync setup-hooks
+
+# Manual setup
+```
+
+```json
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "type-sync sync && git add src/types"
+    }
+  }
+}
+```
+
+## 📊 Performance Optimization
+
+### Parallel Processing
+
+```javascript
+export default {
+  performance: {
+    enableParallel: true,
+    maxWorkers: 4,
+    chunkSize: 10,
+  },
+};
+```
+
+### Incremental Generation
+
+```javascript
+export default {
+  performance: {
+    enableIncremental: true,
+    trackDependencies: true,
+  },
+};
+```
+
+### Advanced Caching
+
+```javascript
+export default {
+  cache: {
+    enabled: true,
+    strategy: "adaptive", // lru, lfu, ttl, adaptive
+    maxSize: 100 * 1024 * 1024,
+    compression: true,
+    distributed: false,
+  },
+};
+```
+
+## 🧪 Testing
+
+### Running Tests
+
+```bash
+# All tests
+npm test
+
+# Unit tests
+npm run test:unit
+
+# Integration tests
+npm run test:integration
+
+# End-to-end tests
+npm run test:e2e
+
+# Coverage
+npm run test:coverage
+```
+
+### Test Configuration
+
+The package includes comprehensive test fixtures and utilities:
+
+```javascript
+import { testFixtures, setupTestData } from "@farm-framework/type-sync/testing";
+
+// Use test fixtures
+const mockUser = testFixtures.user.create({ name: "Test User" });
+const mockUsers = testFixtures.user.generate(5);
+```
+
+## 🎮 VS Code Extension
+
+Install the Type-Sync VS Code extension for enhanced development experience:
+
+### Features
+
+- Automatic type synchronization
+- Configuration IntelliSense
+- Schema validation
+- Error highlighting
+- Command palette integration
+
+### Commands
+
+- `Type-Sync: Sync Types`
+- `Type-Sync: Start Watching`
+- `Type-Sync: Configure`
+- `Type-Sync: Validate Configuration`
+- `Type-Sync: Analyze Schema`
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Server Connection Failed
+
+```bash
+# Check server status
+curl http://localhost:8000/health
+
+# Verify OpenAPI endpoint
+curl http://localhost:8000/openapi.json
+```
+
+#### Cache Issues
+
+```bash
+# Clear cache
+npx type-sync clean --cache
+
+# Disable cache temporarily
+npx type-sync sync --no-cache
+```
+
+#### Generation Errors
+
+```bash
+# Validate configuration
+npx type-sync validate
+
+# Run with verbose logging
+npx type-sync sync --verbose
+
+# Check specific generator
+npx type-sync generate typescript --verbose
+```
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+DEBUG=type-sync:* npx type-sync sync
+
+# Save debug output
+npx type-sync sync --verbose > debug.log 2>&1
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Install dependencies: `npm install`
+4. Run tests: `npm test`
+5. Submit a pull request
+
+### Development Setup
+
+```bash
+git clone https://github.com/farm-framework/type-sync
+cd type-sync
+npm install
+npm run build
+npm test
+```
+
+## 📚 API Reference
+
+### TypeSyncOrchestrator
+
+```javascript
+import { TypeSyncOrchestrator } from "@farm-framework/type-sync";
+
+const orchestrator = new TypeSyncOrchestrator(config);
+const result = await orchestrator.sync();
+```
+
+### Generators
+
+```javascript
+import {
+  TypeScriptGenerator,
+  APIClientGenerator,
+  ReactHookGenerator,
+} from "@farm-framework/type-sync";
+
+const generator = new TypeScriptGenerator(options);
+const result = await generator.generate(schema);
+```
+
+### Cache
+
+```javascript
+import { AdvancedCache } from "@farm-framework/type-sync";
+
+const cache = new AdvancedCache({
+  baseDir: ".cache",
+  strategy: "lru",
+});
+
+await cache.set("key", value);
+const result = await cache.get("key");
+```
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- [Documentation](https://farm-framework.dev/type-sync)
+- [GitHub Repository](https://github.com/farm-framework/type-sync)
+- [Issues](https://github.com/farm-framework/type-sync/issues)
+- [Changelog](CHANGELOG.md)
+  │ └───────────────┘ │
+  │ ┌───────────────┐ │
+  │ │ Generators │─ Types │
+  │ │ │─ Client │
+  │ │ │─ Hooks │
+  │ │ │─ AIHooks │
+  │ └───────────────┘ │
+  │ ┌───────────────┐ │
+  │ │ Watcher │ │
+  │ └───────────────┘ │
+  └─────────────────────────────┘
+
+````
 
 ## Features Implemented
 
@@ -101,16 +702,19 @@ await orchestrator.initialize({
 
 const result = await orchestrator.syncOnce();
 console.log(`Generated ${result.filesGenerated} files`);
-```
+````
 
 ### Watcher
+
 ```ts
 const watcher = new TypeSyncWatcher(orchestrator);
 await watcher.start();
 ```
+
 Press `Ctrl+C` to stop watching.
 
 ### Scripts
+
 Run the provided npm scripts to build the package:
 
 ```bash
@@ -123,8 +727,8 @@ pnpm run type-check       # Run TypeScript type checker
 
 ```ts
 await orchestrator.initialize({
-  apiUrl: 'http://localhost:8000',
-  outputDir: 'generated/types',
+  apiUrl: "http://localhost:8000",
+  outputDir: "generated/types",
   features: {
     client: true,
     hooks: true,
@@ -138,10 +742,10 @@ await orchestrator.initialize({
     cacheTimeout: 300000,
   },
   generators: {
-    typescript: { exportStyle: 'named' },
-    apiClient: { baseURL: 'http://localhost:8000' },
+    typescript: { exportStyle: "named" },
+    apiClient: { baseURL: "http://localhost:8000" },
     reactHooks: { enableInfiniteQueries: true },
-    aiHooks: { defaultProvider: 'ollama' },
+    aiHooks: { defaultProvider: "ollama" },
   },
 });
 ```
@@ -180,7 +784,7 @@ packages/type-sync/
 ## Next Steps
 
 Future improvements could include:
+
 1. Smarter schema diffing and selective regeneration
 2. Additional generators (e.g., Python client)
 3. Improved error messaging and IDE integration
-

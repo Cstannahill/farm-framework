@@ -1,6 +1,8 @@
 {
   "name": "@farm-framework/code-intelligence",
+
   "version": "0.2.0",
+
   "description": "AI-powered code intelligence with semantic search and natural language querying",
   "type": "module",
   "main": "dist/index.js",
