@@ -160,7 +160,7 @@ export class CodeIntelligenceServer {
   }
 
   /**
-   * Trigger full reindex
+   * Trigger full reindexs
    */
   async reindex(): Promise<{ message: string; taskId: string }> {
     // Reindex not implemented in SemanticSearchEngine
