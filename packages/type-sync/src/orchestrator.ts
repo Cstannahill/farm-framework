@@ -400,8 +400,7 @@ export class TypeSyncOrchestrator {
 
   /**
    * Build result object for cached artifacts.
-   */
-  private buildCacheResult(cachedResults: any[]): SyncResult {
+   */ private buildCacheResult(cachedResults: any[]): SyncResult {
     const result: SyncResult = {
       filesGenerated: cachedResults.length,
       fromCache: true,
@@ -424,8 +423,7 @@ export class TypeSyncOrchestrator {
 
   /**
    * Build result object for newly generated artifacts.
-   */
-  private buildGenerationResult(results: any[]): SyncResult {
+   */ private buildGenerationResult(results: any[]): SyncResult {
     const result: SyncResult = {
       filesGenerated: results.length,
       fromCache: false,
@@ -445,12 +443,11 @@ export class TypeSyncOrchestrator {
           (this.metrics.cacheEnd || 0) - (this.metrics.cacheStart || 0),
         parallelJobs: this.metrics.generatedFiles,
       };
-
       result.generationDetails = results.map((r) => ({
         generator: r.generator || "unknown",
-        file: r.path,
+        file: r.path, // Changed from 'path' to 'file' to match interface
         time: r.time || 0,
-        fromCache: false,
+        fromCache: false, // Added required 'fromCache' property
         size: r.size || 0,
       }));
     }
@@ -528,5 +525,12 @@ export class TypeSyncOrchestrator {
       watcher.close();
       process.exit(0);
     });
+  }
+
+  /**
+   * Alias for syncOnce to maintain backwards compatibility
+   */
+  async sync(opts?: Partial<SyncOptions>): Promise<SyncResult> {
+    return this.syncOnce(opts);
   }
 }

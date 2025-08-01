@@ -1,7 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: {
+    index: "src/index.ts",
+    cli: "src/cli/index.ts",
+  },
   format: ["cjs", "esm"],
   dts: false, // We'll handle this with tsc separately
   clean: true,
@@ -18,10 +21,21 @@ export default defineConfig({
     "events",
     "stream",
     "child_process",
+    "worker_threads",
     // External packages that should not be bundled
     "fs-extra",
     "chokidar",
     "lodash-es",
     "openapi-types",
+    // VS Code extension API
+    "vscode",
+    // Dependencies that should remain external
+    "commander",
+    "inquirer",
+    "chalk",
+    "ora",
+    "handlebars",
+    "prettier",
+    "eslint",
   ],
 });
