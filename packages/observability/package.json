@@ -1,6 +1,6 @@
 {
   "name": "@farm-framework/observability",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Comprehensive observability, telemetry, and cost tracking for FARM applications",
   "main": "dist/index.js",
   "types": "dist/ts/index.d.ts",
@@ -18,7 +18,7 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@farm-framework/types": "^0.1.0",
+    "@farm-framework/types": "^0.2.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.60.0",
     "@opentelemetry/sdk-node": "^0.202.0",

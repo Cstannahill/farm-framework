@@ -1,6 +1,6 @@
 {
   "name": "@farm-framework/ui-components",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "FARM Stack UI Components",
   "type": "module",
   "main": "dist/index.cjs",
