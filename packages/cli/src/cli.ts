@@ -13,7 +13,9 @@ import { registerTypeCommands } from "./commands/types/index.js";
 import { createAddUICommand } from "./commands/add-ui.js";
 import { createAuthCommands } from "./commands/auth.js";
 import { createDatabaseCommands } from "./commands/database.js";
-import { createIntelligenceCommand } from "./commands/intelligence.js";
+
+import { createIntelCommand } from "./commands/intel.js";
+
 import { createHelpCommand } from "./commands/help.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +44,9 @@ export function createCLI(): Command {
   program.addCommand(createAddUICommand());
   program.addCommand(createDatabaseCommands());
   program.addCommand(createAuthCommands());
-  program.addCommand(createIntelligenceCommand());
+
+  program.addCommand(createIntelCommand());
+
   program.addCommand(createValidateCommands());
   program.addCommand(createHelpCommand());
   registerTypeCommands(program);

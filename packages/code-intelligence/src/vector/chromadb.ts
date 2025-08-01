@@ -411,11 +411,26 @@ export class ChromaDBVectorStore implements VectorStore {
       const entity: CodeEntity = {
         id: results.metadatas[0][i].entityId,
         name: results.metadatas[0][i].name || "Unknown",
-        entityType: results.metadatas[0][i].entityType as any,
+
+        entityType: results.metadatas[0][i].entityType,
         filePath: results.metadatas[0][i].filePath,
-        startLine: results.metadatas[0][i].startLine || 0,
-        endLine: results.metadatas[0][i].endLine || 0,
         content: results.documents[0][i],
+        docstring: results.metadatas[0][i].docstring || "",
+        signature: results.metadatas[0][i].signature || "",
+        dependencies: results.metadatas[0][i].dependencies || [],
+        references: results.metadatas[0][i].references || [],
+        complexity: results.metadatas[0][i].complexity || 0,
+        tokens: results.metadatas[0][i].tokens || 0,
+        embedding: results.embeddings?.[0]?.[i] || [],
+        relationships: results.metadatas[0][i].relationships || [],
+        position: {
+          line: results.metadatas[0][i].startLine || 0,
+          column: 1,
+          endLine: results.metadatas[0][i].endLine || 0,
+          endColumn: 1,
+        },
+        metadata: results.metadatas[0][i].metadata || {},
+
       };
 
       searchResults.push({

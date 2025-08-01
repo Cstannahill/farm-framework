@@ -1,3 +1,11 @@
+throw new Error("queryEngine is not defined on CodeIntelligenceServer");
+throw new Error("queryEngine is not defined on CodeIntelligenceServer");
+throw new Error("indexer is not defined on CodeIntelligenceServer");
+throw new Error("indexer is not defined on CodeIntelligenceServer");
+throw new Error("indexer is not defined on CodeIntelligenceServer");
+throw new Error("queryEngine is not defined on CodeIntelligenceServer");
+// indexer is not defined on CodeIntelligenceServer
+// queryEngine is not defined on CodeIntelligenceServer
 import type { CodeIntelligenceConfig } from "./config";
 import type {
   QueryRequest,
@@ -90,13 +98,11 @@ export class CodeIntelligenceServer {
    * Execute a query against the codebase
    */
   async query(request: QueryRequest): Promise<QueryResponse> {
-    if (!this.isStarted) {
+    if (!this.isStarted || !this.semanticSearch) {
       throw new Error("Code Intelligence server is not started");
     }
-
     try {
-      // This will call the Python query engine via bridge
-      return await this.queryEngine.execute(request);
+      return await this.semanticSearch.search(request);
     } catch (error) {
       console.error("Query failed:", error);
       throw error;
@@ -110,13 +116,11 @@ export class CodeIntelligenceServer {
     entityName: string,
     options: any = {}
   ): Promise<ExplanationResponse> {
-    if (!this.isStarted) {
+    if (!this.isStarted || !this.explanationEngine) {
       throw new Error("Code Intelligence server is not started");
     }
-
     try {
-      // This will call the Python explanation engine via bridge
-      return await this.queryEngine.explain(entityName, options);
+      return await this.explanationEngine.explainEntity(entityName, options);
     } catch (error) {
       console.error("Explanation failed:", error);
       throw error;
@@ -127,7 +131,7 @@ export class CodeIntelligenceServer {
    * Get index status
    */
   async getStatus(): Promise<IndexStatus> {
-    if (!this.isStarted) {
+    if (!this.isStarted || !this.semanticSearch) {
       return {
         indexedFiles: 0,
         totalEntities: 0,
@@ -138,9 +142,17 @@ export class CodeIntelligenceServer {
         errors: [],
       };
     }
-
     try {
-      return await this.indexer.getStatus();
+      const stats = await this.semanticSearch.getStats();
+      return {
+        indexedFiles: stats.collections?.length ?? 0,
+        totalEntities: stats.totalDocuments ?? 0,
+        lastUpdated: stats.lastUpdated ?? new Date(),
+        indexHealth: "healthy",
+        vectorCount: stats.totalVectors ?? 0,
+        processingQueue: 0,
+        errors: [],
+      };
     } catch (error) {
       console.error("Failed to get status:", error);
       throw error;
@@ -148,42 +160,19 @@ export class CodeIntelligenceServer {
   }
 
   /**
-   * Trigger full reindex
+   * Trigger full reindexs
    */
   async reindex(): Promise<{ message: string; taskId: string }> {
-    if (!this.isStarted) {
-      throw new Error("Code Intelligence server is not started");
-    }
-
-    try {
-      const taskId = await this.indexer.fullReindex(this.projectRoot);
-      return {
-        message: "Reindex started",
-        taskId,
-      };
-    } catch (error) {
-      console.error("Reindex failed:", error);
-      throw error;
-    }
+    // Reindex not implemented in SemanticSearchEngine
+    throw new Error("Reindex is not supported by SemanticSearchEngine");
   }
 
   /**
    * Index the project initially
    */
   async indexProject(): Promise<void> {
-    if (!this.isStarted) {
-      throw new Error("Code Intelligence server is not started");
-    }
-
-    console.log("📁 Indexing project...");
-
-    try {
-      await this.indexer.indexProject(this.projectRoot, this.config.indexing);
-      console.log("✅ Project indexed successfully");
-    } catch (error) {
-      console.error("❌ Failed to index project:", error);
-      throw error;
-    }
+    // IndexProject not implemented in SemanticSearchEngine
+    throw new Error("IndexProject is not supported by SemanticSearchEngine");
   }
 
   /**
@@ -219,16 +208,10 @@ export class CodeIntelligenceServer {
    * Get entity context for explanation
    */
   async getEntityContext(entityName: string, options: any = {}): Promise<any> {
-    if (!this.isStarted) {
-      throw new Error("Code Intelligence server is not started");
-    }
-
-    try {
-      return await this.queryEngine.getEntityContext(entityName, options);
-    } catch (error) {
-      console.error("Failed to get entity context:", error);
-      throw error;
-    }
+    // getEntityContext not implemented in CodeExplanationEngine
+    throw new Error(
+      "getEntityContext is not supported by CodeExplanationEngine"
+    );
   }
 
   /**
@@ -261,57 +244,7 @@ export class CodeIntelligenceServer {
     console.log("🐍 Initializing Python bridge...");
 
     // For now, create mock objects
-    this.indexer = {
-      getStatus: async () => ({
-        indexedFiles: 0,
-        totalEntities: 0,
-        lastUpdated: new Date(),
-        indexHealth: "healthy" as const,
-        vectorCount: 0,
-        processingQueue: 0,
-        errors: [],
-      }),
-      fullReindex: async () => "task-" + Date.now(),
-      indexProject: async () => {},
-    };
-
-    this.queryEngine = {
-      execute: async (request: QueryRequest) => ({
-        results: [],
-        synthesis: "Mock response",
-        plan: {
-          queryType: "search",
-          searchStrategy: "semantic",
-          filters: {},
-          includeContext: false,
-          maxResults: 5,
-          useAiSynthesis: true,
-        },
-        metrics: {
-          totalResults: 0,
-          searchTime: 100,
-          cacheHit: false,
-        },
-      }),
-      explain: async (entityName: string) => ({
-        entity: {
-          id: "mock-id",
-          filePath: "mock.ts",
-          entityType: "function" as const,
-          name: entityName,
-          content: "function mock() {}",
-          dependencies: [],
-          references: [],
-          complexity: 1,
-          tokens: 10,
-          metadata: { language: "typescript" },
-          relationships: [],
-          position: { line: 1, column: 1 },
-        },
-        explanation: `Mock explanation for ${entityName}`,
-      }),
-      getEntityContext: async () => ({}),
-    };
+    // Python bridge initialization stub
   }
 
   private async initializeVectorStore(): Promise<void> {

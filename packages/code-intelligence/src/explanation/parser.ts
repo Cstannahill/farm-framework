@@ -1,7 +1,7 @@
+import { CodeEntity, EntityType, CodePosition } from "../types/index";
 // Simple TypeScript/JavaScript code parser using AST
 import * as ts from "typescript";
 import * as path from "path";
-import type { CodeEntity, EntityType, CodePosition } from "../types/index";
 
 export class TypeScriptParser {
   /**
@@ -128,12 +128,18 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "function" as EntityType,
+      entityType: EntityType.Function,
       filePath,
       position,
       content: codeContent,
       signature,
       docstring,
+      dependencies: [],
+      references: [],
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         async: this.isAsync(node),
@@ -162,11 +168,17 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "class" as EntityType,
+      entityType: EntityType.Class,
       filePath,
       position,
       content: codeContent,
       docstring,
+      dependencies: [],
+      references: [],
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
@@ -190,11 +202,17 @@ export class TypeScriptParser {
         entities.push({
           id: `${filePath}:${name}.${methodName}:${methodPosition.line}`,
           name: `${name}.${methodName}`,
-          entityType: "method" as EntityType,
+          entityType: EntityType.Method,
           filePath,
           position: methodPosition,
           content: methodContent,
           signature: methodSignature,
+          dependencies: [],
+          references: [],
+          complexity: 0,
+          tokens: 0,
+          embedding: [],
+          relationships: [],
           metadata: {
             language: this.getLanguage(filePath),
             className: name,
@@ -224,11 +242,17 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "interface" as EntityType,
+      entityType: EntityType.Interface,
       filePath,
       position,
       content: codeContent,
       docstring,
+      dependencies: [],
+      references: [],
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
@@ -254,11 +278,17 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: "type" as EntityType,
+      entityType: EntityType.Type,
       filePath,
       position,
       content: codeContent,
       docstring,
+      dependencies: [],
+      references: [],
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         exported: this.isExported(node),
@@ -293,10 +323,16 @@ export class TypeScriptParser {
         entities.push({
           id: `${filePath}:${name}:${position.line}`,
           name,
-          entityType: isComponent ? "component" : ("variable" as EntityType),
+          entityType: isComponent ? EntityType.Component : EntityType.Variable,
           filePath,
           position,
           content: codeContent,
+          dependencies: [],
+          references: [],
+          complexity: 0,
+          tokens: 0,
+          embedding: [],
+          relationships: [],
           metadata: {
             language: this.getLanguage(filePath),
             exported: this.isExported(node),
@@ -336,10 +372,16 @@ export class TypeScriptParser {
     entities.push({
       id: `${filePath}:${name}:${position.line}`,
       name,
-      entityType: isComponent ? "component" : ("function" as EntityType),
+      entityType: isComponent ? EntityType.Component : EntityType.Function,
       filePath,
       position,
       content: codeContent,
+      dependencies: [],
+      references: [],
+      complexity: 0,
+      tokens: 0,
+      embedding: [],
+      relationships: [],
       metadata: {
         language: this.getLanguage(filePath),
         async: this.isAsync(func),
@@ -435,11 +477,17 @@ export class TypeScriptParser {
   }
 
   private hasModifier(node: ts.Node, modifier: ts.SyntaxKind): boolean {
-    return node.modifiers?.some((mod) => mod.kind === modifier) || false;
+    // TypeScript AST nodes may not have 'modifiers' property, so cast to any
+    const modifiers = (node as any).modifiers;
+    return Array.isArray(modifiers)
+      ? modifiers.some((mod: any) => mod.kind === modifier)
+      : false;
   }
 
   private hasKeyword(node: ts.Node, keyword: ts.SyntaxKind): boolean {
-    return (node as any).declarationList?.flags & ts.NodeFlags.Const || false;
+    // Returns true if the node is a const variable declaration
+    const flags = (node as any).declarationList?.flags;
+    return !!(flags && flags & ts.NodeFlags.Const);
   }
 
   private getParameters(node: ts.FunctionDeclaration): string[] {

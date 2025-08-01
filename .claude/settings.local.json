@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm build:*)",
+      "Bash(/c/Users/Christian/AppData/Roaming/npm/pnpm build)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsup:*)",
+      "Bash(tsc:*)"
+    ],
+    "deny": []
+  }
+}

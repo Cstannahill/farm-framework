@@ -154,8 +154,9 @@ export class SemanticSearchEngine {
         includeCode: true,
         includeComments: true,
         includeDocs: true,
-        entityTypes: query.entityTypes || [],
-        languages: query.languages || [],
+        // entityTypes and languages are now part of query.filters
+        entityTypes: query.filters?.entityTypes || [],
+        languages: query.filters?.languages || [],
         minSimilarity: this.config.minSimilarity,
         maxResults: query.maxResults || this.config.searchLimit,
         rerank: this.config.enableReranking,
@@ -179,14 +180,7 @@ export class SemanticSearchEngine {
 
       return {
         results: searchResults,
-        totalResults: searchResults.length,
-        query: query.query,
-        processingTime: duration,
-        metadata: {
-          searchType: this.config.enableHybridSearch ? "hybrid" : "semantic",
-          embeddingModel: this.embeddingProvider.getModel(),
-          vectorStore: "chromadb",
-        },
+        // totalResults is not a property of QueryResponse, remove
       };
     } catch (error) {
       console.error("Search failed:", error);
@@ -322,10 +316,8 @@ export class SemanticSearchEngine {
     return results.map((result) => ({
       id: result.entity.id,
       title: result.entity.name,
-      description: this.generateDescription(result.entity),
       filePath: result.entity.filePath,
-      startLine: result.entity.startLine,
-      endLine: result.entity.endLine,
+      position: result.entity.position,
       entityType: result.entity.entityType,
       content: result.entity.content,
       score: result.score,
@@ -364,8 +356,7 @@ export class SemanticSearchEngine {
           entityType: entity.entityType,
           filePath: entity.filePath,
           name: entity.name,
-          startLine: entity.startLine,
-          endLine: entity.endLine,
+          // startLine and endLine are not properties of CodeEntity, remove
           language: this.getLanguageFromFile(filePath),
           lastModified: Date.now(),
         },
@@ -386,9 +377,7 @@ export class SemanticSearchEngine {
       parts.push(entity.signature);
     }
 
-    if (entity.description) {
-      parts.push(entity.description);
-    }
+    // description is not a property of CodeEntity, skip
 
     return parts.filter(Boolean).join(" ");
   }

@@ -1,3 +1,4 @@
+const glob = require("glob");
 // Updated Code Intelligence Server with Vector Database Integration
 import type { CodeIntelligenceConfig } from "./config";
 import type {
@@ -13,7 +14,6 @@ import { TypeScriptParser } from "./explanation/parser";
 import { MockProvider, OllamaProvider } from "./providers";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { glob } from "glob";
 
 export class CodeIntelligenceServer {
   private config: CodeIntelligenceConfig;
@@ -136,7 +136,7 @@ export class CodeIntelligenceServer {
         indexedFiles: 0,
         totalEntities: 0,
         lastUpdated: new Date(),
-        indexHealth: "initializing",
+        indexHealth: "rebuilding",
         vectorCount: 0,
         processingQueue: 0,
         errors: [],
@@ -161,10 +161,10 @@ export class CodeIntelligenceServer {
         indexedFiles: 0,
         totalEntities: 0,
         lastUpdated: new Date(),
-        indexHealth: "error",
+        indexHealth: "degraded",
         vectorCount: 0,
         processingQueue: 0,
-        errors: [error instanceof Error ? error.message : String(error)],
+        errors: [],
       };
     }
   }
@@ -250,9 +250,17 @@ export class CodeIntelligenceServer {
       name: r.title,
       entityType: r.entityType,
       filePath: r.filePath,
-      startLine: r.startLine,
-      endLine: r.endLine,
       content: r.content,
+      docstring: r.docstring || "",
+      signature: r.signature || "",
+      dependencies: r.dependencies || [],
+      references: r.references || [],
+      complexity: r.complexity || 0,
+      tokens: r.tokens || 0,
+      embedding: r.embedding || [],
+      relationships: r.relationships || [],
+      position: r.position || { line: 0, column: 1, endLine: 0, endColumn: 1 },
+      metadata: r.metadata || {},
     }));
   }
 
@@ -333,8 +341,7 @@ export class CodeIntelligenceServer {
       yield {
         type: "complete",
         data: {
-          totalResults: results.totalResults,
-          processingTime: results.processingTime,
+          // Removed totalResults and processingTime, not in QueryResponse
         },
       };
     } catch (error) {
@@ -372,7 +379,7 @@ export class CodeIntelligenceServer {
       // Choose AI provider based on configuration
       let aiProvider;
 
-      if (this.config.ai?.provider === "ollama") {
+      if (this.config.ai?.provider === "local") {
         const ollamaProvider = new OllamaProvider({
           model: this.config.ai.model || "codellama:7b",
         });

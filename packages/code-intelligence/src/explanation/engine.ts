@@ -66,11 +66,6 @@ export class CodeExplanationEngine {
       entity,
       explanation,
       examples,
-      metadata: {
-        language: entity.metadata.language || "typescript",
-        complexity: this.calculateComplexity(entity),
-        lastUpdated: new Date(),
-      },
     };
   }
 
