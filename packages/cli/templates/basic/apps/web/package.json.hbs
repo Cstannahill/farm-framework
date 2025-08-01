@@ -1,4 +1,13 @@
 {{! Basic template - inherits from base template and adds no additional dependencies }}
 {
   "name": "{{projectNameKebab}}-web"
+    "scripts": {
+    "dev": "farm dev --frontend-only",
+    "build": "farm build --frontend-only",
+    "start": "farm start --frontend-only",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+    },
 }
