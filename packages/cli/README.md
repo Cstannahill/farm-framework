@@ -1,127 +1,423 @@
-# FARM Command Line Interface
+# @farm/cli
 
-## Overview
+The FARM Framework CLI is the primary interface for creating, managing, and developing FARM applications. It provides commands for project scaffolding, development server management, and build processes.
 
-The FARM CLI provides project scaffolding, development tooling and utilities for the FARM stack. It is the main entrypoint for creating new applications and running the local development server. Commands are built with [commander](https://github.com/tj/commander.js) and make use of modular utilities for logging, prompting and template generation.
-
-## ✅ Completed Implementation
-
-### Core Components
-
-1. **CLI Entry** (`src/index.ts`, `src/cli.ts`)
-   - Parses global options and registers all subcommands
-   - Provides unified error handling and environment setup
-2. **Command Modules** (`src/commands`)
-   - `create` – scaffold new FARM projects from templates
-   - `dev` – start the development server
-   - `build` – production build placeholder
-   - `generate` – code generation utilities
-   - Additional helpers: `add-ui`, `database`, `auth`, `validate`
-3. **Template & Generation System** (`src/generators`, `src/template`)
-   - Handlebars based project file generator
-   - Database and config generators
-   - Post processors for formatting (e.g. Python via bundled Ruff)
-4. **Utilities** (`src/utils`)
-   - Interactive prompts and styling helpers
-   - Package installation & git initialization
-   - Logger with colourised output
-
-## Architecture
-
-```
-┌───────────────────────────┐
-│        FARM CLI           │
-├───────────────────────────┤
-│ Commands                  │
-│ ├─ create                 │
-│ ├─ dev                    │
-│ ├─ build                  │
-│ ├─ generate               │
-│ ├─ add ui                 │
-│ ├─ database               │
-│ ├─ auth                   │
-│ └─ validate               │
-├───────────────────────────┤
-│ Generators                │
-│ ├─ project-file-generator │
-│ ├─ database-generator     │
-│ └─ helpers & post process │
-├───────────────────────────┤
-│ Utilities                 │
-│ ├─ logger                 │
-│ ├─ prompts                │
-│ ├─ package-installer      │
-│ └─ git-initializer        │
-└───────────────────────────┘
-```
-
-## Features Implemented
-
-- Interactive project creation with template, feature and database selection
-- Bundled Ruff binaries for Python formatting on all platforms
-- Development server integration via `farm dev`
-- Modular code generation (`farm generate`) for types, models and pages
-- Database management helpers (`farm database` commands)
-- Authentication utilities for token inspection and scaffolding
-- Rich logging with verbose and colour options
-
-## Usage
-
-### Installation
+## 🚀 Quick Start
 
 ```bash
+# Install globally
 npm install -g @farm/cli
-```
 
-### Common Commands
-
-```bash
 # Create a new project
 farm create my-app --template ai-chat
 
-# Start development server
+# Start development
 cd my-app
 farm dev
-
-# Build for production
-farm build
-
-# Generate TypeScript types and hooks
-farm generate types --api-url http://localhost:8000
 ```
 
-Run `farm --help` to see all available commands and options.
+## 📋 Commands
 
-## Files Structure
+### `farm create`
+
+Creates a new FARM project from a template.
+
+```bash
+farm create <project-name> [options]
+```
+
+**Options:**
+- `--template <template>` - Template to use (basic, ai-chat, ai-dashboard, cms, ecommerce, api-only)
+- `--database <database>` - Database type (mongodb, postgresql, mysql, sqlite)
+- `--features <features>` - Comma-separated list of features to include
+- `--output <path>` - Output directory (default: current directory)
+- `--no-git` - Skip Git initialization
+- `--no-install` - Skip dependency installation
+
+**Examples:**
+```bash
+# Create basic project
+farm create my-app --template basic
+
+# Create AI chat app with PostgreSQL
+farm create chat-app --template ai-chat --database postgresql
+
+# Create project with specific features
+farm create my-app --template basic --features auth,ai
+```
+
+### `farm dev`
+
+Starts the development server with hot reload.
+
+```bash
+farm dev [options]
+```
+
+**Options:**
+- `--frontend-only` - Start only the frontend
+- `--backend-only` - Start only the backend and dependencies
+- `--verbose` - Enable detailed logging
+- `--port <port>` - Custom port for frontend (default: 3000)
+- `--api-port <port>` - Custom port for backend (default: 8000)
+
+**Examples:**
+```bash
+# Start full development environment
+farm dev
+
+# Start only frontend
+farm dev --frontend-only
+
+# Start with custom ports
+farm dev --port 3001 --api-port 8001
+```
+
+### `farm build`
+
+Builds the project for production.
+
+```bash
+farm build [options]
+```
+
+**Options:**
+- `--frontend-only` - Build only the frontend
+- `--backend-only` - Build only the backend
+- `--output <path>` - Output directory
+- `--minify` - Minify output (default: true in production)
+
+### `farm start`
+
+Starts the production server.
+
+```bash
+farm start [options]
+```
+
+**Options:**
+- `--port <port>` - Port for the server
+- `--host <host>` - Host to bind to
+
+### `farm types`
+
+Manages type synchronization between frontend and backend.
+
+```bash
+farm types sync [options]
+```
+
+**Options:**
+- `--watch` - Watch for changes and auto-sync
+- `--force` - Force regeneration of types
+- `--output <path>` - Output directory for generated types
+
+### `farm generate`
+
+Generates code from templates or schemas.
+
+```bash
+farm generate <generator> [options]
+```
+
+**Available generators:**
+- `api-client` - Generate API client from OpenAPI schema
+- `types` - Generate TypeScript types
+- `hooks` - Generate React Query hooks
+
+## 🏗️ Templates
+
+The CLI supports several built-in templates:
+
+### Basic Template
+Minimal full-stack setup with React frontend and FastAPI backend.
+
+```bash
+farm create my-app --template basic
+```
+
+**Features:**
+- React 19 with TypeScript
+- FastAPI backend
+- Tailwind CSS styling
+- Hot reload development
+- Type synchronization
+
+### AI Chat Template
+Chat application with streaming AI responses.
+
+```bash
+farm create my-app --template ai-chat
+```
+
+**Features:**
+- Real-time chat interface
+- Streaming AI responses
+- Markdown rendering
+- Syntax highlighting
+- WebSocket support
+
+### AI Dashboard Template
+Data visualization dashboard with AI integration.
+
+```bash
+farm create my-app --template ai-dashboard
+```
+
+**Features:**
+- Interactive charts and graphs
+- Real-time data updates
+- AI-powered insights
+- Responsive design
+- Data export capabilities
+
+### CMS Template
+Content management system with rich text editing.
+
+```bash
+farm create my-app --template cms
+```
+
+**Features:**
+- Rich text editor (TipTap)
+- Content management
+- Media handling
+- User management
+- SEO optimization
+
+### E-commerce Template
+E-commerce application with payment processing.
+
+```bash
+farm create my-app --template ecommerce
+```
+
+**Features:**
+- Product catalog
+- Shopping cart
+- Stripe payment integration
+- Order management
+- User accounts
+
+### API Only Template
+Backend-only template for APIs and microservices.
+
+```bash
+farm create my-app --template api-only
+```
+
+**Features:**
+- FastAPI backend
+- Database integration
+- Authentication
+- API documentation
+- Testing setup
+
+## ⚙️ Configuration
+
+The CLI uses `farm.config.ts` for project configuration:
+
+```typescript
+import { defineConfig } from '@farm/core';
+
+export default defineConfig({
+  // Project settings
+  projectName: 'my-app',
+  version: '1.0.0',
+  
+  // Development settings
+  dev: {
+    frontend: {
+      port: 3000,
+      host: 'localhost'
+    },
+    backend: {
+      port: 8000,
+      host: 'localhost'
+    }
+  },
+  
+  // AI configuration
+  ai: {
+    providers: {
+      ollama: {
+        model: 'llama3.2:3b',
+        baseUrl: 'http://localhost:11434'
+      }
+    }
+  },
+  
+  // Database configuration
+  database: {
+    type: 'mongodb',
+    url: 'mongodb://localhost:27017/my-app'
+  }
+});
+```
+
+## 🔧 Development
+
+### Local Development
+
+To work on the CLI itself:
+
+```bash
+# Clone the repository
+git clone https://github.com/farm-stack/framework.git
+cd framework
+
+# Install dependencies
+pnpm install
+
+# Build the CLI
+cd packages/cli
+pnpm build
+
+# Link globally for testing
+npm link
+```
+
+### Testing
+
+```bash
+# Run tests
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Run specific test file
+pnpm test create.test.ts
+```
+
+### Building
+
+```bash
+# Build the CLI
+pnpm build
+
+# Build in watch mode
+pnpm build:watch
+```
+
+## 📁 Project Structure
 
 ```
 packages/cli/
 ├── src/
-│   ├── cli.ts            # Program setup
-│   ├── commands/         # Command implementations
-│   ├── core/             # Shared CLI helpers
-│   ├── generators/       # Project scaffolding utilities
-│   ├── template/         # Template definitions & helpers
-│   ├── utils/            # Logger, prompts, installers
-│   └── index.ts          # CLI entrypoint
-├── bin/                  # Bundled Ruff binaries
-├── package.json
-└── tsup.config.ts
+│   ├── commands/           # CLI commands
+│   │   ├── create.ts       # Project creation
+│   │   ├── dev.ts          # Development server
+│   │   ├── build.ts        # Build process
+│   │   └── types/          # Type management
+│   ├── template/           # Template system
+│   │   ├── processor.ts    # Template processing
+│   │   ├── inheritance.ts  # Template inheritance
+│   │   └── validator.ts    # Template validation
+│   ├── generators/         # Code generators
+│   ├── scaffolding/        # Project scaffolding
+│   └── utils/              # Utility functions
+├── templates/              # Project templates
+│   ├── base/               # Base template
+│   ├── basic/              # Basic template
+│   ├── ai-chat/            # AI chat template
+│   └── ...                 # Other templates
+└── bin/                    # Executable scripts
 ```
 
-## Integration
+## 🐛 Troubleshooting
 
-The CLI works in concert with other FARM packages:
+### Common Issues
 
-- **@farm/core** – development server and code generation engine
-- **@farm/types** – shared type definitions
-- **Templates** – project blueprints used by `farm create`
+#### Template Generation Fails
+```bash
+# Check template validation
+node scripts/validate-templates.js
 
-## File Overview
+# Clear template cache
+rm -rf .farm/cache
+```
 
-- **src/cli.ts** – creates the `farm` program and registers commands
-- **src/commands/** – individual command modules (create, dev, build, etc.)
-- **src/generators/** – helpers for scaffolding new projects
-- **src/utils/** – logging, prompts and package management utilities
-- **bin/** – platform specific Ruff binaries used for formatting
+#### Development Server Won't Start
+```bash
+# Check if ports are in use
+lsof -ti:3000 | xargs kill -9
+lsof -ti:8000 | xargs kill -9
 
+# Restart with verbose logging
+farm dev --verbose
+```
+
+#### Type Synchronization Issues
+```bash
+# Force type regeneration
+farm types sync --force
+
+# Check OpenAPI schema
+curl http://localhost:8000/openapi.json
+```
+
+### Getting Help
+
+- **GitHub Issues**: [Report bugs](https://github.com/farm-stack/framework/issues)
+- **Documentation**: [CLI Reference](../docs/reference/cli/)
+- **Discussions**: [Community help](https://github.com/farm-stack/framework/discussions)
+
+## 📚 API Reference
+
+### CLI Class
+
+The main CLI class that handles command execution.
+
+```typescript
+import { CLI } from '@farm/cli';
+
+const cli = new CLI();
+await cli.run(['create', 'my-app', '--template', 'basic']);
+```
+
+### Template Processor
+
+Handles template generation and inheritance.
+
+```typescript
+import { TemplateProcessor } from '@farm/cli';
+
+const processor = new TemplateProcessor();
+await processor.processTemplate('basic', context, outputDir);
+```
+
+### Project Scaffolder
+
+Manages project scaffolding and file generation.
+
+```typescript
+import { ProjectScaffolder } from '@farm/cli';
+
+const scaffolder = new ProjectScaffolder();
+await scaffolder.scaffoldProject(template, options);
+```
+
+## 🔄 Changelog
+
+### v1.5.0
+- Added template inheritance system
+- Improved error handling and validation
+- Enhanced development server with better logging
+- Added support for custom templates
+
+### v1.4.0
+- Added AI dashboard template
+- Improved type synchronization
+- Enhanced CLI help and documentation
+- Added template validation system
+
+### v1.3.0
+- Added CMS and e-commerce templates
+- Improved development server performance
+- Enhanced template processing
+- Added support for custom features
+
+## 📄 License
+
+MIT © FARM Framework

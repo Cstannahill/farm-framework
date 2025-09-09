@@ -1,12 +1,12 @@
 # 🌾 FARM Framework
 
-FARM is an AI‑first full‑stack development platform that combines a React/TypeScript frontend with a Python/FastAPI backend. It ships batteries‑included tooling for running local AI models, generating typed clients and hooks, and orchestrating services during development.
+FARM is an AI-first full-stack development platform that combines a React/TypeScript frontend with a Python/FastAPI backend. It ships batteries-included tooling for running local AI models, generating typed clients and hooks, and orchestrating services during development.
 
 ## What is FARM?
 
 - **F**astAPI – modern Python web framework with automatic docs
-- **A**I/ML – local Ollama or cloud providers (OpenAI, HuggingFace)
-- **R**eact – component based frontend with modern tooling
+- **A**I/ML – local Ollama or cloud providers (OpenAI, HuggingFace)  
+- **R**eact – component-based frontend with modern tooling
 - **M**ongoDB – default database (other databases supported)
 
 ## 🚀 Quick Start
@@ -15,61 +15,83 @@ FARM is an AI‑first full‑stack development platform that combines a React/Ty
 # Install the CLI
 npm install -g @farm/cli
 
-# Scaffold a new project
+# Create your first AI app
 farm create my-ai-app --template ai-chat
 
-# Start the development server
+# Start development
 cd my-ai-app
 farm dev
 ```
 
 ## ✨ Key Features
 
-- Zero‑cost AI development with local Ollama integration
-- Type‑safe code with automatic client and hook generation
-- Hot reload across backend, frontend and AI models
-- Seamless provider switching between local and cloud
-- Next.js‑quality developer experience for AI applications
+- **Zero-cost AI development** with local Ollama integration
+- **Type-safe code** with automatic client and hook generation  
+- **Hot reload** across backend, frontend and AI models
+- **Seamless provider switching** between local and cloud
+- **Next.js-quality developer experience** for AI applications
 
-## Packages
+## 🏗️ Templates
 
-### `@farm/cli`
-Interactive command line interface for scaffolding and managing projects. Provides commands like `create`, `dev`, `build` and `generate`, bundled Ruff binaries for Python formatting and rich logging utilities.
+FARM provides several production-ready templates:
 
-### `@farm/core`
-Framework utilities including the `defineConfig` helper, code generation orchestrator, file watcher and AI provider interfaces used by the CLI and dev server.
+- **[Basic](docs/guides/templates/basic.md)** - Minimal full-stack setup
+- **[AI Chat](docs/guides/templates/ai-chat.md)** - Chat application with streaming AI
+- **[AI Dashboard](docs/guides/templates/ai-dashboard.md)** - Data visualization dashboard
+- **[CMS](docs/guides/templates/cms.md)** - Content management system
+- **[E-commerce](docs/guides/templates/ecommerce.md)** - E-commerce with Stripe integration
+- **[API Only](docs/guides/templates/api-only.md)** - Backend-only template
 
-### `@farm/type-sync`
-Synchronises types between the FastAPI backend and TypeScript frontend. Extracts the OpenAPI schema, generates TypeScript types, API clients and React Query hooks, and supports caching and watch mode for instant feedback.
+## 📚 Documentation
 
-### `@farm/api-client`
-Thin wrapper around Axios with retry logic, streaming helpers and file upload support. Underpins the generated clients and React hooks used in FARM apps.
+- **[Getting Started](docs/getting-started/README.md)** - Installation and first project
+- **[Guides](docs/guides/README.md)** - Comprehensive how-to guides
+- **[Reference](docs/reference/README.md)** - Technical reference
+- **[Examples](docs/examples/README.md)** - Complete example applications
+- **[API Documentation](https://farm-rho-green.vercel.app/docs/getting-started)** - Live documentation site
 
-### `@farm/ai`
-AI orchestration layer that registers providers, loads configuration, performs health checks and handles errors. Supports running Ollama locally or routing requests to cloud services.
-
-### `@farm/types`
-Shared TypeScript definitions for configuration, CLI options, database models, authentication and plugin hooks so that all packages use a single source of truth.
-
-### `@farm/ui-components`
-Reusable React components – like the assistant chat UI – that accelerate interface development.
-
-## Development Server
-
-Running `farm dev` starts the entire stack: database containers, local AI models, FastAPI backend and Vite frontend. The process manager performs health checks, aggregates logs and restarts failed services automatically. Service configuration is read from `farm.config.ts`.
-
-Common options:
+## 🛠️ Development
 
 ```bash
-farm dev --verbose              # detailed logs
-farm dev --frontend-only        # start only the frontend
-farm dev --backend-only         # start backend and dependencies
+# Start the entire stack
+farm dev
+
+# Start only frontend
+farm dev --frontend-only
+
+# Start only backend  
+farm dev --backend-only
+
+# Build for production
+farm build
 ```
 
-## Contributing
+## 📦 Packages
 
-We build in the open! Check out the contribution guide for details.
+| Package | Description |
+|---------|-------------|
+| **[@farm/cli](packages/cli/README.md)** | Interactive CLI for scaffolding and managing projects |
+| **[@farm/core](packages/core/README.md)** | Framework utilities and configuration helpers |
+| **[@farm/type-sync](packages/type-sync/README.md)** | Type synchronization between FastAPI and TypeScript |
+| **[@farm/ai](packages/ai/README.md)** | AI orchestration layer with Ollama and cloud support |
+| **[@farm/api-client](packages/api-client/README.md)** | Axios wrapper with retry logic and streaming |
+| **[@farm/ui-components](packages/ui-components/README.md)** | Reusable React components |
+| **[@farm/observability](packages/observability/README.md)** | Telemetry and monitoring |
+| **[@farm/deployment](packages/deployment/README.md)** | Deployment automation |
 
-## License
+## 🤝 Contributing
+
+We build in the open! Check out our [Contributing Guide](docs/contributing/README.md) for details on how to:
+
+- Report bugs or request features
+- Contribute code or documentation  
+- Set up your development environment
+- Follow our coding standards
+
+## 📄 License
 
 MIT © FARM Framework
+
+---
+
+**Ready to get started?** Check out our [Getting Started Guide](docs/getting-started/README.md) or jump straight to [Creating Your First Project](docs/getting-started/first-project.md).

@@ -1,128 +1,373 @@
 # @farm/api-client
 
-## Overview
+The FARM Framework API client package provides a thin wrapper around Axios with retry logic, streaming helpers, and file upload support. It underpins the generated clients and React hooks used in FARM applications.
 
-`@farm/api-client` provides a thin wrapper around [Axios](https://axios-http.com/) with helpful utilities for FARM applications. It simplifies HTTP requests, adds smart retry logic, streaming helpers and file upload support while exposing a clean interface for extending request and response interceptors.
-
-This library underpins the generated API clients and React hooks used throughout FARM projects.
-
-## ✅ Completed Implementation
-
-### Core Components
-
-1. **`ApiClient`** (`src/base-client.ts`)
-   - Wraps an Axios instance with sane defaults
-   - Supports all standard HTTP verbs
-   - Handles retry logic and error formatting
-   - Provides streaming and file upload helpers
-   - Allows runtime configuration updates
-
-2. **`createApiClient`** (`src/base-client.ts`)
-   - Factory function returning a pre-configured `ApiClient`
-   - Registers default `auth` and `logging` interceptors
-   - Enables custom overrides via `ApiClientConfig`
-
-3. **Interceptors**
-   - **`authInterceptor`** – attaches a bearer token from local storage
-   - **`loggingInterceptor`** – logs requests and responses in development mode
-
-### Additional Utilities
-
-- Type definitions for `ApiResponse`, `ApiError` and `PaginatedResponse`
-- Helper types for building request and response interceptors
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│                 ApiClient                   │
-├─────────────────────────────────────────────┤
-│  Axios Instance                             │
-│   ├─ Request Interceptors (auth, custom)    │
-│   ├─ Response Interceptors (logging, custom)│
-│   ├─ Retry Handler                          │
-│   └─ Error Formatter                        │
-├─────────────────────────────────────────────┤
-│  Utility Methods                            │
-│   ├─ get/post/put/patch/delete              │
-│   ├─ stream/streamPost                      │
-│   └─ uploadFile                             │
-└─────────────────────────────────────────────┘
-              ▲
-              │ createApiClient()
-              ▼
-      Preconfigured ApiClient instance
-```
-
-## Features Implemented
-
-- **HTTP Helpers** – concise methods for all HTTP verbs
-- **Request/Response Interceptors** – attach custom logic to every request
-- **Retry with Exponential Backoff** – configurable retry conditions
-- **Detailed Error Messages** – normalized errors with status-aware messages
-- **Streaming Support** – `stream` and `streamPost` for SSE endpoints
-- **File Uploads** – multipart helper with progress callbacks
-- **Runtime Configuration Updates** – modify base URL, headers and timeout
-- **Default Auth & Logging Interceptors** – sensible defaults for FARM apps
-
-## Usage
-
-### Basic Commands
+## 🚀 Quick Start
 
 ```bash
-# Build the library
-pnpm run --filter @farm/api-client build
-
-# Watch and rebuild on changes
-pnpm run --filter @farm/api-client build:watch
-
-# Type-check the source
-pnpm run --filter @farm/api-client type-check
+npm install @farm/api-client
 ```
-
-### Example
 
 ```typescript
-import { createApiClient } from "@farm/api-client";
+import { ApiClient } from '@farm/api-client';
 
-const api = createApiClient({ baseURL: "http://localhost:8000/api" });
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 10000
+});
 
-const result = await api.get("/users");
-console.log(result.data);
+const response = await client.get('/users');
 ```
 
-## Next Steps
+## 📋 Core Features
 
-Future enhancements include:
+### HTTP Client
+- Axios-based HTTP client with enhanced features
+- Automatic retry logic with exponential backoff
+- Request/response interceptors
+- Timeout handling and error management
 
-1. **Generated Typed Clients** – automatic client generation from OpenAPI schemas
-2. **Advanced Caching Layer** – optional caching for GET requests
-3. **Batch Request Support** – combine multiple calls into a single request
+### Streaming Support
+- Server-sent events (SSE) support
+- WebSocket integration
+- Real-time data streaming
+- Chunk processing and aggregation
 
-## Files Structure
+### File Upload
+- Multipart file upload support
+- Progress tracking
+- File validation and type checking
+- Batch upload capabilities
+
+### Error Handling
+- Comprehensive error handling
+- Retry logic for transient failures
+- Error transformation and logging
+- Fallback mechanisms
+
+## 🏗️ Architecture
 
 ```
-packages/api-client/
-├── src/
-│   ├── base-client.ts     # ApiClient implementation and helpers
-│   └── index.ts           # Main exports
-├── package.json           # Package configuration
-├── tsconfig.json          # TypeScript configuration
-└── tsup.config.ts         # Build configuration
+@farm/api-client
+├── ApiClient              # Main HTTP client
+├── StreamClient           # Streaming client
+├── FileUploadClient       # File upload client
+├── RetryHandler           # Retry logic
+├── ErrorHandler           # Error handling
+├── Interceptors           # Request/response interceptors
+└── Utilities              # Helper utilities
 ```
 
-## Integration
+## 📚 API Reference
 
-`@farm/api-client` is used by:
+### ApiClient
 
-- Generated API clients in FARM applications
-- React hooks within `@farm/ui-components`
-- Any custom frontend or Node.js service that communicates with the FARM backend
+Main HTTP client with enhanced features.
 
-## File Overview
+```typescript
+import { ApiClient } from '@farm/api-client';
 
-- **src/base-client.ts** – main `ApiClient` class and helpers
-- **src/index.ts** – public exports for consumers
-- **package.json** – scripts and dependencies
-- **tsup.config.ts** – build pipeline configuration
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 10000,
+  retries: 3,
+  retryDelay: 1000
+});
 
+// GET request
+const users = await client.get('/users');
+
+// POST request
+const user = await client.post('/users', {
+  name: 'John Doe',
+  email: 'john@example.com'
+});
+
+// PUT request
+const updated = await client.put('/users/1', {
+  name: 'Jane Doe'
+});
+
+// DELETE request
+await client.delete('/users/1');
+```
+
+### StreamClient
+
+Client for streaming data and real-time updates.
+
+```typescript
+import { StreamClient } from '@farm/api-client';
+
+const streamClient = new StreamClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 30000
+});
+
+// Server-sent events
+const eventSource = streamClient.createEventSource('/stream');
+eventSource.onmessage = (event) => {
+  console.log('Received:', event.data);
+};
+
+// WebSocket connection
+const ws = streamClient.createWebSocket('/ws');
+ws.onmessage = (event) => {
+  console.log('WebSocket message:', event.data);
+};
+```
+
+### FileUploadClient
+
+Client for file uploads with progress tracking.
+
+```typescript
+import { FileUploadClient } from '@farm/api-client';
+
+const uploadClient = new FileUploadClient({
+  baseURL: 'http://localhost:8000',
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  allowedTypes: ['image/jpeg', 'image/png', 'application/pdf']
+});
+
+// Single file upload
+const result = await uploadClient.upload('/upload', file, {
+  onProgress: (progress) => {
+    console.log(`Upload progress: ${progress.percentage}%`);
+  }
+});
+
+// Multiple file upload
+const results = await uploadClient.uploadMultiple('/upload', files, {
+  onProgress: (progress) => {
+    console.log(`Upload progress: ${progress.percentage}%`);
+  }
+});
+```
+
+### RetryHandler
+
+Handles retry logic for failed requests.
+
+```typescript
+import { RetryHandler } from '@farm/api-client';
+
+const retryHandler = new RetryHandler({
+  maxRetries: 3,
+  retryDelay: 1000,
+  backoffFactor: 2,
+  retryCondition: (error) => {
+    return error.response?.status >= 500;
+  }
+});
+
+const client = new ApiClient({
+  retryHandler
+});
+```
+
+### ErrorHandler
+
+Comprehensive error handling and transformation.
+
+```typescript
+import { ErrorHandler } from '@farm/api-client';
+
+const errorHandler = new ErrorHandler({
+  transform: (error) => {
+    if (error.response?.status === 404) {
+      return new Error('Resource not found');
+    }
+    return error;
+  },
+  log: true
+});
+
+const client = new ApiClient({
+  errorHandler
+});
+```
+
+## 🔧 Configuration
+
+### Basic Configuration
+
+```typescript
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer token'
+  }
+});
+```
+
+### Advanced Configuration
+
+```typescript
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 10000,
+  retries: 3,
+  retryDelay: 1000,
+  retryCondition: (error) => error.response?.status >= 500,
+  interceptors: {
+    request: (config) => {
+      config.headers.Authorization = `Bearer ${getToken()}`;
+      return config;
+    },
+    response: (response) => {
+      return response;
+    },
+    error: (error) => {
+      if (error.response?.status === 401) {
+        // Handle unauthorized
+        redirectToLogin();
+      }
+      return Promise.reject(error);
+    }
+  }
+});
+```
+
+## 🎯 Advanced Usage
+
+### Custom Interceptors
+
+```typescript
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  interceptors: {
+    request: [
+      (config) => {
+        // Add timestamp
+        config.metadata = { timestamp: Date.now() };
+        return config;
+      },
+      (config) => {
+        // Add request ID
+        config.headers['X-Request-ID'] = generateId();
+        return config;
+      }
+    ],
+    response: [
+      (response) => {
+        // Log response time
+        const duration = Date.now() - response.config.metadata.timestamp;
+        console.log(`Request took ${duration}ms`);
+        return response;
+      }
+    ]
+  }
+});
+```
+
+### Streaming with WebSocket
+
+```typescript
+const streamClient = new StreamClient({
+  baseURL: 'http://localhost:8000'
+});
+
+const ws = streamClient.createWebSocket('/chat', {
+  protocols: ['chat'],
+  onOpen: () => console.log('Connected'),
+  onMessage: (event) => {
+    const data = JSON.parse(event.data);
+    console.log('Message:', data);
+  },
+  onError: (error) => console.error('WebSocket error:', error),
+  onClose: () => console.log('Disconnected')
+});
+
+// Send message
+ws.send(JSON.stringify({
+  type: 'message',
+  content: 'Hello, world!'
+}));
+```
+
+### File Upload with Progress
+
+```typescript
+const uploadClient = new FileUploadClient({
+  baseURL: 'http://localhost:8000'
+});
+
+const uploadFile = async (file: File) => {
+  try {
+    const result = await uploadClient.upload('/upload', file, {
+      onProgress: (progress) => {
+        console.log(`Upload: ${progress.percentage}%`);
+        updateProgressBar(progress.percentage);
+      },
+      onSuccess: (response) => {
+        console.log('Upload successful:', response);
+      },
+      onError: (error) => {
+        console.error('Upload failed:', error);
+      }
+    });
+    return result;
+  } catch (error) {
+    console.error('Upload error:', error);
+  }
+};
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Connection Timeout
+```typescript
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  timeout: 30000, // Increase timeout
+  retries: 3
+});
+```
+
+#### CORS Issues
+```typescript
+const client = new ApiClient({
+  baseURL: 'http://localhost:8000',
+  headers: {
+    'Access-Control-Allow-Origin': '*'
+  }
+});
+```
+
+#### File Upload Issues
+```typescript
+const uploadClient = new FileUploadClient({
+  baseURL: 'http://localhost:8000',
+  maxFileSize: 10 * 1024 * 1024,
+  allowedTypes: ['image/jpeg', 'image/png']
+});
+```
+
+### Getting Help
+
+- **GitHub Issues**: [Report bugs](https://github.com/farm-stack/framework/issues)
+- **Documentation**: [API Client Reference](../docs/reference/api-client/)
+- **Discussions**: [Community help](https://github.com/farm-stack/framework/discussions)
+
+## 🔄 Changelog
+
+### v0.2.0
+- Enhanced retry logic with exponential backoff
+- Improved streaming support
+- Better error handling and transformation
+- Enhanced file upload capabilities
+
+### v0.1.0
+- Initial release with basic HTTP client
+- Axios wrapper with retry logic
+- Basic streaming support
+- File upload functionality
+
+## 📄 License
+
+MIT © FARM Framework

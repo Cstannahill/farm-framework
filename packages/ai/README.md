@@ -1,24 +1,181 @@
 # @farm/ai
 
-This package implements the AI orchestration layer for FARM.  It provides a registry
-for AI providers, configuration management and utilities for running inference or
-streaming responses.
+The FARM Framework AI package provides comprehensive AI integration with support for local Ollama models and cloud providers.
 
-## Structure
+## 🚀 Quick Start
 
-- **index.ts** – re-exports the main classes from `src`.
-- **src/providers/base.ts** – abstract base class used by all AI providers and
-  type definitions for messages, generation requests, models and provider status.
-- **src/config/ai-config.ts** – Zod based schema definitions and the
-  `AIConfigManager` class that loads, validates and normalises AI configuration.
-- **src/errors/error-handler.ts** – rich `AIError` hierarchy and a global
-  `AIErrorHandler` with retry and metrics support.
-- **src/health/health-checker.ts** – performs periodic health checks on
-  registered providers and aggregates metrics.
-- **src/registry/provider-registry.ts** – manages provider instances and handles
-  creation, removal and recovery.
-- **src/index.ts** – high level `AISystem` which ties together the registry,
-  configuration manager, health checker and error handler.
+```bash
+npm install @farm/ai
+```
 
-Use this package to integrate local (Ollama) or cloud providers (OpenAI,
-HuggingFace) and to route requests between them at runtime.
+```typescript
+import { AIOrchestrator } from '@farm/ai';
+
+const ai = new AIOrchestrator({
+  providers: {
+    ollama: {
+      model: 'llama3.2:3b',
+      baseUrl: 'http://localhost:11434'
+    }
+  }
+});
+
+const response = await ai.generate('Hello, how are you?');
+```
+
+## 📋 Core Features
+
+### Multi-Provider Support
+- **Ollama**: Local AI models for zero-cost development
+- **OpenAI**: Cloud-based GPT models
+- **HuggingFace**: Open-source model access
+
+### Streaming Responses
+Real-time streaming of AI responses for better UX.
+
+```typescript
+const stream = await ai.generateStream('Tell me a story');
+for await (const chunk of stream) {
+  console.log(chunk.content);
+}
+```
+
+### Model Management
+- Health checks and monitoring
+- Automatic fallbacks
+- Model listing and management
+
+### Chat Interface
+Built-in chat with conversation management.
+
+```typescript
+import { ChatInterface } from '@farm/ai';
+
+const chat = new ChatInterface({
+  provider: 'ollama',
+  model: 'llama3.2:3b'
+});
+
+await chat.start();
+const response = await chat.sendMessage('Hello!');
+```
+
+## 🏗️ Architecture
+
+```
+@farm/ai
+├── AIOrchestrator         # Main coordination
+├── ProviderManager        # Provider management
+├── OllamaProvider         # Local Ollama integration
+├── OpenAIProvider         # OpenAI API integration
+├── HuggingFaceProvider    # HuggingFace integration
+├── StreamManager          # Streaming support
+├── ChatInterface          # Chat interface
+└── HealthChecker          # Health monitoring
+```
+
+## 📚 API Reference
+
+### AIOrchestrator
+
+Main orchestrator for AI operations.
+
+```typescript
+const ai = new AIOrchestrator({
+  providers: {
+    ollama: { model: 'llama3.2:3b' },
+    openai: { apiKey: process.env.OPENAI_API_KEY }
+  },
+  defaultProvider: 'ollama'
+});
+
+// Generate response
+const response = await ai.generate('Hello!');
+
+// Stream response
+const stream = await ai.generateStream('Hello!');
+```
+
+### Providers
+
+#### OllamaProvider
+```typescript
+const provider = new OllamaProvider({
+  model: 'llama3.2:3b',
+  baseUrl: 'http://localhost:11434'
+});
+
+const response = await provider.generate('Hello!');
+const models = await provider.listModels();
+```
+
+#### OpenAIProvider
+```typescript
+const provider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: 'gpt-4'
+});
+
+const response = await provider.generate('Hello!');
+```
+
+### Chat Interface
+```typescript
+const chat = new ChatInterface({
+  provider: 'ollama',
+  model: 'llama3.2:3b',
+  systemPrompt: 'You are a helpful assistant.'
+});
+
+await chat.start();
+const response = await chat.sendMessage('Hello!');
+const history = chat.getHistory();
+```
+
+## 🔧 Configuration
+
+```typescript
+const ai = new AIOrchestrator({
+  providers: {
+    ollama: {
+      model: 'llama3.2:3b',
+      baseUrl: 'http://localhost:11434',
+      timeout: 30000
+    },
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: 'gpt-4'
+    }
+  },
+  defaultProvider: 'ollama',
+  timeout: 30000,
+  retries: 3,
+  fallback: true
+});
+```
+
+## 🐛 Troubleshooting
+
+### Ollama Issues
+```typescript
+// Check Ollama status
+const health = await provider.checkHealth();
+if (!health.available) {
+  console.error('Ollama not available');
+}
+```
+
+### Model Issues
+```typescript
+// List available models
+const models = await provider.listModels();
+
+// Pull missing model
+if (!models.includes('llama3.2:3b')) {
+  await provider.pullModel('llama3.2:3b');
+}
+```
+
+## 📄 License
+
+MIT © FARM Framework

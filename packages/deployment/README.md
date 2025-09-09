@@ -1,480 +1,559 @@
-# @farm-framework/deployment
+# @farm/deployment
 
-Revolutionary deployment system for FARM applications featuring zero-configuration deployments, intelligent platform detection, real-time monitoring, and beautiful CLI interactions.
+The FARM Framework deployment package provides comprehensive deployment automation and management for FARM applications. It supports multiple deployment platforms, container orchestration, and CI/CD integration.
 
-## 🚀 Features
-
-### Core Capabilities
-
-- **Zero-Configuration Deployment** - Deploy with just `farm deploy`
-- **Intelligent Platform Detection** - Automatically selects the best platform
-- **Cost-Aware Deployment** - Shows estimated costs before deployment
-- **Real-time Progress Tracking** - Beautiful CLI output with live updates
-- **Enterprise-Ready** - Built-in rollback, health monitoring, and analytics
-
-### Supported Platforms
-
-- **Railway** - Perfect for small teams, excellent GPU support
-- **Fly.io** - Global edge deployment, GPU instances available
-- **Vercel** - Optimized for frontend and serverless functions
-- **AWS** - Enterprise-scale deployments (coming soon)
-- **GCP** - AI/ML optimized deployments (coming soon)
-
-### AI-Native Support
-
-- First-class support for Ollama and GPU workloads
-- Automatic model pre-loading and optimization
-- Intelligent AI provider routing (local → cloud)
-- Cost optimization for AI inference
-
-## 📦 Installation
+## 🚀 Quick Start
 
 ```bash
-npm install @farm-framework/deployment
+npm install @farm/deployment
 ```
 
-## 🏃 Quick Start
-
-### Basic Deployment
-
 ```typescript
-import { DeployEngine } from "@farm-framework/deployment";
+import { DeploymentManager } from '@farm/deployment';
 
-const engine = new DeployEngine();
-const result = await engine.deploy({
-  platform: "railway",
-  environment: "production",
+const deployment = new DeploymentManager({
+  platform: 'vercel',
+  config: {
+    projectId: 'my-farm-app',
+    token: process.env.VERCEL_TOKEN
+  }
 });
 
-console.log(`Deployed to: ${result.url}`);
+await deployment.deploy();
 ```
 
-### Intelligent Platform Detection
+## 📋 Core Features
 
-```typescript
-import { PlatformDetector } from "@farm-framework/deployment";
+### Multi-Platform Support
+- **Vercel**: Frontend and full-stack deployment
+- **Railway**: Full-stack deployment with databases
+- **AWS**: Cloud deployment with EC2, ECS, Lambda
+- **Docker**: Container-based deployment
+- **Self-hosted**: On-premises deployment
 
-const detector = new PlatformDetector();
-const recommendation = await detector.detectOptimalPlatform();
+### Container Orchestration
+- Docker containerization
+- Docker Compose for local development
+- Kubernetes deployment manifests
+- Container health checks and monitoring
 
-console.log(`Recommended: ${recommendation.recommended}`);
-console.log(`Cost: ${recommendation.estimatedCost}`);
-console.log(`Reasons: ${recommendation.reasons.join(", ")}`);
-```
+### CI/CD Integration
+- GitHub Actions workflows
+- GitLab CI pipelines
+- Automated testing and deployment
+- Environment-specific configurations
 
-### Cost Estimation
-
-```typescript
-import { CostEstimator } from "@farm-framework/deployment";
-
-const estimator = new CostEstimator();
-const estimate = await estimator.estimate(deploymentPlan);
-
-console.log(`Monthly cost: ${estimate.formatted}`);
-console.log("Breakdown:", estimate.breakdown);
-```
-
-## 🎯 Platform-Specific Features
-
-### Railway Recipe
-
-- Automatic database provisioning
-- Built-in Ollama support with GPU
-- Zero-config HTTPS
-- Instant rollbacks
-- Docker optimization
-
-```typescript
-import { RailwayRecipe } from "@farm-framework/deployment";
-
-const recipe = new RailwayRecipe();
-const config = await recipe.generateConfig(farmConfig);
-const result = await recipe.deploy(deploymentPlan);
-```
-
-### Fly.io Recipe
-
-- Global edge distribution
-- GPU support for AI workloads
-- Automatic region optimization
-- Integrated metrics
-
-```typescript
-import { FlyRecipe } from "@farm-framework/deployment";
-
-const recipe = new FlyRecipe();
-const config = await recipe.generateConfig(farmConfig);
-// Automatically selects optimal regions based on traffic
-```
-
-### Vercel Recipe
-
-- API route optimization
-- Edge function generation
-- Integrated CDN
-- Preview deployments
-
-```typescript
-import { VercelRecipe } from "@farm-framework/deployment";
-
-const recipe = new VercelRecipe();
-// Generates optimized serverless functions for your FastAPI backend
-```
+### Environment Management
+- Development, staging, and production environments
+- Environment-specific configuration
+- Secret management and security
+- Database migration handling
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ FARM Deploy System                                              │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐     │
-│ │ Platform    │ │ Deploy      │ │ Health      │ │ Cost    │     │
-│ │ Detector    │ │ Engine      │ │ Monitor     │ │Estimator│     │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘     │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐     │
-│ │ Recipe      │ │ Container   │ │ Status      │ │Rollback │     │
-│ │ Registry    │ │ Optimizer   │ │ Tracker     │ │ Manager │     │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘     │
-└─────────────────────────────────────────────────────────────────┘
+@farm/deployment
+├── Platforms/
+│   ├── VercelDeployer        # Vercel deployment
+│   ├── RailwayDeployer       # Railway deployment
+│   ├── AWSDeployer           # AWS deployment
+│   ├── DockerDeployer        # Docker deployment
+│   └── SelfHostedDeployer    # Self-hosted deployment
+├── Containers/
+│   ├── DockerBuilder         # Docker image building
+│   ├── ContainerRegistry     # Container registry management
+│   └── ContainerOrchestrator # Container orchestration
+├── CI/
+│   ├── GitHubActions         # GitHub Actions integration
+│   ├── GitLabCI              # GitLab CI integration
+│   └── JenkinsCI             # Jenkins integration
+├── Environments/
+│   ├── EnvironmentManager    # Environment management
+│   ├── ConfigManager         # Configuration management
+│   └── SecretManager         # Secret management
+└── Monitoring/
+    ├── HealthChecker         # Health monitoring
+    ├── LogAggregator         # Log aggregation
+    └── MetricsCollector      # Metrics collection
 ```
 
-## 🔧 Core Components
+## 📚 API Reference
 
-### DeployEngine
+### DeploymentManager
 
-Main orchestrator that handles the complete deployment workflow.
+Main orchestrator for deployment operations.
 
 ```typescript
-import { DeployEngine } from "@farm-framework/deployment";
+import { DeploymentManager } from '@farm/deployment';
 
-const engine = new DeployEngine();
-
-// Event-driven progress tracking
-engine.on("status", (status) => {
-  console.log(`📍 ${status.phase}: ${status.platform}`);
+const deployment = new DeploymentManager({
+  platform: 'vercel',
+  config: {
+    projectId: 'my-farm-app',
+    token: process.env.VERCEL_TOKEN
+  },
+  environments: {
+    development: {
+      url: 'https://dev.my-app.vercel.app'
+    },
+    production: {
+      url: 'https://my-app.vercel.app'
+    }
+  }
 });
 
-engine.on("progress", (progress) => {
-  console.log(`⏳ ${progress.message} (${progress.percent}%)`);
-});
+// Deploy to specific environment
+await deployment.deploy('production');
 
-const result = await engine.deploy(options);
-```
-
-### PlatformDetector
-
-Intelligent platform analysis and recommendation engine.
-
-```typescript
-import { PlatformDetector } from "@farm-framework/deployment";
-
-const detector = new PlatformDetector();
-const analysis = await detector.analyzeProject();
-
-// Scoring algorithm considers:
-// - GPU requirements
-// - Team size and budget
-// - Traffic patterns
-// - Database needs
-// - AI workload requirements
-```
-
-### HealthMonitor
-
-Post-deployment health checking system.
-
-```typescript
-import { HealthMonitor } from "@farm-framework/deployment";
-
-const monitor = new HealthMonitor();
-const health = await monitor.monitorDeployment(deployment);
-
-if (!health.healthy) {
-  // Automatic rollback on critical failures
-  await monitor.triggerRollback(deployment);
-}
-```
-
-### RollbackManager
-
-Snapshot-based rollback system with state preservation.
-
-```typescript
-import { RollbackManager } from "@farm-framework/deployment";
-
-const rollback = new RollbackManager();
-
-// Create deployment snapshot
-const snapshot = await rollback.createSnapshot(deployment);
-
-// Rollback with preserved state
-await rollback.rollback(deploymentId, {
-  snapshotId: snapshot.id,
-  preserveData: true,
+// Deploy with custom configuration
+await deployment.deploy('staging', {
+  buildCommand: 'npm run build:staging',
+  environmentVariables: {
+    NODE_ENV: 'staging'
+  }
 });
 ```
 
-## 🌍 Region Analysis
+### Platform Deployers
 
-Intelligent region selection based on latency, cost, and compliance.
+#### VercelDeployer
+Deploy to Vercel platform.
 
 ```typescript
-import { RegionAnalyzer } from "@farm-framework/deployment";
+import { VercelDeployer } from '@farm/deployment';
 
-const analyzer = new RegionAnalyzer();
-const analysis = await analyzer.selectRegions({
-  primaryMarkets: ["north-america", "europe"],
-  budget: 200,
-  latencyRequirements: "low",
-  dataResidency: ["GDPR"],
+const deployer = new VercelDeployer({
+  projectId: 'my-farm-app',
+  token: process.env.VERCEL_TOKEN,
+  teamId: 'team_123'
 });
 
-console.log("Recommended regions:", analysis.recommended);
-console.log("Cost impact:", analysis.costImpact);
-```
+// Deploy frontend
+await deployer.deployFrontend({
+  buildCommand: 'npm run build',
+  outputDirectory: './dist'
+});
 
-## 💰 Cost Management
-
-Advanced cost estimation and optimization.
-
-```typescript
-import { CostEstimator } from "@farm-framework/deployment";
-
-const estimator = new CostEstimator();
-const estimate = await estimator.estimate(plan);
-
-// Detailed breakdown
-console.log("Compute:", estimate.breakdown.compute);
-console.log("AI costs:", estimate.breakdown.ai);
-console.log("Storage:", estimate.breakdown.storage);
-
-// Optimization suggestions
-estimate.optimization?.forEach((tip) => {
-  console.log(`💡 ${tip}`);
+// Deploy full-stack
+await deployer.deployFullStack({
+  frontend: {
+    buildCommand: 'npm run build',
+    outputDirectory: './dist'
+  },
+  backend: {
+    buildCommand: 'npm run build:api',
+    outputDirectory: './api/dist'
+  }
 });
 ```
 
-## 🏥 Health Monitoring
-
-Comprehensive health checking across all services.
-
-```typescript
-import { HealthMonitor } from "@farm-framework/deployment";
-
-const monitor = new HealthMonitor();
-
-// Built-in checks for:
-// - HTTP endpoints
-// - Database connectivity
-// - AI provider availability
-// - Memory/CPU usage
-// - Response times
-
-const status = await monitor.monitorDeployment(deployment);
-```
-
-## 🔄 Error Handling
-
-Intelligent error diagnosis with actionable solutions.
+#### RailwayDeployer
+Deploy to Railway platform.
 
 ```typescript
-import { DeployErrorHandler } from "@farm-framework/deployment";
+import { RailwayDeployer } from '@farm/deployment';
 
-const handler = new DeployErrorHandler();
-const diagnosis = await handler.diagnose(error);
-
-console.log("Problem:", diagnosis.problem);
-console.log("Solution:", diagnosis.solution);
-console.log("Commands:", diagnosis.commands);
-```
-
-## 📊 Analytics
-
-Deployment metrics and success tracking.
-
-```typescript
-import { DeploymentAnalytics } from "@farm-framework/deployment";
-
-const analytics = new DeploymentAnalytics();
-await analytics.trackDeployment(result);
-
-// Tracks:
-// - Success rates by platform
-// - Deployment duration
-// - Cost trends
-// - Error patterns
-// - Platform performance
-```
-
-## 🐳 Docker Optimization
-
-Intelligent container optimization for each platform.
-
-```typescript
-import { DockerfileOptimizer } from "@farm-framework/deployment";
-
-const optimizer = new DockerfileOptimizer();
-const dockerfile = await optimizer.generate({
-  base: "production",
-  platform: "railway",
-  features: ["ai", "auth"],
-  aiProviders: ["ollama", "openai"],
+const deployer = new RailwayDeployer({
+  projectId: 'my-farm-app',
+  token: process.env.RAILWAY_TOKEN
 });
 
-// Optimizations include:
-// - Multi-stage builds
-// - Layer caching
-// - Security hardening
-// - Platform-specific tuning
+// Deploy with database
+await deployer.deploy({
+  services: [
+    {
+      name: 'frontend',
+      buildCommand: 'npm run build',
+      startCommand: 'npm start'
+    },
+    {
+      name: 'backend',
+      buildCommand: 'npm run build:api',
+      startCommand: 'npm run start:api'
+    },
+    {
+      name: 'database',
+      type: 'postgresql',
+      plan: 'hobby'
+    }
+  ]
+});
 ```
 
-## 🎨 CLI Integration
+#### DockerDeployer
+Deploy using Docker containers.
 
-Beautiful CLI interactions with real-time progress.
+```typescript
+import { DockerDeployer } from '@farm/deployment';
 
-```bash
-# Zero-config deployment
-farm deploy
+const deployer = new DockerDeployer({
+  registry: 'my-registry.com',
+  username: 'my-username',
+  password: process.env.REGISTRY_PASSWORD
+});
 
-# Interactive wizard
-farm deploy --wizard
+// Build and push Docker image
+await deployer.buildAndPush({
+  dockerfile: './Dockerfile',
+  context: '.',
+  tags: ['my-app:latest', 'my-app:v1.0.0']
+});
 
-# Cost estimation
-farm deploy --cost
+// Deploy to Docker Swarm
+await deployer.deployToSwarm({
+  stackName: 'my-app',
+  composeFile: './docker-compose.yml'
+});
+```
 
-# Platform-specific
-farm deploy railway --gpu
-farm deploy vercel --regions us-east-1,eu-west-1
-farm deploy fly --strategy canary
+### Container Management
 
-# Management
-farm deploy list
-farm deploy status my-app-prod
-farm deploy rollback my-app-prod
+#### DockerBuilder
+Build Docker images with optimization.
+
+```typescript
+import { DockerBuilder } from '@farm/deployment';
+
+const builder = new DockerBuilder({
+  registry: 'my-registry.com',
+  cache: true,
+  multiStage: true
+});
+
+// Build optimized image
+await builder.build({
+  dockerfile: './Dockerfile',
+  context: '.',
+  tags: ['my-app:latest'],
+  buildArgs: {
+    NODE_ENV: 'production'
+  },
+  target: 'production'
+});
+```
+
+#### ContainerRegistry
+Manage container registries.
+
+```typescript
+import { ContainerRegistry } from '@farm/deployment';
+
+const registry = new ContainerRegistry({
+  url: 'my-registry.com',
+  username: 'my-username',
+  password: process.env.REGISTRY_PASSWORD
+});
+
+// Push image
+await registry.push('my-app:latest');
+
+// Pull image
+await registry.pull('my-app:latest');
+
+// List images
+const images = await registry.listImages();
+```
+
+### CI/CD Integration
+
+#### GitHubActions
+Generate GitHub Actions workflows.
+
+```typescript
+import { GitHubActions } from '@farm/deployment';
+
+const actions = new GitHubActions({
+  repository: 'my-org/my-farm-app',
+  token: process.env.GITHUB_TOKEN
+});
+
+// Generate workflow
+await actions.generateWorkflow({
+  name: 'Deploy to Production',
+  triggers: ['push'],
+  branches: ['main'],
+  steps: [
+    {
+      name: 'Build',
+      run: 'npm run build'
+    },
+    {
+      name: 'Deploy',
+      run: 'farm deploy production'
+    }
+  ]
+});
+```
+
+#### GitLabCI
+Generate GitLab CI pipelines.
+
+```typescript
+import { GitLabCI } from '@farm/deployment';
+
+const gitlab = new GitLabCI({
+  projectId: '12345',
+  token: process.env.GITLAB_TOKEN
+});
+
+// Generate pipeline
+await gitlab.generatePipeline({
+  stages: ['build', 'test', 'deploy'],
+  jobs: [
+    {
+      stage: 'build',
+      script: ['npm run build']
+    },
+    {
+      stage: 'deploy',
+      script: ['farm deploy production']
+    }
+  ]
+});
+```
+
+### Environment Management
+
+#### EnvironmentManager
+Manage deployment environments.
+
+```typescript
+import { EnvironmentManager } from '@farm/deployment';
+
+const manager = new EnvironmentManager({
+  environments: {
+    development: {
+      url: 'https://dev.my-app.com',
+      database: 'mongodb://localhost:27017/dev'
+    },
+    staging: {
+      url: 'https://staging.my-app.com',
+      database: 'mongodb://staging:27017/staging'
+    },
+    production: {
+      url: 'https://my-app.com',
+      database: 'mongodb://prod:27017/prod'
+    }
+  }
+});
+
+// Get environment configuration
+const config = manager.getEnvironment('production');
+
+// Deploy to environment
+await manager.deploy('staging', {
+  buildCommand: 'npm run build:staging'
+});
+```
+
+#### ConfigManager
+Manage environment-specific configurations.
+
+```typescript
+import { ConfigManager } from '@farm/deployment';
+
+const configManager = new ConfigManager({
+  configPath: './config',
+  environments: ['development', 'staging', 'production']
+});
+
+// Load environment configuration
+const config = await configManager.loadConfig('production');
+
+// Update configuration
+await configManager.updateConfig('staging', {
+  apiUrl: 'https://staging-api.my-app.com',
+  databaseUrl: 'mongodb://staging:27017/staging'
+});
+```
+
+#### SecretManager
+Manage secrets and sensitive data.
+
+```typescript
+import { SecretManager } from '@farm/deployment';
+
+const secretManager = new SecretManager({
+  provider: 'aws-secrets-manager',
+  region: 'us-east-1'
+});
+
+// Store secret
+await secretManager.storeSecret('database-password', 'secret123');
+
+// Retrieve secret
+const password = await secretManager.getSecret('database-password');
+
+// Update secret
+await secretManager.updateSecret('api-key', 'new-api-key');
 ```
 
 ## 🔧 Configuration
 
-Configure deployment behavior in your `farm.config.ts`:
+### Basic Configuration
 
 ```typescript
-export default {
-  name: "my-farm-app",
-  template: "ai-chat",
-  features: ["ai", "auth", "realtime"],
+const deployment = new DeploymentManager({
+  platform: 'vercel',
+  config: {
+    projectId: 'my-farm-app',
+    token: process.env.VERCEL_TOKEN
+  }
+});
+```
 
-  deployment: {
-    defaultPlatform: "railway",
-    defaultRegion: "us-east-1",
+### Advanced Configuration
 
-    environments: {
-      production: {
-        platform: "railway",
-        strategy: "canary",
-        replicas: 3,
-        domains: ["myapp.com"],
-      },
-      staging: {
-        platform: "fly",
-        strategy: "rolling",
-        replicas: 1,
-      },
-    },
-
-    platforms: {
-      railway: {
-        services: [
-          {
-            name: "ollama",
-            source: { type: "template", template: "ollama-gpu" },
-          },
-        ],
-      },
-    },
-
-    rollback: {
-      enabled: true,
-      maxSnapshots: 10,
-      autoSnapshot: true,
-    },
+```typescript
+const deployment = new DeploymentManager({
+  platform: 'vercel',
+  config: {
+    projectId: 'my-farm-app',
+    token: process.env.VERCEL_TOKEN,
+    teamId: 'team_123'
   },
-};
+  environments: {
+    development: {
+      url: 'https://dev.my-app.vercel.app',
+      buildCommand: 'npm run build:dev'
+    },
+    staging: {
+      url: 'https://staging.my-app.vercel.app',
+      buildCommand: 'npm run build:staging'
+    },
+    production: {
+      url: 'https://my-app.vercel.app',
+      buildCommand: 'npm run build:prod'
+    }
+  },
+  monitoring: {
+    enabled: true,
+    healthChecks: true,
+    metrics: true
+  }
+});
 ```
 
-## 🎯 Why Revolutionary?
+## 🎯 Advanced Usage
 
-### Zero-Configuration Magic
-
-Unlike other deployment tools that require extensive setup, FARM Deploy analyzes your project and configures everything automatically.
+### Custom Deployment Strategy
 
 ```typescript
-// This is all you need for most deployments
-const result = await deploy();
+import { DeploymentManager } from '@farm/deployment';
+
+class CustomDeployer extends DeploymentManager {
+  async deploy(environment: string, options?: DeployOptions) {
+    // Custom deployment logic
+    console.log(`Deploying to ${environment}...`);
+    
+    // Build application
+    await this.build(options);
+    
+    // Run tests
+    await this.test();
+    
+    // Deploy to platform
+    await this.deployToPlatform(environment, options);
+    
+    // Run health checks
+    await this.healthCheck(environment);
+    
+    console.log(`Deployment to ${environment} completed!`);
+  }
+}
 ```
 
-### Platform Intelligence
-
-First framework to automatically recommend the optimal platform based on your specific needs.
+### Multi-Environment Deployment
 
 ```typescript
-// Analyzes your project characteristics:
-// - AI requirements → Recommends GPU-enabled platforms
-// - Team size → Suggests cost-effective options
-// - Traffic patterns → Optimizes for global distribution
-// - Database type → Ensures compatibility
+const deployment = new DeploymentManager({
+  platform: 'vercel',
+  config: { projectId: 'my-farm-app' }
+});
+
+// Deploy to multiple environments
+const environments = ['development', 'staging', 'production'];
+
+for (const env of environments) {
+  try {
+    await deployment.deploy(env);
+    console.log(`✅ Deployed to ${env}`);
+  } catch (error) {
+    console.error(`❌ Failed to deploy to ${env}:`, error);
+  }
+}
 ```
 
-### Cost Transparency
-
-Know exactly what you'll pay before deploying, with optimization suggestions.
+### Blue-Green Deployment
 
 ```typescript
-// See costs upfront with detailed breakdown
-const estimate = await estimateCost(plan);
-console.log(`This deployment will cost ${estimate.monthly}/month`);
+const deployment = new DeploymentManager({
+  platform: 'aws',
+  config: { region: 'us-east-1' }
+});
+
+// Blue-green deployment
+await deployment.blueGreenDeploy({
+  serviceName: 'my-farm-app',
+  newVersion: 'v2.0.0',
+  healthCheckPath: '/health',
+  rollbackOnFailure: true
+});
 ```
 
-### AI-Native Design
+## 🐛 Troubleshooting
 
-First deployment system designed specifically for AI applications.
+### Common Issues
 
+#### Deployment Failures
 ```typescript
-// Automatic Ollama deployment with GPU support
-// Intelligent model pre-loading
-// Cost-optimized AI provider routing
-// GPU instance optimization
+// Check deployment status
+const status = await deployment.getStatus('production');
+console.log('Deployment status:', status);
+
+// Check logs
+const logs = await deployment.getLogs('production');
+console.log('Deployment logs:', logs);
 ```
 
-## 📈 Performance
+#### Environment Issues
+```typescript
+// Validate environment configuration
+const isValid = await deployment.validateEnvironment('production');
+if (!isValid) {
+  console.error('Invalid environment configuration');
+}
+```
 
-- **Deployment Speed**: 60% faster than manual setup
-- **Cost Optimization**: Average 40% cost reduction through intelligent recommendations
-- **Success Rate**: 99.5% deployment success rate with automatic rollback
-- **Time to Deploy**: From code to production in under 5 minutes
+#### Secret Management Issues
+```typescript
+// Check secret availability
+const secret = await secretManager.getSecret('database-password');
+if (!secret) {
+  console.error('Secret not found');
+}
+```
 
-## 🔒 Security
+### Getting Help
 
-- Automatic security hardening for containers
-- Encrypted secrets management
-- Compliance-aware region selection
-- Zero-trust networking configuration
+- **GitHub Issues**: [Report bugs](https://github.com/farm-stack/framework/issues)
+- **Documentation**: [Deployment Reference](../docs/reference/deployment/)
+- **Discussions**: [Community help](https://github.com/farm-stack/framework/discussions)
 
-## 🤝 Contributing
+## 🔄 Changelog
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details on how to contribute to the FARM deployment system.
+### v0.2.0
+- Added multi-platform deployment support
+- Enhanced container orchestration
+- Improved CI/CD integration
+- Added environment management
+
+### v0.1.0
+- Initial release with basic deployment
+- Docker support
+- Vercel integration
+- Basic CI/CD workflows
 
 ## 📄 License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
-
-## 🆘 Support
-
-- 📖 [Documentation](https://farm-framework.dev/docs/deployment)
-- 💬 [Discord Community](https://discord.gg/farm-framework)
-- 🐛 [Issue Tracker](https://github.com/farm-framework/farm/issues)
-- 📧 [Email Support](mailto:support@farm-framework.dev)
-
----
-
-**Ready to deploy?** Start with `farm deploy` and experience the future of application deployment! 🚀
+MIT © FARM Framework

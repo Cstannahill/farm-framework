@@ -1,139 +1,203 @@
 # @farm/types
 
-## Overview
+The FARM Framework types package provides shared TypeScript definitions for configuration, CLI options, database models, authentication, and plugin hooks.
 
-Shared TypeScript definitions used across the FARM framework. These
-interfaces describe everything from the `farm.config.ts` configuration
-file to CLI options, database schemas and plugin hooks. All packages
-in the monorepo depend on this library for a single source of truth.
-
-## ✅ Completed Implementation
-
-### Core Modules
-
-1. **Configuration Types** (`config.ts`)
-   - Describes the full `FarmConfig` structure including AI, database,
-     build and plugin sections.
-2. **CLI Types** (`cli.ts`)
-   - Option objects and runtime context used by the CLI commands.
-3. **AI Types** (`ai.ts`)
-   - Provider definitions, chat message formats and model metadata.
-4. **Database Types** (`database.ts`)
-   - Connection settings and schema helper interfaces.
-5. **Template Types** (`templates.ts`)
-   - Project template descriptors used by generators and validators.
-6. **Build Types** (`build.ts`)
-   - Build result objects and bundle analysis structures.
-7. **Error Types** (`errors.ts`)
-   - Common error shapes shared across tooling.
-8. **Auth Types** (`auth.ts`)
-   - Roles, permissions, user models and session payloads.
-9. **Plugin Types** (`plugins.ts`)
-   - Plugin definition, configuration schema and lifecycle hooks.
-10. **Core Helpers** (`core.ts`)
-    - Minimal interfaces for the framework core.
-11. **Barrel Export** (`index.ts`)
-    - Re-exports all modules for easy consumption.
-
-## Architecture
-
-```
-┌────────────────────────────────────────────┐
-│                @farm/types                 │
-├────────────────────────────────────────────┤
-│  config   ai     database   cli            │
-│  auth     templates  build   plugins       │
-│  errors   core                                │
-└────────────────────────────────────────────┘
-```
-
-All modules are compiled to CommonJS and ES modules in `dist/`. Type
-Declarations live under `dist/ts` and are generated via `tsc`.
-
-## Features Implemented
-
-- Unified type definitions for all FARM packages
-- Strongly typed `farm.config.ts` with database and AI configuration
-- Typed interfaces for CLI commands and plugin systems
-- Database schema modelling utilities
-- AI provider and chat structures
-- Template descriptors for project generators
-- Build artefact and analysis reporting
-- Shared error and authentication models
-
-## Usage
-
-### Build Commands
-
-```bash
-# Compile TypeScript and bundle
-pnpm run --filter @farm/types build:bundle
-
-# Watch mode for development
-pnpm run --filter @farm/types build:watch
-
-# Type checking only
-pnpm run --filter @farm/types type-check
-
-# Clean build output
-pnpm run --filter @farm/types clean
-```
-
-### Installation
-
-This package is consumed internally by other FARM packages. It can also
-be installed standalone:
+## 🚀 Quick Start
 
 ```bash
 npm install @farm/types
 ```
 
-## Next Steps
+```typescript
+import { 
+  FarmConfig, 
+  TemplateContext, 
+  AIProviderConfig,
+  DatabaseConfig 
+} from '@farm/types';
 
-- Continue refining configuration and plugin schemas
-- Add more granular database field types and validations
-- Expand build metrics for future tooling
-
-## Files Structure
-
-```text
-types
-├── README.md
-├── package.json
-├── package.json.bak
-├── src
-│   ├── ai.ts
-│   ├── auth.ts
-│   ├── build.ts
-│   ├── cli.ts
-│   ├── config.ts
-│   ├── core.ts
-│   ├── database.ts
-│   ├── errors.ts
-│   ├── index.ts
-│   ├── plugins.ts
-│   └── templates.ts
-├── tsconfig.json
-└── tsup.config.ts
+const config: FarmConfig = {
+  projectName: 'my-app',
+  ai: {
+    providers: {
+      ollama: {
+        model: 'llama3.2:3b'
+      }
+    }
+  }
+};
 ```
 
-## Integration
+## 📋 Core Features
 
-`@farm/types` is imported by the CLI, core runtime, template validator
-and development server packages. Keeping the types here ensures a single
-source of truth across the entire framework.
+### Configuration Types
+- **FarmConfig**: Main framework configuration
+- **TemplateContext**: Template generation context
+- **EnvironmentConfig**: Environment-specific settings
+- **BuildConfig**: Build and deployment configuration
 
-## File Overview
+### AI Types
+- **AIProviderConfig**: AI provider configuration
+- **AIModel**: AI model definitions
+- **AIResponse**: AI response types
+- **StreamingConfig**: Streaming configuration
 
-- **src/config.ts** – main `FarmConfig` definition.
-- **src/ai.ts** – AI provider and chat message types.
-- **src/database.ts** – database schema helpers.
-- **src/cli.ts** – CLI option interfaces.
-- **src/templates.ts** – template and scaffold structures.
-- **src/build.ts** – build artefact reporting.
-- **src/errors.ts** – common error shapes.
-- **src/auth.ts** – authentication and user models.
-- **src/plugins.ts** – plugin system contracts.
-- **src/core.ts** – core framework interfaces.
-- **src/index.ts** – barrel exports.
+### Database Types
+- **DatabaseConfig**: Database configuration
+- **ConnectionConfig**: Connection settings
+- **MigrationConfig**: Migration configuration
 
+### Authentication Types
+- **AuthConfig**: Authentication configuration
+- **UserModel**: User model definitions
+- **SessionConfig**: Session management
+- **RBACConfig**: Role-based access control
+
+### CLI Types
+- **CLIOptions**: CLI command options
+- **CommandConfig**: Command configuration
+- **TemplateOptions**: Template generation options
+
+## 📚 API Reference
+
+### FarmConfig
+Main framework configuration interface.
+
+```typescript
+import { FarmConfig } from '@farm/types';
+
+const config: FarmConfig = {
+  projectName: 'my-farm-app',
+  version: '1.0.0',
+  environment: 'development',
+  
+  ai: {
+    providers: {
+      ollama: {
+        model: 'llama3.2:3b',
+        baseUrl: 'http://localhost:11434'
+      }
+    },
+    defaultProvider: 'ollama',
+    streaming: true
+  },
+  
+  database: {
+    type: 'mongodb',
+    url: 'mongodb://localhost:27017/my-app'
+  }
+};
+```
+
+### AIProviderConfig
+AI provider configuration.
+
+```typescript
+import { AIProviderConfig } from '@farm/types';
+
+const ollamaConfig: AIProviderConfig = {
+  type: 'ollama',
+  model: 'llama3.2:3b',
+  baseUrl: 'http://localhost:11434',
+  timeout: 30000
+};
+
+const openaiConfig: AIProviderConfig = {
+  type: 'openai',
+  apiKey: process.env.OPENAI_API_KEY,
+  model: 'gpt-4'
+};
+```
+
+### DatabaseConfig
+Database configuration.
+
+```typescript
+import { DatabaseConfig } from '@farm/types';
+
+const dbConfig: DatabaseConfig = {
+  type: 'mongodb',
+  url: 'mongodb://localhost:27017/my-app',
+  options: {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  }
+};
+```
+
+### AuthConfig
+Authentication configuration.
+
+```typescript
+import { AuthConfig } from '@farm/types';
+
+const authConfig: AuthConfig = {
+  type: 'session',
+  session: {
+    secret: process.env.SESSION_SECRET,
+    maxAge: 86400000
+  },
+  rbac: {
+    enabled: true,
+    roles: ['admin', 'user', 'guest']
+  }
+};
+```
+
+### TemplateContext
+Template generation context.
+
+```typescript
+import { TemplateContext } from '@farm/types';
+
+const context: TemplateContext = {
+  projectName: 'my-app',
+  template: 'ai-chat',
+  features: ['auth', 'ai'],
+  database: 'postgresql'
+};
+```
+
+## 🔧 Usage
+
+### Type Guards
+```typescript
+import { AIProviderConfig } from '@farm/types';
+
+function isOllamaProvider(config: AIProviderConfig): config is OllamaProviderConfig {
+  return config.type === 'ollama';
+}
+```
+
+### Generic Types
+```typescript
+import { AIResponse } from '@farm/types';
+
+interface ResponseWrapper<T> {
+  data: T;
+  status: 'success' | 'error';
+  timestamp: Date;
+}
+
+const aiResponse: ResponseWrapper<AIResponse> = {
+  data: response,
+  status: 'success',
+  timestamp: new Date()
+};
+```
+
+### Type Extensions
+```typescript
+import { FarmConfig } from '@farm/types';
+
+interface CustomFarmConfig extends FarmConfig {
+  custom: {
+    feature: string;
+    enabled: boolean;
+  };
+}
+```
+
+## 📄 License
+
+MIT © FARM Framework

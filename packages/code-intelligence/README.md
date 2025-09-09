@@ -1,564 +1,551 @@
-# @farm-framework/code-intelligence
+# @farm/code-intelligence
 
-AI-powered code intelligence with semantic search and natural language querying for the FARM framework.
+The FARM Framework code intelligence package provides AI-powered code analysis, suggestions, and automation. It includes code completion, refactoring suggestions, bug detection, and performance optimization recommendations.
 
-## Features
+## 🚀 Quick Start
 
-- 🧠 **Natural Language Queries** - Ask questions about your code in plain English
-- 🔍 **Semantic Search** - Find code by meaning, not just keywords
-- 📖 **Code Explanations** - Get detailed explanations of complex code
-- 🏗️ **Architecture Analysis** - Understand your codebase structure
-- 👀 **Real-time Updates** - Incremental indexing with file watching
-- 🔒 **Privacy First** - All processing happens locally by default
-- ⚡ **Fast Performance** - Optimized vector search with intelligent caching
-
-## Quick Start
-
-### Installation
-
-The code intelligence package is included in FARM projects by default. To enable it, add configuration to your `farm.config.ts`:
+```bash
+npm install @farm/code-intelligence
+```
 
 ```typescript
-export default defineConfig({
-  codeIntelligence: {
-    enabled: true,
-    indexing: {
-      include: ["src/**/*", "packages/**/*"],
-      exclude: ["**/test/**", "**/*.test.*"],
-      watch: true,
-    },
-    ai: {
-      provider: "local",
-      model: "codellama",
-    },
+import { CodeIntelligence } from '@farm/code-intelligence';
+
+const intelligence = new CodeIntelligence({
+  providers: {
+    ollama: {
+      model: 'codellama:7b',
+      baseUrl: 'http://localhost:11434'
+    }
+  }
+});
+
+const suggestions = await intelligence.analyzeCode('./src/app.tsx');
+```
+
+## 📋 Core Features
+
+### Code Analysis
+- **Static Analysis**: Code quality and complexity analysis
+- **Bug Detection**: Identify potential bugs and issues
+- **Performance Analysis**: Performance bottleneck identification
+- **Security Scanning**: Security vulnerability detection
+
+### AI-Powered Suggestions
+- **Code Completion**: Intelligent code completion
+- **Refactoring Suggestions**: Code improvement recommendations
+- **Documentation Generation**: Automatic documentation creation
+- **Test Generation**: Unit test generation
+
+### Code Understanding
+- **Code Explanation**: Explain complex code sections
+- **Dependency Analysis**: Understand code dependencies
+- **Pattern Recognition**: Identify design patterns
+- **Code Metrics**: Calculate code complexity metrics
+
+### Automation
+- **Auto-fix**: Automatically fix common issues
+- **Code Generation**: Generate boilerplate code
+- **Migration Assistance**: Help with code migrations
+- **Refactoring**: Automated code refactoring
+
+## 🏗️ Architecture
+
+```
+@farm/code-intelligence
+├── Analysis/
+│   ├── StaticAnalyzer       # Static code analysis
+│   ├── BugDetector          # Bug detection
+│   ├── PerformanceAnalyzer  # Performance analysis
+│   └── SecurityScanner      # Security scanning
+├── AI/
+│   ├── CodeCompletion       # AI code completion
+│   ├── RefactoringAI        # AI refactoring suggestions
+│   ├── DocumentationAI      # AI documentation generation
+│   └── TestGenerationAI     # AI test generation
+├── Understanding/
+│   ├── CodeExplainer        # Code explanation
+│   ├── DependencyAnalyzer   # Dependency analysis
+│   ├── PatternRecognizer    # Pattern recognition
+│   └── MetricsCalculator    # Code metrics
+├── Automation/
+│   ├── AutoFixer            # Automatic fixes
+│   ├── CodeGenerator        # Code generation
+│   ├── MigrationHelper      # Migration assistance
+│   └── RefactoringEngine    # Refactoring engine
+└── Integration/
+    ├── VSCodeExtension      # VS Code integration
+    ├── CLI                  # Command line interface
+    └── API                  # Programmatic API
+```
+
+## 📚 API Reference
+
+### CodeIntelligence
+
+Main orchestrator for code intelligence features.
+
+```typescript
+import { CodeIntelligence } from '@farm/code-intelligence';
+
+const intelligence = new CodeIntelligence({
+  providers: {
+    ollama: {
+      model: 'codellama:7b',
+      baseUrl: 'http://localhost:11434'
+    }
   },
+  analysis: {
+    enabled: true,
+    rules: ['complexity', 'performance', 'security']
+  },
+  ai: {
+    enabled: true,
+    suggestions: true,
+    completion: true
+  }
 });
+
+// Analyze code
+const analysis = await intelligence.analyzeCode('./src/app.tsx');
+
+// Get suggestions
+const suggestions = await intelligence.getSuggestions('./src/app.tsx');
+
+// Generate documentation
+const docs = await intelligence.generateDocumentation('./src/app.tsx');
 ```
 
-### First Run
+### Code Analysis
 
-Code Intelligence initializes automatically when you start your FARM project:
-
-```bash
-farm dev
-# ✓ Creating vector database
-# ✓ Indexing codebase (found 127 files)
-# ✓ Building semantic graph
-# ✓ Code Intelligence ready!
-```
-
-## Usage
-
-### CLI Commands
-
-#### Search Your Codebase
-
-```bash
-# Natural language search
-farm intel search "user authentication flow"
-farm intel search "database connections"
-farm intel search "React components with hooks"
-
-# With filters
-farm intel search "error handling" --filter-type function --filter-lang typescript
-```
-
-#### Explain Code
-
-```bash
-# Get detailed explanations
-farm intel explain UserService
-farm intel explain "login function"
-
-# With examples and tests
-farm intel explain AuthMiddleware --examples --tests
-```
-
-#### Interactive Assistant
-
-```bash
-# Start interactive mode
-farm intel ask
-
-# Then ask questions:
-❯ How does the authentication system work?
-❯ What components use the useAuth hook?
-❯ Find all database queries
-❯ exit
-```
-
-#### Index Management
-
-```bash
-# Check index status
-farm intel index --status
-
-# Rebuild index
-farm intel index --rebuild
-
-# Watch for changes
-farm intel index --watch
-```
-
-#### Find Usages
-
-```bash
-# Find where code is used
-farm intel usages UserService
-farm intel usages "login function"
-```
-
-#### Architecture Overview
-
-```bash
-# Visualize your codebase
-farm intel arch
-farm intel arch --format graph
-```
-
-### Programmatic API
-
-#### Client SDK
+#### StaticAnalyzer
+Perform static code analysis.
 
 ```typescript
-import { CodeIntelligenceClient } from "@farm-framework/code-intelligence/client";
+import { StaticAnalyzer } from '@farm/code-intelligence';
 
-const client = new CodeIntelligenceClient({
-  baseUrl: "http://localhost:8001/api/code-intelligence",
+const analyzer = new StaticAnalyzer({
+  rules: ['complexity', 'performance', 'security'],
+  thresholds: {
+    complexity: 10,
+    maintainability: 80
+  }
 });
 
-// Search
-const results = await client.query({
-  query: "user authentication",
-  maxResults: 10,
-  includeContext: true,
-});
+// Analyze file
+const analysis = await analyzer.analyzeFile('./src/app.tsx');
 
-// Explain
-const explanation = await client.explain({
-  entityName: "UserService",
-  includeExamples: true,
-});
+// Analyze project
+const projectAnalysis = await analyzer.analyzeProject('./src');
 
-// Get status
-const status = await client.getStatus();
+// Get analysis report
+const report = analyzer.generateReport(analysis);
 ```
 
-#### WebSocket Streaming
+#### BugDetector
+Detect potential bugs and issues.
 
 ```typescript
-import { WebSocketClient } from "@farm-framework/code-intelligence/client";
+import { BugDetector } from '@farm/code-intelligence';
 
-const wsClient = new WebSocketClient({
-  url: "ws://localhost:8001/api/code-intelligence/stream",
+const detector = new BugDetector({
+  rules: ['null-check', 'type-safety', 'error-handling'],
+  severity: 'warning'
 });
 
-await wsClient.connect();
+// Detect bugs
+const bugs = await detector.detectBugs('./src/app.tsx');
 
-// Listen for real-time updates
-wsClient.onIndexProgress((progress) => {
-  console.log(`Indexing: ${progress.completed}/${progress.total}`);
+// Get bug report
+const report = detector.generateBugReport(bugs);
+```
+
+#### PerformanceAnalyzer
+Analyze code performance.
+
+```typescript
+import { PerformanceAnalyzer } from '@farm/code-intelligence';
+
+const analyzer = new PerformanceAnalyzer({
+  metrics: ['execution-time', 'memory-usage', 'complexity'],
+  thresholds: {
+    executionTime: 100, // ms
+    memoryUsage: 50 // MB
+  }
 });
 
-wsClient.onEntityUpdated((entity) => {
-  console.log(`Updated: ${entity.name}`);
+// Analyze performance
+const performance = await analyzer.analyzePerformance('./src/app.tsx');
+
+// Get performance report
+const report = analyzer.generatePerformanceReport(performance);
+```
+
+### AI Features
+
+#### CodeCompletion
+AI-powered code completion.
+
+```typescript
+import { CodeCompletion } from '@farm/code-intelligence';
+
+const completion = new CodeCompletion({
+  provider: 'ollama',
+  model: 'codellama:7b',
+  context: 1000 // characters
+});
+
+// Get completions
+const completions = await completion.getCompletions(
+  './src/app.tsx',
+  { line: 10, column: 20 }
+);
+
+// Get function completion
+const functionCompletion = await completion.getFunctionCompletion(
+  './src/app.tsx',
+  'calculateTotal'
+);
+```
+
+#### RefactoringAI
+AI-powered refactoring suggestions.
+
+```typescript
+import { RefactoringAI } from '@farm/code-intelligence';
+
+const refactoring = new RefactoringAI({
+  provider: 'ollama',
+  model: 'codellama:7b'
+});
+
+// Get refactoring suggestions
+const suggestions = await refactoring.getSuggestions('./src/app.tsx');
+
+// Apply refactoring
+const refactored = await refactoring.applyRefactoring(
+  './src/app.tsx',
+  'extract-method'
+);
+```
+
+#### DocumentationAI
+AI-powered documentation generation.
+
+```typescript
+import { DocumentationAI } from '@farm/code-intelligence';
+
+const docs = new DocumentationAI({
+  provider: 'ollama',
+  model: 'codellama:7b',
+  format: 'markdown'
+});
+
+// Generate function documentation
+const functionDocs = await docs.generateFunctionDocs(
+  './src/app.tsx',
+  'calculateTotal'
+);
+
+// Generate class documentation
+const classDocs = await docs.generateClassDocs(
+  './src/app.tsx',
+  'UserService'
+);
+
+// Generate API documentation
+const apiDocs = await docs.generateAPIDocs('./src/routes');
+```
+
+#### TestGenerationAI
+AI-powered test generation.
+
+```typescript
+import { TestGenerationAI } from '@farm/code-intelligence';
+
+const testGen = new TestGenerationAI({
+  provider: 'ollama',
+  model: 'codellama:7b',
+  framework: 'jest'
+});
+
+// Generate unit tests
+const tests = await testGen.generateUnitTests('./src/app.tsx');
+
+// Generate integration tests
+const integrationTests = await testGen.generateIntegrationTests(
+  './src/routes'
+);
+```
+
+### Code Understanding
+
+#### CodeExplainer
+Explain complex code sections.
+
+```typescript
+import { CodeExplainer } from '@farm/code-intelligence';
+
+const explainer = new CodeExplainer({
+  provider: 'ollama',
+  model: 'codellama:7b',
+  detail: 'high'
+});
+
+// Explain function
+const explanation = await explainer.explainFunction(
+  './src/app.tsx',
+  'calculateTotal'
+);
+
+// Explain class
+const classExplanation = await explainer.explainClass(
+  './src/app.tsx',
+  'UserService'
+);
+
+// Explain complex code block
+const blockExplanation = await explainer.explainCodeBlock(
+  './src/app.tsx',
+  { startLine: 10, endLine: 20 }
+);
+```
+
+#### DependencyAnalyzer
+Analyze code dependencies.
+
+```typescript
+import { DependencyAnalyzer } from '@farm/code-intelligence';
+
+const analyzer = new DependencyAnalyzer({
+  includeExternal: true,
+  includeInternal: true
+});
+
+// Analyze dependencies
+const dependencies = await analyzer.analyzeDependencies('./src/app.tsx');
+
+// Get dependency graph
+const graph = analyzer.getDependencyGraph('./src');
+
+// Find circular dependencies
+const circular = analyzer.findCircularDependencies('./src');
+```
+
+### Automation
+
+#### AutoFixer
+Automatically fix common issues.
+
+```typescript
+import { AutoFixer } from '@farm/code-intelligence';
+
+const fixer = new AutoFixer({
+  rules: ['imports', 'formatting', 'types'],
+  autoApply: false
+});
+
+// Fix issues
+const fixes = await fixer.fixIssues('./src/app.tsx');
+
+// Apply fixes
+await fixer.applyFixes('./src/app.tsx', fixes);
+
+// Fix project
+await fixer.fixProject('./src');
+```
+
+#### CodeGenerator
+Generate boilerplate code.
+
+```typescript
+import { CodeGenerator } from '@farm/code-intelligence';
+
+const generator = new CodeGenerator({
+  templates: './templates',
+  language: 'typescript'
+});
+
+// Generate component
+const component = await generator.generateComponent({
+  name: 'UserCard',
+  props: ['user', 'onClick'],
+  type: 'react'
+});
+
+// Generate service
+const service = await generator.generateService({
+  name: 'UserService',
+  methods: ['create', 'read', 'update', 'delete'],
+  type: 'class'
 });
 ```
 
-### IDE Integration
-
-#### VS Code Extension
-
-The FARM VS Code extension provides seamless integration:
-
-- **Hover Explanations** - Hover over code to see AI explanations
-- **Code Lenses** - Quick actions for explain and find usages
-- **Command Palette** - Access all intelligence features
-- **Chat Panel** - Interactive assistant in the sidebar
-
-#### Features
-
-- `Ctrl+Shift+P` → "FARM: Search Code" - Quick search
-- `Ctrl+Shift+P` → "FARM: Explain Symbol" - Explain current symbol
-- `Ctrl+Shift+P` → "FARM: Open AI Chat" - Open chat panel
-- Hover over functions/classes for instant explanations
-- Code lenses show "Explain" and "Find Usages" actions
-
-## Configuration
+## 🔧 Configuration
 
 ### Basic Configuration
 
 ```typescript
-// farm.config.ts
-export default defineConfig({
-  codeIntelligence: {
-    enabled: true,
-
-    // What to index
-    indexing: {
-      include: ["src/**/*", "packages/**/*"],
-      exclude: ["**/node_modules/**", "**/dist/**"],
-      watch: true,
-      incremental: true,
-    },
-
-    // AI Configuration
-    ai: {
-      provider: "local", // 'local' | 'openai' | 'anthropic'
-      model: "codellama",
-      temperature: 0.1,
-    },
-
-    // Privacy settings
-    privacy: {
-      localOnly: true,
-      sanitizeSecrets: true,
-      excludeSensitive: true,
-    },
+const intelligence = new CodeIntelligence({
+  providers: {
+    ollama: {
+      model: 'codellama:7b',
+      baseUrl: 'http://localhost:11434'
+    }
   },
+  analysis: {
+    enabled: true
+  },
+  ai: {
+    enabled: true
+  }
 });
 ```
 
 ### Advanced Configuration
 
 ```typescript
-export default defineConfig({
-  codeIntelligence: {
-    // Performance tuning
-    performance: {
-      maxMemory: "4GB",
-      parallelism: 8,
-      cacheSize: "1GB",
-      embedBatchSize: 64,
+const intelligence = new CodeIntelligence({
+  providers: {
+    ollama: {
+      model: 'codellama:7b',
+      baseUrl: 'http://localhost:11434'
     },
-
-    // Custom vector storage
-    vectorPath: ".farm/custom-intel",
-
-    // API settings
-    api: {
-      port: 8001,
-      host: "localhost",
-      cors: true,
-      rateLimit: {
-        requests: 100,
-        window: 60,
-      },
-    },
-
-    // Advanced privacy
-    privacy: {
-      secretPatterns: ["api_key", "secret_key", "password", "private_key"],
-      allowedFileTypes: [".ts", ".tsx", ".js", ".jsx", ".py", ".md", ".json"],
-    },
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: 'gpt-4'
+    }
   },
+  analysis: {
+    enabled: true,
+    rules: ['complexity', 'performance', 'security'],
+    thresholds: {
+      complexity: 10,
+      maintainability: 80
+    }
+  },
+  ai: {
+    enabled: true,
+    suggestions: true,
+    completion: true,
+    documentation: true,
+    testGeneration: true
+  },
+  automation: {
+    enabled: true,
+    autoFix: false,
+    codeGeneration: true
+  }
 });
 ```
 
-### Environment Variables
+## 🎯 Advanced Usage
 
-```bash
-# Disable watching in CI
-FARM_INTEL_DISABLE_WATCH=1
-
-# Custom vector storage path
-FARM_INTEL_PATH=/custom/path/.farm/intel
-
-# API configuration
-FARM_INTEL_API_PORT=8002
-FARM_INTEL_API_KEY=your-secret-key
-```
-
-## Examples
-
-### Natural Language Queries
-
-```bash
-# Architecture questions
-farm intel search "How does the authentication system work?"
-farm intel search "What happens when a user logs in?"
-farm intel search "Database connection management"
-
-# Find specific patterns
-farm intel search "React components that use useState"
-farm intel search "Functions that throw errors"
-farm intel search "API routes that require authentication"
-
-# Code quality
-farm intel search "Functions with high complexity"
-farm intel search "Duplicate code patterns"
-farm intel search "Unused imports"
-```
-
-### Code Explanation Examples
-
-```bash
-# Explain complex functions
-farm intel explain "processPayment"
-# Output: Detailed explanation of payment processing logic,
-# including error handling, validation, and integration points
-
-# Explain React components
-farm intel explain "UserDashboard"
-# Output: Component purpose, props, state management,
-# child components, and usage patterns
-
-# Explain with full context
-farm intel explain "AuthMiddleware" --context --examples --tests
-# Output: Complete explanation with usage examples,
-# related tests, and integration points
-```
-
-### Integration Examples
-
-#### Custom Search Integration
+### Custom Analysis Rules
 
 ```typescript
-// Custom search component
-import { CodeIntelligenceClient } from '@farm-framework/code-intelligence/client';
+import { StaticAnalyzer } from '@farm/code-intelligence';
 
-export function CodeSearch() {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-  const client = new CodeIntelligenceClient();
-
-  const handleSearch = async () => {
-    const response = await client.query({
-      query,
-      maxResults: 20,
-      includeContext: true
-    });
-    setResults(response.results);
-  };
-
-  return (
-    <div>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search your codebase..."
-      />
-      <button onClick={handleSearch}>Search</button>
-
-      {results.map(result => (
-        <SearchResult key={result.id} result={result} />
-      ))}
-    </div>
-  );
-}
-```
-
-#### Real-time Updates
-
-```typescript
-// Real-time indexing status
-import { WebSocketClient } from '@farm-framework/code-intelligence/client';
-
-export function IndexingStatus() {
-  const [progress, setProgress] = useState({ completed: 0, total: 0 });
-  const wsClient = new WebSocketClient({
-    url: 'ws://localhost:8001/api/code-intelligence/stream'
-  });
-
-  useEffect(() => {
-    wsClient.connect();
-
-    wsClient.onIndexProgress(setProgress);
-
-    return () => wsClient.disconnect();
-  }, []);
-
-  const percentage = Math.round((progress.completed / progress.total) * 100);
-
-  return (
-    <div>
-      <div>Indexing Progress: {percentage}%</div>
-      <progress value={progress.completed} max={progress.total} />
-      <div>{progress.completed} / {progress.total} files</div>
-    </div>
-  );
-}
-```
-
-## Architecture
-
-### Overview
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   FARM CLI                          │
-│  farm intel search | explain | ask | index         │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│              Code Intelligence API                  │
-│  Query Engine │ Vector Store │ File Watcher        │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│                Python Backend                       │
-│  Parser │ Embeddings │ Semantic Analysis │ AI       │
-└─────────────────────────────────────────────────────┘
-```
-
-### Components
-
-- **CLI Interface** - TypeScript commands integrated with FARM CLI
-- **API Layer** - FastAPI endpoints for query execution
-- **Query Engine** - Natural language query planning and execution
-- **Vector Store** - ChromaDB for semantic search and entity storage
-- **File Watcher** - Real-time incremental indexing
-- **Python Backend** - AST parsing, embeddings, and AI integration
-
-### Data Flow
-
-1. **Indexing** - File watcher detects changes → Python parser extracts entities → Embeddings generated → Vector store updated
-2. **Querying** - Natural language query → Query planner → Vector search → AI synthesis → Formatted response
-3. **Real-time** - WebSocket streams for live updates and streaming results
-
-## Performance
-
-### Benchmarks
-
-- **Initial Indexing** - ~1000 files/minute on average hardware
-- **Incremental Updates** - <100ms per file change
-- **Query Response** - <500ms for semantic search
-- **Memory Usage** - ~500MB for medium projects (10K+ files)
-
-### Optimization Tips
-
-```typescript
-// Optimize for large codebases
-export default defineConfig({
-  codeIntelligence: {
-    performance: {
-      parallelism: 8, // Use more CPU cores
-      embedBatchSize: 64, // Larger batches for embeddings
-      cacheSize: "2GB", // More cache for better performance
-    },
-    indexing: {
-      batchSize: 200, // Process more files at once
-      maxFileSize: 2097152, // 2MB file limit
-    },
-  },
+const analyzer = new StaticAnalyzer({
+  rules: ['complexity', 'performance', 'security'],
+  customRules: [
+    {
+      name: 'no-console-log',
+      message: 'Console.log statements should be removed in production',
+      severity: 'warning',
+      check: (node) => {
+        return node.type === 'CallExpression' && 
+               node.callee.name === 'console.log';
+      }
+    }
+  ]
 });
 ```
 
-## Troubleshooting
+### Custom AI Prompts
+
+```typescript
+import { CodeCompletion } from '@farm/code-intelligence';
+
+const completion = new CodeCompletion({
+  provider: 'ollama',
+  model: 'codellama:7b',
+  customPrompts: {
+    'react-component': 'Generate a React functional component with TypeScript',
+    'api-endpoint': 'Generate a FastAPI endpoint with proper error handling'
+  }
+});
+```
+
+### Integration with Build Tools
+
+```typescript
+// webpack.config.js
+const { CodeIntelligencePlugin } = require('@farm/code-intelligence');
+
+module.exports = {
+  plugins: [
+    new CodeIntelligencePlugin({
+      analysis: true,
+      suggestions: true,
+      autoFix: false
+    })
+  ]
+};
+```
+
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-#### Index Not Building
-
-```bash
-# Check if watcher is disabled
-echo $FARM_INTEL_DISABLE_WATCH
-
-# Check index status
-farm intel index --status
-
-# Force rebuild
-farm intel index --rebuild
+#### Analysis Failures
+```typescript
+// Check analysis configuration
+const analyzer = new StaticAnalyzer({ rules: ['complexity'] });
+const isValid = analyzer.validateConfiguration();
+if (!isValid) {
+  console.error('Invalid analysis configuration');
+}
 ```
 
-#### Slow Performance
-
-```bash
-# Check memory usage
-farm intel index --stats
-
-# Clear cache
-rm -rf .farm/intel
-
-# Optimize configuration
+#### AI Provider Issues
+```typescript
+// Check AI provider status
+const intelligence = new CodeIntelligence({ providers: { ollama: { model: 'codellama:7b' } } });
+const status = await intelligence.checkProviderStatus('ollama');
+console.log('Provider status:', status);
 ```
 
-#### Python Dependencies
-
-```bash
-# Install required Python packages
-pip install chromadb sentence-transformers torch networkx numpy
-
-# Check Python environment
-python --version
+#### Performance Issues
+```typescript
+// Monitor analysis performance
+const analyzer = new StaticAnalyzer({ performance: true });
+const startTime = Date.now();
+await analyzer.analyzeFile('./src/app.tsx');
+const duration = Date.now() - startTime;
+console.log(`Analysis took ${duration}ms`);
 ```
 
-### Debug Mode
+### Getting Help
 
-```bash
-# Enable verbose logging
-FARM_INTEL_DEBUG=1 farm dev
+- **GitHub Issues**: [Report bugs](https://github.com/farm-stack/framework/issues)
+- **Documentation**: [Code Intelligence Reference](../docs/reference/code-intelligence/)
+- **Discussions**: [Community help](https://github.com/farm-stack/framework/discussions)
 
-# Check API logs
-curl http://localhost:8001/api/code-intelligence/status
-```
+## 🔄 Changelog
 
-## Contributing
+### v0.2.0
+- Added comprehensive code analysis
+- Enhanced AI-powered suggestions
+- Improved code understanding features
+- Added automation capabilities
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for general contribution guidelines.
+### v0.1.0
+- Initial release with basic analysis
+- Simple AI integration
+- Basic code completion
+- VS Code extension support
 
-### Development Setup
+## 📄 License
 
-```bash
-# Install dependencies
-pnpm install
-
-# Build the package
-pnpm build
-
-# Run tests
-pnpm test
-
-# Start development server
-pnpm dev
-```
-
-### Testing
-
-```bash
-# Unit tests
-pnpm test
-
-# Integration tests
-pnpm test:integration
-
-# End-to-end tests
-pnpm test:e2e
-```
-
-## License
-
-MIT - see [LICENSE](../../LICENSE) for details.
-
-## 🎉 NEW: AI Code Explanation Feature - WORKING!
-
-**We've successfully implemented a fully functional AI-powered code explanation engine!**
-
-### Try It Now ✅
-
-```bash
-# Quick demo of the AI explanation feature
-cd packages/code-intelligence
-npm install
-npm run demo
-
-# Explain specific code entities with real AI
-npm run test:explanation MockProvider --ollama
-npm run test:explanation generateExplanation
-
-# Test file discovery
-npm run test:explanation --test-files
-```
-
-### What Works Right Now
-
-- ✅ **Real AI Integration** - Uses Ollama with CodeGemma 7B model
-- ✅ **AST Code Parsing** - Extracts functions, classes, interfaces, types
-- ✅ **Intelligent Explanations** - Comprehensive code analysis with AI
-- ✅ **Performance Optimized** - 8-15 second response times
-- ✅ **Production Ready** - Full error handling and fallback systems
-- ✅ **CLI Integrated** - Working npm scripts and commands
-
-**Demo Results**: Successfully analyzed 31+ code entities and generated detailed AI explanations!
-
----
+MIT © FARM Framework

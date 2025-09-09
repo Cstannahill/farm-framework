@@ -1,744 +1,502 @@
-# FARM Observability Package
+# @farm/observability
 
-## Overview
+The FARM Framework observability package provides comprehensive monitoring, logging, and telemetry capabilities for FARM applications. It includes metrics collection, log aggregation, distributed tracing, and performance monitoring.
 
-The FARM Observability Package provides enterprise-grade observability, telemetry, and cost tracking for AI-powered applications. With zero-configuration setup, predictive cost analytics, and intelligent optimization suggestions, it makes monitoring and optimizing AI applications effortless and automatic.
-
-## ✅ Completed Implementation
-
-### Core Components
-
-1. **Auto-Instrumentation System** (`core/auto-instrumentor.ts`)
-
-   - Zero-configuration telemetry that "just works" out of the box
-   - Auto-detects AI providers and instruments calls automatically
-   - Captures request/response data, tokens, costs, and performance metrics
-   - Supports HTTP, gRPC, and AI call instrumentation
-   - Monkey-patches AI provider libraries for seamless integration
-
-2. **Zero-Config Setup** (`core/zero-config.ts`)
-
-   - Intelligent environment detection (development vs production)
-   - Automatic provider selection based on environment
-   - Smart defaults that work for 90% of use cases
-   - Beautiful console output for development mode
-   - Production-ready telemetry configuration
-
-3. **Cost Tracking System** (`cost/`)
-
-   - **Calculator** (`calculator.ts`): Real-time cost calculation for all AI providers
-   - **Predictor** (`predictor.ts`): Predictive analytics to prevent budget overruns
-   - **Optimizer** (`optimizer.ts`): Intelligent optimization suggestions with concrete savings
-   - **Analyzer** (`analyzer.ts`): Historical cost analysis and trend detection
-
-4. **Provider System** (`providers/`)
-
-   - **Base Provider** (`base.ts`): Abstract base class for all telemetry providers
-   - **Console Provider** (`console.ts`): Beautiful development-mode output
-   - **Uptrace Provider** (`uptrace.ts`): Production OpenTelemetry integration
-   - **Custom Provider** (`custom.ts`): Extensible custom provider support
-
-5. **Smart Alert Engine** (`alerts/`)
-
-   - **Engine** (`engine.ts`): Intelligent alert system with AI-powered rules
-   - **Rules** (`rules.ts`): Smart detection for cost spikes, quota limits, and anomalies
-   - **Channels** (`channels.ts`): Multi-channel notifications (Slack, email, webhooks)
-
-6. **Export System** (`exporters/`)
-
-   - **Console Exporters** (`console.ts`): Beautiful terminal output for spans and metrics
-   - **CSV Exporter** (`csv.ts`): Business-ready cost and usage reports
-   - **Dashboard Exporter** (`dashboard.ts`): Web dashboard data preparation
-   - **PDF Exporter** (`pdf.ts`): Executive summary reports and cost analysis PDFs
-
-7. **UI Components** (`ui/`)
-   - **Dashboard** (`dashboard/Dashboard.tsx`): Real-time observability dashboard
-   - **Components**: Reusable UI components for metrics visualization
-   - **Hooks**: React hooks for observability data integration
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                FARM Observability Platform                     │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐   │
-│ │    Auto     │ │ Telemetry   │ │    Cost     │ │  Smart  │   │
-│ │Instrumentor │ │ Collector   │ │  Analyzer   │ │Optimizer│   │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘   │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐   │
-│ │ Real-time   │ │ Predictive  │ │    Alert    │ │ Export  │   │
-│ │ Dashboard   │ │ Analytics   │ │   Engine    │ │ Reports │   │
-│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Features Implemented
-
-### ✅ Zero-Configuration Observability
-
-- **Auto-Discovery**: Automatically detects AI providers from `farm.config.ts`
-- **Smart Defaults**: Works out of the box with sensible configuration
-- **Environment Awareness**: Development vs production mode detection
-- **Graceful Fallbacks**: Continues working even if optional components fail
-- **Beautiful Output**: Color-coded console output for development
-
-### ✅ Comprehensive Cost Tracking
-
-- **Real-Time Calculation**: Live cost tracking for all AI API calls
-- **Provider Support**: OpenAI, Anthropic, Ollama, and custom providers
-- **Token Accounting**: Detailed prompt/completion token breakdown
-- **Currency Support**: Multi-currency cost tracking and conversion
-- **Historical Analysis**: Cost trends and usage pattern analysis
-
-### ✅ Predictive Analytics
-
-- **Budget Projection**: Predict monthly costs based on current usage
-- **Anomaly Detection**: Identify unusual spending patterns
-- **Threshold Alerts**: Proactive warnings before budget limits
-- **Seasonality Analysis**: Detect and account for usage patterns
-- **Confidence Intervals**: Statistical confidence in predictions
-
-### ✅ Smart Optimization
-
-- **Batching Suggestions**: Identify opportunities to batch API calls
-- **Model Recommendations**: Suggest more cost-effective model alternatives
-- **Caching Opportunities**: Detect repeated requests for caching
-- **Usage Optimization**: Analyze request patterns for efficiency
-- **Concrete Savings**: Quantified potential cost reductions
-
-### ✅ Advanced Provider System
-
-- **Pluggable Architecture**: Easy integration with any telemetry backend
-- **OpenTelemetry Standards**: Full OTEL compatibility
-- **Custom Providers**: Extensible system for proprietary solutions
-- **Multi-Provider**: Support for multiple providers simultaneously
-- **Graceful Degradation**: Continues working if providers fail
-
-### ✅ Intelligent Alerting
-
-- **Smart Rules**: AI-powered alert logic that learns from patterns
-- **Multi-Channel**: Slack, email, webhook notifications
-- **Rate Limiting**: Prevents alert spam with intelligent throttling
-- **Contextual Alerts**: Rich context and actionable recommendations
-- **Custom Rules**: Flexible rule engine for specific requirements
-
-### ✅ Professional PDF Reports
-
-- **Executive Summaries**: High-level cost and performance overviews for stakeholders
-- **Detailed Cost Reports**: Comprehensive analysis with provider and model breakdowns
-- **Optimization Reports**: Actionable recommendations with implementation roadmaps
-- **Customizable Formats**: A4, A3, Letter paper formats with professional themes
-- **Rich Content**: Charts, graphs, insights, and technical appendices
-- **Automated Generation**: Scheduled or on-demand report generation
-
-## Installation
+## 🚀 Quick Start
 
 ```bash
-npm install @farm-framework/observability
+npm install @farm/observability
 ```
 
-## Quick Start
-
-### Zero-Configuration Setup
-
-The simplest way to get started - observability will auto-initialize:
-
 ```typescript
-// Just import and use your AI providers - observability happens automatically!
-import { openai } from "@farm-framework/ai";
+import { ObservabilityManager } from '@farm/observability';
 
-// This call will be automatically instrumented
-const response = await openai.chat.completions.create({
-  model: "gpt-4",
-  messages: [{ role: "user", content: "Hello!" }],
+const observability = new ObservabilityManager({
+  metrics: { enabled: true },
+  logging: { enabled: true },
+  tracing: { enabled: true }
 });
 
-// Cost, performance, and usage data captured automatically
+// Start monitoring
+await observability.start();
 ```
 
-### Manual Setup
+## 📋 Core Features
 
-For more control over configuration:
+### Metrics Collection
+- Application performance metrics
+- AI model usage and performance
+- Database query metrics
+- System resource monitoring
+
+### Logging
+- Structured JSON logging
+- Log aggregation and analysis
+- Error tracking and alerting
+- Performance logging
+
+### Distributed Tracing
+- Request flow tracking
+- Performance profiling
+- Error correlation
+- Service dependency mapping
+
+### Performance Monitoring
+- Real-time performance metrics
+- Bottleneck identification
+- Resource usage tracking
+- Alerting and notifications
+
+## 🏗️ Architecture
+
+```
+@farm/observability
+├── Metrics/
+│   ├── MetricsCollector       # Metrics collection
+│   ├── PerformanceMonitor     # Performance monitoring
+│   └── SystemMonitor          # System resource monitoring
+├── Logging/
+│   ├── Logger                 # Structured logging
+│   ├── LogAggregator          # Log aggregation
+│   └── ErrorTracker           # Error tracking
+├── Tracing/
+│   ├── Tracer                 # Distributed tracing
+│   ├── SpanManager            # Span management
+│   └── TraceAnalyzer          # Trace analysis
+├── Alerting/
+│   ├── AlertManager           # Alert management
+│   ├── NotificationService    # Notification delivery
+│   └── ThresholdMonitor       # Threshold monitoring
+└── Exporters/
+    ├── PrometheusExporter     # Prometheus metrics
+    ├── JaegerExporter         # Jaeger tracing
+    └── ElasticsearchExporter  # Elasticsearch logging
+```
+
+## 📚 API Reference
+
+### ObservabilityManager
+
+Main orchestrator for observability features.
 
 ```typescript
-import { setupObservability } from "@farm-framework/observability";
+import { ObservabilityManager } from '@farm/observability';
 
-// Initialize with custom configuration
-await setupObservability({
-  enabled: true,
-  provider: "console", // Use console output for development
-  costTracking: {
+const observability = new ObservabilityManager({
+  metrics: {
     enabled: true,
-    currency: "USD",
-    thresholds: {
-      daily: 25, // Alert at $25/day
-      monthly: 500, // Alert at $500/month
-    },
+    interval: 30000,
+    exporters: ['prometheus']
   },
+  logging: {
+    enabled: true,
+    level: 'info',
+    format: 'json'
+  },
+  tracing: {
+    enabled: true,
+    sampleRate: 0.1,
+    exporters: ['jaeger']
+  }
+});
+
+await observability.start();
+```
+
+### Metrics
+
+#### MetricsCollector
+Collect and export application metrics.
+
+```typescript
+import { MetricsCollector } from '@farm/observability';
+
+const collector = new MetricsCollector({
+  namespace: 'farm_app',
+  labels: { service: 'api' }
+});
+
+// Counter metric
+const requestCounter = collector.createCounter('requests_total', {
+  help: 'Total number of requests',
+  labelNames: ['method', 'endpoint']
+});
+
+// Histogram metric
+const requestDuration = collector.createHistogram('request_duration_seconds', {
+  help: 'Request duration in seconds',
+  buckets: [0.1, 0.5, 1, 2, 5]
+});
+
+// Gauge metric
+const activeConnections = collector.createGauge('active_connections', {
+  help: 'Number of active connections'
+});
+
+// Record metrics
+requestCounter.inc({ method: 'GET', endpoint: '/users' });
+requestDuration.observe(0.5);
+activeConnections.set(42);
+```
+
+#### PerformanceMonitor
+Monitor application performance.
+
+```typescript
+import { PerformanceMonitor } from '@farm/observability';
+
+const monitor = new PerformanceMonitor({
+  enabled: true,
+  interval: 1000,
+  thresholds: {
+    cpu: 80,
+    memory: 85,
+    responseTime: 1000
+  }
+});
+
+// Monitor function execution
+const result = await monitor.measure('user_creation', async () => {
+  return await createUser(userData);
+});
+
+// Monitor AI operations
+const aiResult = await monitor.measureAI('llama3.2:3b', async () => {
+  return await ai.generate('Hello, world!');
+});
+```
+
+### Logging
+
+#### Logger
+Structured logging with different levels.
+
+```typescript
+import { Logger } from '@farm/observability';
+
+const logger = new Logger({
+  level: 'info',
+  format: 'json',
+  output: './logs',
+  rotation: true
+});
+
+// Log messages
+logger.info('User created', { userId: 123, email: 'user@example.com' });
+logger.warn('Deprecated API used', { endpoint: '/old-api' });
+logger.error('Database connection failed', { error: 'Connection timeout' });
+
+// Log with context
+logger.withContext({ requestId: 'req-123' }).info('Processing request');
+```
+
+#### ErrorTracker
+Track and analyze errors.
+
+```typescript
+import { ErrorTracker } from '@farm/observability';
+
+const tracker = new ErrorTracker({
+  enabled: true,
+  sampleRate: 1.0,
+  grouping: true
+});
+
+// Track error
+tracker.trackError(new Error('Database connection failed'), {
+  context: 'user_creation',
+  userId: 123,
+  requestId: 'req-123'
+});
+
+// Track AI errors
+tracker.trackAIError(error, {
+  provider: 'ollama',
+  model: 'llama3.2:3b',
+  prompt: 'Hello, world!'
+});
+```
+
+### Tracing
+
+#### Tracer
+Distributed tracing for request flow tracking.
+
+```typescript
+import { Tracer } from '@farm/observability';
+
+const tracer = new Tracer({
+  serviceName: 'farm-api',
+  sampleRate: 0.1,
+  exporters: ['jaeger']
+});
+
+// Create span
+const span = tracer.startSpan('user_creation');
+span.setTag('user.id', 123);
+span.setTag('user.email', 'user@example.com');
+
+try {
+  const user = await createUser(userData);
+  span.setTag('user.created', true);
+  span.finish();
+} catch (error) {
+  span.setTag('error', true);
+  span.setTag('error.message', error.message);
+  span.finish();
+}
+```
+
+#### SpanManager
+Manage spans and trace context.
+
+```typescript
+import { SpanManager } from '@farm/observability';
+
+const spanManager = new SpanManager();
+
+// Create child span
+const parentSpan = tracer.startSpan('parent_operation');
+const childSpan = spanManager.createChildSpan(parentSpan, 'child_operation');
+
+// Set span context
+spanManager.setContext({
+  userId: 123,
+  requestId: 'req-123'
+});
+
+// Get current span
+const currentSpan = spanManager.getCurrentSpan();
+```
+
+### Alerting
+
+#### AlertManager
+Manage alerts and notifications.
+
+```typescript
+import { AlertManager } from '@farm/observability';
+
+const alertManager = new AlertManager({
+  enabled: true,
+  channels: ['email', 'slack'],
+  rules: [
+    {
+      name: 'high_error_rate',
+      condition: 'error_rate > 0.05',
+      duration: '5m',
+      severity: 'critical'
+    }
+  ]
+});
+
+// Create alert
+alertManager.createAlert('high_error_rate', {
+  message: 'Error rate is above threshold',
+  severity: 'critical',
+  labels: { service: 'api' }
+});
+```
+
+## 🔧 Configuration
+
+### Basic Configuration
+
+```typescript
+const observability = new ObservabilityManager({
+  metrics: {
+    enabled: true,
+    interval: 30000
+  },
+  logging: {
+    enabled: true,
+    level: 'info'
+  },
+  tracing: {
+    enabled: true,
+    sampleRate: 0.1
+  }
 });
 ```
 
 ### Advanced Configuration
 
 ```typescript
-import {
-  FarmAutoInstrumentor,
-  ConsoleProvider,
-  UptraceProvider,
-} from "@farm-framework/observability";
-
-const instrumentor = FarmAutoInstrumentor.getInstance();
-
-instrumentor.setup({
-  provider:
-    process.env.NODE_ENV === "production"
-      ? new UptraceProvider({ endpoint: process.env.UPTRACE_DSN })
-      : new ConsoleProvider({ pretty: true }),
-
-  costTracking: {
+const observability = new ObservabilityManager({
+  metrics: {
     enabled: true,
-    currency: "USD",
-    providers: {
-      openai: { apiKey: process.env.OPENAI_API_KEY },
-      anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
-    },
+    interval: 30000,
+    exporters: ['prometheus'],
+    prometheus: {
+      port: 9090,
+      path: '/metrics'
+    }
   },
-
-  alerts: {
-    channels: {
-      slack: process.env.SLACK_WEBHOOK,
-      email: process.env.ALERT_EMAIL,
-    },
-    rules: "smart", // Use AI-powered alert rules
-  },
-});
-```
-
-## Usage Examples
-
-### Cost Analysis
-
-```typescript
-import { CostCalculator, CostPredictor } from "@farm-framework/observability";
-
-// Calculate costs for specific usage
-const cost = CostCalculator.calculate("openai", "gpt-4", {
-  promptTokens: 100,
-  completionTokens: 150,
-});
-
-// Get cost predictions
-const predictor = new CostPredictor();
-const prediction = await predictor.predictMonthlyCost();
-
-console.log(`Predicted monthly cost: $${prediction.estimated}`);
-console.log(
-  `Confidence range: $${prediction.confidence.low} - $${prediction.confidence.high}`
-);
-```
-
-### Smart Optimization
-
-```typescript
-import { CostOptimizer } from "@farm-framework/observability";
-
-const optimizer = new CostOptimizer();
-const analysis = await optimizer.analyzeUsage();
-
-console.log("Optimization Suggestions:");
-analysis.suggestions.forEach((suggestion) => {
-  console.log(`- ${suggestion.description}`);
-  console.log(`  Potential savings: $${suggestion.estimatedSavings}/month`);
-  console.log(`  Implementation: ${suggestion.implementation.suggested}`);
-});
-```
-
-### Dashboard Integration
-
-```typescript
-import { ObservabilityDashboard } from '@farm-framework/observability';
-
-// Add dashboard to your React app
-function App() {
-  return (
-    <div>
-      <h1>My AI Application</h1>
-      <ObservabilityDashboard />
-    </div>
-  );
-}
-```
-
-### Custom Alerts
-
-```typescript
-import { SmartAlertEngine } from "@farm-framework/observability";
-
-const alertEngine = new SmartAlertEngine();
-
-// Add custom alert rule
-alertEngine.addRule({
-  name: "high_error_rate",
-  condition: (metrics) => metrics.errorRate > 0.05, // 5% error rate
-  action: async (alert) => {
-    await fetch(process.env.SLACK_WEBHOOK, {
-      method: "POST",
-      body: JSON.stringify({
-        text: `🚨 High error rate detected: ${alert.metrics.errorRate * 100}%`,
-      }),
-    });
-  },
-});
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Basic configuration
-FARM_OBSERVABILITY=enabled           # Enable/disable observability
-FARM_SERVICE_NAME=my-ai-app         # Service name for telemetry
-FARM_TELEMETRY_PROVIDER=console     # Provider: console, uptrace, custom
-
-# Cost tracking
-FARM_COST_CURRENCY=USD              # Currency for cost calculations
-FARM_COST_DAILY_LIMIT=25            # Daily spending limit
-FARM_COST_MONTHLY_LIMIT=500         # Monthly spending limit
-
-# Alerts
-SLACK_WEBHOOK=https://...           # Slack webhook for alerts
-ALERT_EMAIL=admin@example.com       # Email for alerts
-UPTRACE_DSN=https://...             # Uptrace endpoint for production
-```
-
-### Configuration File (`farm.config.ts`)
-
-```typescript
-export default defineConfig({
-  observability: {
+  logging: {
     enabled: true,
-    provider: "console", // 'console' | 'uptrace' | 'custom'
-
-    costTracking: {
-      enabled: true,
-      currency: "USD",
-      thresholds: {
-        hourly: 5,
-        daily: 25,
-        monthly: 500,
-      },
-      quotas: {
-        daily: 30,
-        monthly: 600,
-      },
-    },
-
-    alerts: {
-      enabled: true,
-      channels: {
-        slack: process.env.SLACK_WEBHOOK,
-        email: process.env.ALERT_EMAIL,
-      },
-      rules: {
-        costSpike: true,
-        quotaApproaching: true,
-        errorRate: true,
-        customRules: [],
-      },
-    },
-
-    providers: {
-      development: {
-        type: "console",
-        pretty: true,
-        colors: true,
-      },
-      production: {
-        type: "uptrace",
-        endpoint: process.env.UPTRACE_DSN,
-        sampling: 0.1, // 10% sampling for production
-      },
-    },
+    level: 'info',
+    format: 'json',
+    output: './logs',
+    rotation: true,
+    maxSize: '100MB',
+    maxFiles: 5
   },
-});
-```
-
-## CLI Integration
-
-When integrated with FARM CLI:
-
-```bash
-# View real-time dashboard
-farm observe
-
-# Show cost summary
-farm observe --costs
-
-# Get optimization suggestions
-farm observe --optimize
-
-# Export monthly report
-farm observe --export pdf
-
-# Stream real-time metrics
-farm observe --tail
-
-# Test alert configuration
-farm observe --alert-test
-```
-
-## Provider System
-
-### Built-in Providers
-
-#### Console Provider (Development)
-
-```typescript
-import { ConsoleProvider } from "@farm-framework/observability";
-
-const provider = new ConsoleProvider({
-  pretty: true, // Beautiful colored output
-  colors: true, // Enable colors
-  timestamps: true, // Show timestamps
-  verbose: false, // Detailed debugging
-});
-```
-
-#### Uptrace Provider (Production)
-
-```typescript
-import { UptraceProvider } from "@farm-framework/observability";
-
-const provider = new UptraceProvider({
-  endpoint: process.env.UPTRACE_DSN,
-  projectId: "1",
-  sampling: 0.1, // 10% sampling
-  compression: true, // Enable compression
-});
-```
-
-#### Custom Provider
-
-```typescript
-import { BaseProvider } from "@farm-framework/observability";
-
-class MyCustomProvider extends BaseProvider {
-  async sendTelemetry(data: TelemetryData): Promise<void> {
-    // Send to your custom backend
-    await this.httpClient.post("/telemetry", data);
+  tracing: {
+    enabled: true,
+    sampleRate: 0.1,
+    exporters: ['jaeger'],
+    jaeger: {
+      endpoint: 'http://localhost:14268/api/traces'
+    }
+  },
+  alerting: {
+    enabled: true,
+    channels: ['email', 'slack'],
+    rules: [
+      {
+        name: 'high_error_rate',
+        condition: 'error_rate > 0.05',
+        duration: '5m',
+        severity: 'critical'
+      }
+    ]
   }
+});
+```
 
-  async sendCostData(data: CostData): Promise<void> {
-    // Send cost data to your system
-    await this.httpClient.post("/costs", data);
-  }
+## 🎯 Advanced Usage
+
+### Custom Metrics
+
+```typescript
+import { MetricsCollector } from '@farm/observability';
+
+const collector = new MetricsCollector({
+  namespace: 'farm_app'
+});
+
+// Custom AI metrics
+const aiRequestCounter = collector.createCounter('ai_requests_total', {
+  help: 'Total AI requests',
+  labelNames: ['provider', 'model', 'status']
+});
+
+const aiResponseTime = collector.createHistogram('ai_response_time_seconds', {
+  help: 'AI response time',
+  buckets: [0.1, 0.5, 1, 2, 5, 10]
+});
+
+// Record AI metrics
+aiRequestCounter.inc({ 
+  provider: 'ollama', 
+  model: 'llama3.2:3b', 
+  status: 'success' 
+});
+
+aiResponseTime.observe(1.5);
+```
+
+### Custom Logging
+
+```typescript
+import { Logger } from '@farm/observability';
+
+const logger = new Logger({
+  level: 'info',
+  format: 'json'
+});
+
+// Custom log formatter
+logger.addFormatter('ai', (level, message, meta) => {
+  return {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    service: 'farm-ai',
+    ...meta
+  };
+});
+
+// Log AI operations
+logger.ai('AI request completed', {
+  provider: 'ollama',
+  model: 'llama3.2:3b',
+  duration: 1.5,
+  tokens: 150
+});
+```
+
+### Custom Tracing
+
+```typescript
+import { Tracer } from '@farm/observability';
+
+const tracer = new Tracer({
+  serviceName: 'farm-ai'
+});
+
+// Custom AI tracing
+const aiSpan = tracer.startSpan('ai_generation');
+aiSpan.setTag('ai.provider', 'ollama');
+aiSpan.setTag('ai.model', 'llama3.2:3b');
+aiSpan.setTag('ai.prompt_length', prompt.length);
+
+try {
+  const response = await ai.generate(prompt);
+  aiSpan.setTag('ai.response_length', response.length);
+  aiSpan.setTag('ai.success', true);
+  aiSpan.finish();
+} catch (error) {
+  aiSpan.setTag('ai.error', true);
+  aiSpan.setTag('ai.error_message', error.message);
+  aiSpan.finish();
 }
 ```
 
-## Export System
+## 🐛 Troubleshooting
 
-### CSV Reports
+### Common Issues
 
+#### Metrics Not Appearing
 ```typescript
-import { CSVExporter } from "@farm-framework/observability";
-
-const exporter = new CSVExporter();
-const csvData = await exporter.exportCostData({
-  startDate: new Date("2024-01-01"),
-  endDate: new Date("2024-01-31"),
-  groupBy: "provider", // 'day' | 'provider' | 'model'
-});
-
-// Save to file or send via email
+// Check metrics configuration
+const collector = new MetricsCollector({ namespace: 'farm_app' });
+console.log('Metrics enabled:', collector.isEnabled());
 ```
 
-### Dashboard Data
-
+#### Logging Issues
 ```typescript
-import { DashboardExporter } from "@farm-framework/observability";
-
-const exporter = new DashboardExporter();
-const dashboardData = await exporter.exportDashboard({
-  timeRange: "7d",
-  includeOptimizations: true,
-  includeAlerts: true,
-});
+// Check logger configuration
+const logger = new Logger({ level: 'debug' });
+logger.debug('Debug message');
 ```
 
-### PDF Export Reports
-
+#### Tracing Issues
 ```typescript
-import { PDFExporter } from "@farm-framework/observability";
-
-const pdfExporter = new PDFExporter({
-  paperFormat: "A4",
-  orientation: "portrait",
-  includeCharts: true,
-  includeOptimizations: true,
-  theme: "professional",
-});
-
-// Export comprehensive cost report
-const costReport = await pdfExporter.exportCostReport({
-  costData: await getCostData(),
-  metrics: await getMetrics(),
-  optimizations: await getOptimizations(),
-  alerts: await getAlerts(),
-  period: {
-    start: new Date("2024-01-01"),
-    end: new Date("2024-01-31"),
-  },
-  title: "Monthly AI Cost Analysis",
-});
-
-// Save the PDF
-import fs from "fs";
-fs.writeFileSync(costReport.filename, costReport.buffer);
-console.log(`Report saved: ${costReport.filename}`);
-
-// Export executive summary
-const execSummary = await pdfExporter.exportExecutiveSummary({
-  costData: await getCostData(),
-  metrics: await getMetrics(),
-  optimizations: await getOptimizations(),
-  period: {
-    start: new Date("2024-01-01"),
-    end: new Date("2024-01-31"),
-  },
-  executiveNotes:
-    "Q1 performance exceeded expectations with 15% cost reduction.",
-});
-
-// Export optimization report
-const optimizationReport = await pdfExporter.exportOptimizationReport({
-  optimizations: await getOptimizations(),
-  currentCosts: 1250.0,
-  projectedSavings: 187.5,
-  period: {
-    start: new Date("2024-01-01"),
-    end: new Date("2024-01-31"),
-  },
-});
+// Check tracer configuration
+const tracer = new Tracer({ serviceName: 'farm-app' });
+console.log('Tracer enabled:', tracer.isEnabled());
 ```
 
-## Types and Interfaces
+### Getting Help
 
-The package exports comprehensive TypeScript types:
+- **GitHub Issues**: [Report bugs](https://github.com/farm-stack/framework/issues)
+- **Documentation**: [Observability Reference](../docs/reference/observability/)
+- **Discussions**: [Community help](https://github.com/farm-stack/framework/discussions)
 
-```typescript
-import type {
-  ObservabilityConfig,
-  CostTrackingConfig,
-  AIMetrics,
-  CostPrediction,
-  OptimizationSuggestion,
-  AlertConfig,
-  AlertRule,
-  TelemetryProvider,
-  TelemetryData,
-  CostData,
-} from "@farm-framework/observability";
-```
+## 🔄 Changelog
 
-## Event System
+### v0.2.0
+- Added comprehensive metrics collection
+- Enhanced logging with structured format
+- Improved distributed tracing
+- Added alerting and notification system
 
-The observability system emits events for integration:
+### v0.1.0
+- Initial release with basic monitoring
+- Simple logging and metrics
+- Basic performance monitoring
 
-```typescript
-import { FarmAutoInstrumentor } from "@farm-framework/observability";
+## 📄 License
 
-const instrumentor = FarmAutoInstrumentor.getInstance();
-
-instrumentor.on("ai-request-start", (data) => {
-  console.log("AI request started:", data);
-});
-
-instrumentor.on("ai-request-complete", (data) => {
-  console.log("AI request completed:", data);
-});
-
-instrumentor.on("cost-threshold-exceeded", (data) => {
-  console.log("Cost threshold exceeded:", data);
-});
-
-instrumentor.on("optimization-suggestion", (suggestion) => {
-  console.log("New optimization suggestion:", suggestion);
-});
-```
-
-## Error Handling
-
-### Graceful Degradation
-
-- Observability never breaks your application
-- Failed telemetry calls are logged but don't throw
-- Automatic fallbacks when providers are unavailable
-- Continues working with reduced functionality
-
-### Debugging
-
-```typescript
-// Enable verbose debugging
-process.env.FARM_OBSERVABILITY_DEBUG = "true";
-
-// Or in configuration
-setupObservability({
-  debug: true,
-  verbose: true,
-});
-```
-
-## Performance
-
-### Minimal Overhead
-
-- Async telemetry processing doesn't block requests
-- Efficient batching reduces network overhead
-- Sampling reduces data volume in production
-- Memory-efficient event streaming
-
-### Production Optimizations
-
-- Automatic sampling based on load
-- Compression for large payloads
-- Connection pooling for providers
-- Background processing for exports
-
-## Security
-
-### Data Privacy
-
-- No sensitive data logged by default
-- Configurable data masking
-- Secure credential handling
-- GDPR compliance options
-
-### Access Control
-
-- Provider-level authentication
-- Role-based dashboard access
-- Audit logging for sensitive operations
-- Secure webhook validation
-
-## Integration Examples
-
-### FastAPI Integration
-
-```python
-from farm.observability import ObservabilityMiddleware
-
-app = FastAPI()
-app.add_middleware(ObservabilityMiddleware)
-```
-
-### Express.js Integration
-
-```typescript
-import express from "express";
-import { observabilityMiddleware } from "@farm-framework/observability";
-
-const app = express();
-app.use(observabilityMiddleware());
-```
-
-### Next.js Integration
-
-```typescript
-// pages/_app.tsx
-import { setupObservability } from '@farm-framework/observability';
-
-// Auto-initialize on app start
-setupObservability();
-
-export default function App({ Component, pageProps }) {
-  return <Component {...pageProps} />;
-}
-```
-
-## Development
-
-### Building
-
-```bash
-npm run build          # Build the package
-npm run build:watch    # Build in watch mode
-npm run type-check     # TypeScript type checking
-```
-
-### Testing
-
-```bash
-npm test              # Run tests
-npm run test:watch    # Run tests in watch mode
-npm run test:coverage # Generate coverage report
-```
-
-## Package Structure
-
-```
-packages/observability/
-├── src/
-│   ├── core/                    # Core instrumentation system
-│   │   ├── auto-instrumentor.ts # Auto-instrumentation engine
-│   │   ├── collector.ts         # Telemetry data collection
-│   │   ├── zero-config.ts       # Zero-config setup
-│   │   └── index.ts            # Core exports
-│   ├── cost/                   # Cost tracking and analysis
-│   │   ├── calculator.ts       # Real-time cost calculation
-│   │   ├── predictor.ts        # Predictive analytics
-│   │   ├── optimizer.ts        # Optimization suggestions
-│   │   ├── analyzer.ts         # Historical analysis
-│   │   └── index.ts           # Cost exports
-│   ├── providers/              # Telemetry provider integrations
-│   │   ├── base.ts            # Abstract provider base
-│   │   ├── console.ts         # Development console output
-│   │   ├── uptrace.ts         # Production OTEL provider
-│   │   ├── custom.ts          # Custom provider support
-│   │   └── index.ts           # Provider exports
-│   ├── alerts/                 # Smart alert system
-│   │   ├── engine.ts          # Alert processing engine
-│   │   ├── rules.ts           # Smart alert rules
-│   │   ├── channels.ts        # Notification channels
-│   │   └── index.ts           # Alert exports
-│   ├── exporters/              # Data export system
-│   │   ├── console.ts         # Console span/metric exporters
-│   │   ├── csv.ts             # CSV report generation
-│   │   ├── dashboard.ts       # Dashboard data export
-│   │   ├── pdf.ts             # PDF report generation
-│   │   └── index.ts           # Export exports
-│   ├── ui/                     # Dashboard UI components
-│   │   ├── dashboard/         # Main dashboard component
-│   │   ├── components/        # Reusable UI components
-│   │   └── hooks/            # React hooks
-│   └── index.ts               # Main package exports
-├── dist/                       # Built package output
-├── package.json               # Package configuration
-├── tsconfig.json              # TypeScript configuration
-├── tsup.config.ts             # Build configuration
-└── README.md                  # This documentation
-```
-
-## Contributing
-
-1. **Issues**: Report bugs or request features via GitHub issues
-2. **Pull Requests**: Submit PRs with comprehensive tests
-3. **Documentation**: Update docs for any new features
-4. **Testing**: Ensure all tests pass and add tests for new functionality
-
-## License
-
-This package is part of the FARM Framework and is licensed under the same terms as the main project.
-
-## Support
-
-- 📚 **Documentation**: [FARM Framework Docs](https://github.com/Cstannahill/farm-framework)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/Cstannahill/farm-framework/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/Cstannahill/farm-framework/discussions)
-- 📧 **Email**: [Support Email](mailto:support@farm-framework.dev)
-
----
-
-**The FARM Observability Package makes monitoring and optimizing AI applications effortless. With zero-configuration setup, intelligent cost tracking, and predictive analytics, you can focus on building great AI experiences while we handle the observability.**
+MIT © FARM Framework
