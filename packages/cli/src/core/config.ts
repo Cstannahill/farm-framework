@@ -1,120 +1,147 @@
-import fsExtra from "fs-extra";
-import { resolve, extname } from "path";
-// Comment out esbuild-register import if not used or not present
-// import { register } from "esbuild-register/dist/node";
+import { createConfigError } from "./errors";
 import type { FarmConfig, ConfigLoadOptions } from "@farm-framework/types";
-import { logger } from "../utils/logger.js";
-
-const { pathExists } = fsExtra;
-import { isErrorInstance } from "../utils/error-utils.js";
-import { createConfigError } from "./errors.js";
-import { FarmError, getErrorMessage } from "../utils/error-handling.js";
 
 export class ConfigLoader {
   private configCache = new Map<string, FarmConfig>();
 
-  async loadConfig(
-    options: ConfigLoadOptions = {}
-  ): Promise<FarmConfig | null> {
-    const { configPath, cwd = process.cwd(), validate = true } = options;
+  async loadConfig(options?: ConfigLoadOptions): Promise<FarmConfig | null> {
+    const {
+      configPath = "farm.config.ts",
+      cwd = process.cwd(),
+      validate = true,
+    } = options || {};
+
+    // Resolve the config path
+    const path = await import("path");
+    const fs = await import("fs-extra");
+
+    const resolvedPath = path.resolve(cwd, configPath);
+
+    // Check if file exists
+    if (!(await fs.pathExists(resolvedPath))) {
+      return null;
+    }
+
+    // Check cache first
+    const cacheKey = resolvedPath;
+    if (this.configCache.has(cacheKey)) {
+      return this.configCache.get(cacheKey)!;
+    }
 
     try {
-      const resolvedPath = await this.resolveConfigPath(configPath, cwd);
+      let config: FarmConfig;
 
-      if (!resolvedPath) {
-        logger.debug("No configuration file found");
-        return null;
-      }
-
-      // Check cache first
-      if (this.configCache.has(resolvedPath)) {
-        logger.debug(`Using cached config from ${resolvedPath}`);
-        return this.configCache.get(resolvedPath)!;
-      }
-
-      logger.debug(`Loading configuration from ${resolvedPath}`);
-
-      // Register TypeScript support for config files
-      this.registerTypeScriptSupport();
-
-      // Clear require cache to ensure fresh config load
-      this.clearRequireCache(resolvedPath);
-
-      // Load the configuration file
-      const configModule = await import(resolvedPath);
-      const config = configModule.default || configModule;
-
-      if (!config || typeof config !== "object") {
+      if (resolvedPath.endsWith(".ts")) {
+        config = await this.loadTypeScriptConfig(resolvedPath);
+      } else if (resolvedPath.endsWith(".js")) {
+        const configModule = await import(resolvedPath);
+        config = configModule.default || configModule;
+      } else {
         throw createConfigError(
-          "Configuration file must export a valid configuration object",
+          `Unsupported config file format: ${path.extname(resolvedPath)}`,
           resolvedPath
         );
       }
 
-      // Validate configuration if requested
+      // Validate the config
       if (validate) {
-        await this.validateConfig(config, resolvedPath);
+        this.validateConfig(config, resolvedPath);
       }
 
-      // Cache the result
-      this.configCache.set(resolvedPath, config);
+      // Cache the config
+      this.configCache.set(cacheKey, config);
 
-      logger.debug("Configuration loaded successfully");
       return config;
     } catch (error) {
-      if (isErrorInstance(error)) {
-        throw error;
-      }
-
       throw createConfigError(
-        `Failed to load configuration: ${getErrorMessage(error)}`,
-        configPath
+        `Failed to load configuration: ${error instanceof Error ? error.message : String(error)}`,
+        resolvedPath
       );
     }
   }
 
-  private async resolveConfigPath(
-    configPath?: string,
-    cwd: string = process.cwd()
-  ): Promise<string | null> {
-    if (configPath) {
-      const resolved = resolve(cwd, configPath);
-      if (await pathExists(resolved)) {
-        return resolved;
-      }
-      throw createConfigError(`Configuration file not found: ${configPath}`);
-    }
-
-    // Look for configuration files in order of preference
-    const candidates = [
-      "farm.config.ts",
-      "farm.config.js",
-      "farm.config.mjs",
-      "farm.config.cjs",
-    ];
-
-    for (const candidate of candidates) {
-      const candidatePath = resolve(cwd, candidate);
-      if (await pathExists(candidatePath)) {
-        return candidatePath;
-      }
-    }
-
-    return null;
-  }
-
-  private registerTypeScriptSupport(): void {
+  private async loadTypeScriptConfig(configPath: string): Promise<any> {
+    // Use tsx to load TypeScript configuration files
     try {
-      // register({
-      //   target: "node18",
-      //   format: "cjs",
-      //   extensions: [".ts", ".tsx"],
-      // });
+      // Import required modules
+      const { execa } = await import('execa');
+      const path = await import('path');
+      const fs = await import('fs/promises');
+
+      // Create a temporary loader script that uses tsx
+      const tempLoaderPath = path.join(path.dirname(configPath), '.farm-config-loader.mjs');
+
+      const loaderScript = `
+import { pathToFileURL } from 'url';
+
+// Use tsx to load the TypeScript config
+const configPath = '${configPath.replace(/\\/g, '/')}';
+const configUrl = pathToFileURL(configPath).href;
+const configModule = await import(configUrl);
+console.log(JSON.stringify(configModule.default || configModule));
+`;
+
+      await fs.writeFile(tempLoaderPath, loaderScript);
+
+      try {
+        // Execute the loader script with tsx
+        const { stdout } = await execa('npx', ['tsx', tempLoaderPath], {
+          cwd: path.dirname(configPath),
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        // Parse the JSON output
+        const config = JSON.parse(stdout.trim());
+        return config;
+      } finally {
+        // Clean up the temporary loader
+        try {
+          await fs.unlink(tempLoaderPath);
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
     } catch (error) {
-      logger.warn(
-        "Failed to register TypeScript support:",
-        getErrorMessage(error)
-      );
+      // Fallback to the old method if tsx fails
+      console.warn('Failed to load TypeScript config with tsx, falling back to basic conversion:', error);
+      return this.loadTypeScriptConfigFallback(configPath);
+    }
+  }
+
+  private async loadTypeScriptConfigFallback(configPath: string): Promise<any> {
+    // Fallback method: basic TypeScript to JavaScript conversion
+    const fs = await import('fs/promises');
+    const content = await fs.readFile(configPath, 'utf-8');
+
+    // Convert TypeScript to JavaScript while preserving imports
+    let jsContent = content
+      // Keep imports but convert to require statements
+      .replace(/import\s*{\s*([^}]+)\s*}\s*from\s*['"]([^'"]+)['"];?/g, 'const { $1 } = require("$2");')
+      .replace(/import\s+([^{}\s]+)\s+from\s*['"]([^'"]+)['"];?/g, 'const $1 = require("$2");')
+      .replace(/export\s+default\s+/g, 'module.exports = ')
+      // Remove only type annotations, not values
+      .replace(/:\s*string\s*(?=[,}])/g, '')
+      .replace(/:\s*number\s*(?=[,}])/g, '')
+      .replace(/:\s*boolean\s*(?=[,}])/g, '')
+      .replace(/:\s*any\s*(?=[,}])/g, '')
+      .replace(/:\s*\[\]\s*(?=[,}])/g, '')
+      .replace(/:\s*\{\}\s*(?=[,}])/g, '');
+
+    // Create a temporary JavaScript file
+    const tempPath = configPath.replace('.ts', '.temp.js');
+    await fs.writeFile(tempPath, jsContent);
+
+    try {
+      // Import the temporary file
+      const configModule = await import(tempPath);
+      return configModule.default || configModule;
+    } finally {
+      // Clean up the temporary file
+      try {
+        await fs.unlink(tempPath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
     }
   }
 
@@ -124,39 +151,38 @@ export class ConfigLoader {
 
     // Clear any related files that might have been imported
     Object.keys(require.cache).forEach((key) => {
-      if (key.startsWith(configPath.replace(/\.[^.]+$/, ""))) {
+      if (key.includes(configPath)) {
         delete require.cache[key];
       }
     });
   }
 
-  private async validateConfig(config: any, configPath: string): Promise<void> {
-    // Basic validation - more comprehensive validation would use Joi or Zod
-    const requiredFields = ["name"];
+  private validateConfig(config: any, configPath: string): void {
+    if (!config || typeof config !== "object") {
+      throw createConfigError(
+        "Configuration must be an object",
+        configPath
+      );
+    }
 
-    for (const field of requiredFields) {
-      if (!(field in config)) {
-        throw createConfigError(
-          `Missing required field '${field}' in configuration`,
-          configPath
-        );
-      }
+    // Validate required fields
+    if (!config.name || typeof config.name !== "string") {
+      throw createConfigError(
+        "Configuration must have a 'name' field",
+        configPath
+      );
     }
 
     // Validate template if present
     if (config.template) {
       const validTemplates = [
         "basic",
-        "ai-chat",
-        "ai-dashboard",
-        "ecommerce",
-        "cms",
+        "fullstack",
         "api-only",
       ];
       if (!validTemplates.includes(config.template)) {
         throw createConfigError(
-          `Invalid template '${
-            config.template
+          `Invalid template '${config.template
           }'. Valid templates: ${validTemplates.join(", ")}`,
           configPath
         );

@@ -1,11 +1,5 @@
 // Optional Next.js integration - only works when Next.js is installed
-let NextConfig: any;
-try {
-  NextConfig = require("next").NextConfig;
-} catch {
-  // Next.js not available - provide basic interface
-  NextConfig = {};
-}
+// We'll use dynamic imports to avoid build-time dependencies
 import type { TypeSyncConfig } from "../config/validation";
 import { TypeSyncOrchestrator } from "../orchestrator";
 import { PerformanceMonitor } from "../monitoring/performance";
@@ -72,15 +66,26 @@ export interface NextJSTypeSyncOptions {
 }
 
 // Simple stub for NextConfig since we don't have next dependency
-type NextConfig = Record<string, any>;
+type NextConfigType = Record<string, any>;
 
 /**
  * Next.js plugin for type-sync integration
  */
 export function withTypeSync(options: NextJSTypeSyncOptions = {}) {
-  return (nextConfig: NextConfig = {}): NextConfig => {
+  return async (nextConfig: NextConfigType = {}): Promise<NextConfigType> => {
     if (options.enabled === false) {
       return nextConfig;
+    }
+
+    // Try to load Next.js types dynamically
+    let NextConfig: any = {};
+    try {
+      // Use dynamic import with type assertion to avoid TypeScript resolution
+      const nextModule = await import("next" as any);
+      NextConfig = nextModule.NextConfig;
+    } catch {
+      // Next.js not available - use basic interface
+      NextConfig = {};
     }
 
     const typeSyncConfig = {
@@ -101,12 +106,12 @@ export function withTypeSync(options: NextJSTypeSyncOptions = {}) {
         if (typeSyncConfig.devOnly && !dev) {
           return typeof nextConfig.webpack === "function"
             ? nextConfig.webpack(config, {
-                buildId,
-                dev,
-                isServer,
-                defaultLoaders,
-                webpack,
-              })
+              buildId,
+              dev,
+              isServer,
+              defaultLoaders,
+              webpack,
+            })
             : config;
         }
 

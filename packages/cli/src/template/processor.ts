@@ -6,7 +6,8 @@ import Handlebars from "handlebars";
 import { glob } from "glob";
 import { TemplateContext } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
-import { registerHandlebarsHelpers } from "./helpers.js";
+import { getHandlebars, compileTemplate, handlebarsSingleton } from "./handlebars-singleton.js";
+import { TemplateRegistry } from "./registry.js";
 import {
   TemplateInheritanceResolver,
   TemplateInheritanceConfig,
@@ -111,12 +112,10 @@ export interface EnhancedProcessingMetrics extends ProcessingMetrics {
  */
 export class TemplateProcessor {
   private templatesDir: string;
-  private handlebars: typeof Handlebars;
+  private registry: TemplateRegistry;
   private inheritanceResolver: TemplateInheritanceResolver;
   private dependencyValidator: DependencyValidator;
   private errorHandler: TemplateErrorHandler;
-  private switch_value?: any;
-  private switch_break?: boolean;
 
   // Performance optimizations
   private templateCache = new Map<string, Handlebars.TemplateDelegate>();
@@ -140,29 +139,25 @@ export class TemplateProcessor {
   constructor() {
     // Proper template directory resolution
     this.templatesDir = this.resolveTemplatesDirectory();
-    // Use the main Handlebars instance instead of creating a new one
-    // This ensures we have access to built-in helpers like 'unless', 'if', 'each', etc.
-    this.handlebars = Handlebars;
+
+    // Initialize registry first
+    this.registry = new TemplateRegistry(this.templatesDir);
+
+    // Initialize components
     this.inheritanceResolver = new TemplateInheritanceResolver(
       this.templatesDir
     );
     this.dependencyValidator = new DependencyValidator({
       allowOverrides: false,
-      warnOnly: false,
       skipValidation: false,
     });
 
-    // Register custom helpers
-    logger.debug("Registering Handlebars helpers...");
-    registerHandlebarsHelpers(this.handlebars);
-    this.registerProcessorHelpers();
-
-    // Initialize error handler with registered helpers
-    const registeredHelpers = Object.keys(this.handlebars.helpers || {});
+    // Initialize error handler with registered helpers from singleton
+    const registeredHelpers = handlebarsSingleton.getRegisteredHelpers();
     this.errorHandler = new TemplateErrorHandler(registeredHelpers);
 
-    // Verify that the eq helper is registered
-    const helpers = Object.keys(this.handlebars.helpers || {});
+    // Verify that key helpers are registered
+    const helpers = handlebarsSingleton.getRegisteredHelpers();
     logger.debug(`Available Handlebars helpers: ${helpers.join(", ")}`);
 
     if (helpers.includes("eq")) {
@@ -171,9 +166,66 @@ export class TemplateProcessor {
       logger.error("❌ eq helper is NOT registered");
     }
 
+    if (helpers.includes("kebabCase")) {
+      logger.debug("✅ kebabCase helper is registered");
+    } else {
+      logger.error("❌ kebabCase helper is NOT registered");
+    }
+
+    if (helpers.includes("switch")) {
+      logger.debug("✅ switch helper is registered");
+    } else {
+      logger.error("❌ switch helper is NOT registered");
+    }
+
     logger.debug(
       `✅ TemplateProcessor initialized with templates at: ${this.templatesDir}`
     );
+  }
+
+  /**
+   * Process template using the registry system
+   */
+  async processTemplateWithRegistry(
+    templateName: string,
+    context: TemplateContext,
+    outputDir: string,
+    features: string[] = []
+  ): Promise<void> {
+    logger.debug(`🏗️ Processing template '${templateName}' with registry system`);
+
+    // Validate template files exist
+    const validation = await this.registry.validateTemplateFiles(templateName, features);
+    if (!validation.valid) {
+      logger.error("❌ Template validation failed:");
+      validation.errors.forEach(error => logger.error(`  • ${error}`));
+      throw new Error(`Template validation failed: ${validation.errors.join(", ")}`);
+    }
+
+    // Get all files that should be generated
+    const files = this.registry.resolveFiles(templateName, features);
+    logger.debug(`📋 Resolved ${files.length} files to generate`);
+
+    // Process each file
+    for (const file of files) {
+      const sourcePath = path.join(this.templatesDir, file.templatePath);
+      const targetPath = path.join(outputDir, file.path);
+
+      try {
+        // Ensure target directory exists
+        await fs.ensureDir(path.dirname(targetPath));
+
+        await this.processHandlebarsFile(sourcePath, targetPath, context, {});
+        logger.debug(`✅ Generated: ${file.path}`);
+      } catch (error) {
+        if (file.required) {
+          logger.error(`❌ Failed to generate required file: ${file.path}`);
+          throw error;
+        } else {
+          logger.warn(`⚠️ Failed to generate optional file: ${file.path}`);
+        }
+      }
+    }
   }
 
   /**
@@ -311,16 +363,16 @@ export class TemplateProcessor {
         logger.error(`Dependency validation failed - aborting`);
         throw new Error(
           `Dependency validation failed. ${dependencyValidationResult.conflicts.length} conflicts found. ` +
-            `Use dependencyValidation.warnOnly=true to proceed with warnings.`
+          `Use dependencyValidation.warnOnly=true to proceed with warnings.`
         );
       }
 
       if (options.verbose && dependencyValidationResult.conflicts.length > 0) {
         logger.info(
           "\n" +
-            this.dependencyValidator.generateValidationReport(
-              dependencyValidationResult
-            )
+          this.dependencyValidator.generateValidationReport(
+            dependencyValidationResult
+          )
         );
       }
     } else {
@@ -512,6 +564,7 @@ export class TemplateProcessor {
 
   /**
    * Render & write a Handlebars template with comprehensive error handling
+   * Also handles static assets (non-template files) by copying them directly
    */
   private async processHandlebarsFile(
     sourcePath: string,
@@ -519,11 +572,18 @@ export class TemplateProcessor {
     templateData: any,
     options: TemplateProcessingOptions | EnhancedTemplateProcessingOptions
   ): Promise<void> {
-    logger.debugTrace(`Processing Handlebars file: ${sourcePath}`);
+    logger.debugTrace(`Processing file: ${sourcePath}`);
     logger.debugTrace(`Target path: ${targetPath}`);
     logger.debugTrace(
       `Template data keys: ${Object.keys(templateData).join(", ")}`
     );
+
+    // Check if this is a static asset (non-template file)
+    if (!sourcePath.endsWith('.hbs')) {
+      logger.debugTrace(`Copying static asset: ${sourcePath}`);
+      await this.copyStaticFile(sourcePath, targetPath, options);
+      return;
+    }
 
     const templateContent = await fs.readFile(sourcePath, "utf-8");
     logger.debugTrace(
@@ -535,7 +595,7 @@ export class TemplateProcessor {
       templateContent,
       templateData,
       sourcePath,
-      this.handlebars
+      getHandlebars()
     );
 
     if (!result.success) {
@@ -548,7 +608,7 @@ export class TemplateProcessor {
         // Try fallback processing for development
         logger.progress("Attempting fallback processing...");
         try {
-          const compiledTemplate = this.handlebars.compile(templateContent);
+          const compiledTemplate = compileTemplate(templateContent);
           const output = compiledTemplate(templateData);
           logger.progress("✅ Fallback processing succeeded");
 
@@ -588,6 +648,32 @@ export class TemplateProcessor {
     logger.debugTrace(
       `Template output: ${result.content?.substring(0, 200)}${result.content && result.content.length > 200 ? "..." : ""}`
     );
+  }
+
+  /**
+   * Copy static file (non-template) directly to target
+   */
+  private async copyStaticFile(
+    sourcePath: string,
+    targetPath: string,
+    options: TemplateProcessingOptions | EnhancedTemplateProcessingOptions
+  ): Promise<void> {
+    try {
+      // Ensure target directory exists
+      const targetDir = path.dirname(targetPath);
+      await fs.ensureDir(targetDir);
+
+      if (!options.dryRun) {
+        // Copy the file directly
+        await fs.copyFile(sourcePath, targetPath);
+        logger.debugTrace(`✅ Copied static file: ${sourcePath} -> ${targetPath}`);
+      } else {
+        logger.debugTrace(`[DRY RUN] Would copy static file: ${sourcePath} -> ${targetPath}`);
+      }
+    } catch (error) {
+      logger.error(`❌ Failed to copy static file: ${sourcePath}`);
+      throw error;
+    }
   }
 
   /**
@@ -879,41 +965,41 @@ export class TemplateProcessor {
 
       ai: context.features.includes("ai")
         ? {
-            providers: {
-              ollama: {
-                enabled: true,
-                url: "http://localhost:11434",
-                models:
-                  template === "ai-chat"
-                    ? ["llama3.1", "codestral"]
-                    : ["llama3.1"],
-                defaultModel: "llama3.1",
-                autoStart: true,
-                autoPull: ["llama3.1"],
-                gpu: true,
+          providers: {
+            ollama: {
+              enabled: true,
+              url: "http://localhost:11434",
+              models:
+                template === "ai-chat"
+                  ? ["llama3.1", "codestral"]
+                  : ["llama3.1"],
+              defaultModel: "llama3.1",
+              autoStart: true,
+              autoPull: ["llama3.1"],
+              gpu: true,
+            },
+            openai: {
+              enabled: true,
+              models: ["gpt-4", "gpt-3.5-turbo"],
+              defaultModel: "gpt-3.5-turbo",
+              rateLimiting: {
+                requestsPerMinute: 60,
+                tokensPerMinute: 40000,
               },
-              openai: {
-                enabled: true,
-                models: ["gpt-4", "gpt-3.5-turbo"],
-                defaultModel: "gpt-3.5-turbo",
-                rateLimiting: {
-                  requestsPerMinute: 60,
-                  tokensPerMinute: 40000,
-                },
-              },
             },
-            routing: {
-              development: "ollama",
-              staging: "openai",
-              production: "openai",
-            },
-            features: {
-              streaming: true,
-              caching: true,
-              rateLimiting: true,
-              fallback: true,
-            },
-          }
+          },
+          routing: {
+            development: "ollama",
+            staging: "openai",
+            production: "openai",
+          },
+          features: {
+            streaming: true,
+            caching: true,
+            rateLimiting: true,
+            fallback: true,
+          },
+        }
         : undefined,
 
       development: {
@@ -942,12 +1028,12 @@ export class TemplateProcessor {
       deployment:
         context.template !== "basic"
           ? {
-              platform: "vercel",
-              regions: ["us-east-1"],
-              environment: {
-                NODE_ENV: "production",
-              },
-            }
+            platform: "vercel",
+            regions: ["us-east-1"],
+            environment: {
+              NODE_ENV: "production",
+            },
+          }
           : undefined,
 
       plugins: (() => {
@@ -1086,73 +1172,6 @@ export class TemplateProcessor {
     return null;
   }
 
-  /**
-   * Register processor-specific Handlebars helpers
-   */
-  private registerProcessorHelpers(): void {
-    // switch/case helpers
-    this.handlebars.registerHelper("switch", (value, options) => {
-      this.switch_value = value;
-      this.switch_break = false;
-      const result = options.fn(this);
-      delete this.switch_break;
-      delete this.switch_value;
-      return result;
-    });
-
-    this.handlebars.registerHelper("case", (value, options) => {
-      if (value === this.switch_value) {
-        this.switch_break = true;
-        return options.fn(this);
-      }
-      return "";
-    });
-
-    // indentation helper
-    this.handlebars.registerHelper(
-      "indent",
-      (str: string, spaces: number = 2) =>
-        String(str)
-          .split("\n")
-          .map((line) => " ".repeat(spaces) + line)
-          .join("\n")
-    );
-
-    // comment helper
-    this.handlebars.registerHelper(
-      "comment",
-      (str: string, style: "js" | "py" | "html" = "js") => {
-        const prefix =
-          style === "py" ? "# " : style === "html" ? "<!-- " : "// ";
-        const suffix = style === "html" ? " -->" : "";
-        return `${prefix}${str}${suffix}`;
-      }
-    );
-
-    // path helper
-    this.handlebars.registerHelper(
-      "import_path",
-      (moduleName: string, isRelative: boolean = false) =>
-        isRelative && !moduleName.startsWith(".")
-          ? `./${moduleName}`
-          : moduleName
-    );
-
-    // validation helper
-    this.handlebars.registerHelper("validate_name", (name: string) =>
-      /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name)
-    );
-
-    // lazy helper
-    this.handlebars.registerHelper("lazy", (fn: () => string) =>
-      typeof fn === "function" ? fn() : fn
-    );
-
-    // Raw block helper
-    this.handlebars.registerHelper("raw", (options: any) => {
-      return options.fn();
-    });
-  }
 
   private getDatabaseUrl(database: string, projectName: string): string {
     switch (database) {
@@ -1192,18 +1211,18 @@ export class TemplateProcessor {
   private toPascalCase(str: string): string {
     return str
       ? str
-          .split(/[-_]/)
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join("")
+        .split(/[-_]/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join("")
       : "";
   }
 
   private toKebabCase(str: string): string {
     return str
       ? str
-          .replace(/([a-z])([A-Z])/g, "$1-$2")
-          .replace(/[\s_]+/g, "-")
-          .toLowerCase()
+        .replace(/([a-z])([A-Z])/g, "$1-$2")
+        .replace(/[\s_]+/g, "-")
+        .toLowerCase()
       : "";
   }
 

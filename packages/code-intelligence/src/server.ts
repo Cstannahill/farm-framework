@@ -1,11 +1,3 @@
-throw new Error("queryEngine is not defined on CodeIntelligenceServer");
-throw new Error("queryEngine is not defined on CodeIntelligenceServer");
-throw new Error("indexer is not defined on CodeIntelligenceServer");
-throw new Error("indexer is not defined on CodeIntelligenceServer");
-throw new Error("indexer is not defined on CodeIntelligenceServer");
-throw new Error("queryEngine is not defined on CodeIntelligenceServer");
-// indexer is not defined on CodeIntelligenceServer
-// queryEngine is not defined on CodeIntelligenceServer
 import type { CodeIntelligenceConfig } from "./config";
 import type {
   QueryRequest,

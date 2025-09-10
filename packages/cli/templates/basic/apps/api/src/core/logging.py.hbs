@@ -1,0 +1,191 @@
+# packages/cli/templates/base/apps/api/src/core/logging.py.hbs
+"""
+Logging configuration
+Centralized logging setup for {{name}}
+"""
+import os
+import sys
+import logging
+import logging.config
+from datetime import datetime
+from typing import Dict, Any
+from pythonjsonlogger import jsonlogger
+
+from .config import settings
+
+def setup_logging():
+    """Configure application logging"""
+    
+    # Base logging configuration
+    logging_config: Dict[str, Any] = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "detailed": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s - [%(filename)s:%(lineno)d]",
+                "datefmt": "%Y-%m-%d %H:%M:%S"
+            },
+            "simple": {
+                "format": "%(levelname)s - %(message)s"
+            },
+            "json": {
+                "()": jsonlogger.JsonFormatter,
+                "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(filename)s %(lineno)d"
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": settings.LOG_LEVEL,
+                "formatter": "detailed" if settings.is_development else "json",
+                "stream": sys.stdout
+            }
+        },
+        "root": {
+            "level": settings.LOG_LEVEL,
+            "handlers": ["console"]
+        },
+        "loggers": {
+            "{{kebabCase name}}": {
+                "level": settings.LOG_LEVEL,
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "uvicorn": {
+                "level": "INFO",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "uvicorn.access": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "fastapi": {
+                "level": "INFO",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            {{#switch database}}
+            {{#case "mongodb"}}
+            "motor": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "beanie": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            {{/case}}
+            {{#case "postgresql" "mysql" "sqlite" "sqlserver"}}
+            "sqlalchemy": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            "alembic": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            {{/case}}
+            {{/switch}}
+            {{#if_feature "ai"}}
+            {{#if_template "ai-chat" "ai-dashboard"}}
+            {{#if ai.providers.openai.enabled}}
+            "openai": {
+                "level": "INFO" if settings.is_development else "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            {{/if}}
+            "httpx": {
+                "level": "WARNING",
+                "handlers": ["console"],
+                "propagate": False
+            },
+            {{/if_template}}
+            {{/if_feature}}
+        }
+    }
+    
+    # Add file logging in production
+    if settings.is_production:
+        # Ensure log directory exists
+        log_dir = "/var/log/{{kebabCase name}}"
+        if not os.path.exists(log_dir):
+            try:
+                os.makedirs(log_dir, exist_ok=True)
+            except PermissionError:
+                # Fallback to local directory
+                log_dir = "./logs"
+                os.makedirs(log_dir, exist_ok=True)
+        
+        logging_config["handlers"]["file"] = {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": f"{log_dir}/app.log",
+            "maxBytes": 10 * 1024 * 1024,  # 10MB
+            "backupCount": 5,
+            "formatter": "json",
+            "level": "INFO"
+        }
+        
+        logging_config["handlers"]["error_file"] = {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": f"{log_dir}/error.log",
+            "maxBytes": 10 * 1024 * 1024,  # 10MB
+            "backupCount": 5,
+            "formatter": "detailed",
+            "level": "ERROR"
+        }
+        
+        # Add file handlers to root and application loggers
+        logging_config["root"]["handlers"].extend(["file", "error_file"])
+        logging_config["loggers"]["{{kebabCase name}}"]["handlers"].extend(["file", "error_file"])
+    
+    # Apply logging configuration
+    logging.config.dictConfig(logging_config)
+    
+    # Set up colored logs for development
+    if settings.is_development:
+        try:
+            import coloredlogs
+            coloredlogs.install(
+                level=settings.LOG_LEVEL,
+                fmt=settings.LOG_FORMAT,
+                logger=logging.getLogger("{{kebabCase name}}")
+            )
+        except ImportError:
+            pass  # coloredlogs is optional
+    
+    # Log startup message
+    logger = logging.getLogger("{{kebabCase name}}")
+    logger.info(f"Logging configured for {{name}} - Level: {settings.LOG_LEVEL}, Environment: {settings.ENVIRONMENT}")
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger with the specified name"""
+    return logging.getLogger(name)
+
+class RequestLogger:
+    """Middleware for logging HTTP requests"""
+    
+    def __init__(self):
+        self.logger = get_logger("{{kebabCase name}}.requests")
+    
+    async def log_request(self, request, response, process_time: float):
+        """Log request details"""
+        log_data = {
+            "method": request.method,
+            "url": str(request.url),
+            "status_code": response.status_code,
+            "process_time": process_time,
+            "user_agent": request.headers.get("user-agent"),
+            "client_ip": request.client.host if request.client else None
+        }
+        
+        if response.status_code >= 400:
+            self.logger.warning(f"HTTP {response.status_code} - {request.method} {request.url.path}", extra=log_data)
+        else:
+            self.logger.info(f"HTTP {response.status_code} - {request.method} {request.url.path}", extra=log_data)

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync } from "fs";
 import { join } from "path";
-import { FarmDevServer, Logger } from "@farm-framework/dev-server";
+import { FarmDevServer, Logger } from "../dev-server/index.js";
 import type { DevCommandOptions } from "@farm-framework/types";
 
 // Create logger instance that will be updated with verbose setting
@@ -63,6 +63,13 @@ export async function devCommand(options: DevCommandOptions): Promise<void> {
       services,
     };
 
+    console.log('🔍 Dev command options:', {
+      'frontend-only': options["frontend-only"],
+      'backend-only': options["backend-only"],
+      port: options.port,
+      devServerOptions
+    });
+
     // Validate port
     if (
       isNaN(devServerOptions.port) ||
@@ -109,8 +116,7 @@ export async function devCommand(options: DevCommandOptions): Promise<void> {
     if (error instanceof Error) {
       if (error.message.includes("EADDRINUSE")) {
         logger.info(
-          `💡 Port ${
-            options.port || 4000
+          `💡 Port ${options.port || 4000
           } is already in use. Try a different port with --port <number>`
         );
       } else if (error.message.includes("ENOENT")) {
@@ -219,7 +225,7 @@ async function waitForShutdown(): Promise<void> {
     process.on("SIGUSR2", shutdown);
 
     // Keep the process alive
-    const keepAlive = setInterval(() => {}, 1000);
+    const keepAlive = setInterval(() => { }, 1000);
 
     // Clean up interval when shutting down
     process.once("exit", () => {

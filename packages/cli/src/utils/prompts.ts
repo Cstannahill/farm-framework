@@ -167,6 +167,21 @@ export async function promptForMissingOptions(
     answers.database = database as any;
   }
 
+  // Output directory selection
+  if (!options.output) {
+    const output = await input({
+      message: "Where would you like to create the project?",
+      default: process.cwd(),
+      validate: (value) => {
+        if (!value || value.trim() === "") {
+          return "Output directory is required";
+        }
+        return true;
+      },
+    });
+    answers.output = output;
+  }
+
   // Setup options
   if (options.typescript === undefined) {
     const typescript = await confirm({

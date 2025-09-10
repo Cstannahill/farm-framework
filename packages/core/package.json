@@ -10,9 +10,10 @@
     "src"
   ],
   "scripts": {
+    "build:ts": "tsc --build",
     "build:bundle": "tsup",
     "build:watch": "tsup --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

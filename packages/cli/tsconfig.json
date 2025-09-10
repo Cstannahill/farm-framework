@@ -10,18 +10,65 @@
     "allowJs": false,
     "baseUrl": ".",
     "paths": {
-      "@farm-framework/types": ["../types/src"],
-      "@farm-framework/types/*": ["../types/src/*"],
-      "@farm-framework/type-sync": ["../type-sync/src"],
-      "@farm-framework/type-sync/*": ["../type-sync/src/*"],
-      "@farm-framework/core": ["../core/src"],
-      "@farm-framework/core/*": ["../core/src/*"]
+      "@farm-framework/types": [
+        "../types/src"
+      ],
+      "@farm-framework/types/*": [
+        "../types/src/*"
+      ],
+      "@farm-framework/type-sync": [
+        "../type-sync/src"
+      ],
+      "@farm-framework/type-sync/*": [
+        "../type-sync/src/*"
+      ],
+      "@farm-framework/core": [
+        "../core/src"
+      ],
+      "@farm-framework/core/*": [
+        "../core/src/*"
+      ],
+      "@farm-framework/code-intelligence": [
+        "../code-intelligence/src"
+      ],
+      "@farm-framework/code-intelligence/*": [
+        "../code-intelligence/src/*"
+      ],
+      "@farm-framework/observability": [
+        "../observability/src"
+      ],
+      "@farm-framework/observability/*": [
+        "../observability/src/*"
+      ],
+      "@farm-framework/deployment": [
+        "../deployment/src"
+      ],
+      "@farm-framework/deployment/*": [
+        "../deployment/src/*"
+      ]
     }
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "references": [
-    { "path": "../type-sync" },
-    { "path": "../core" },
-    { "path": "../types" }
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../type-sync"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../observability"
+    },
+    {
+      "path": "../deployment"
+    },
+    {
+      "path": "../code-intelligence"
+    },
   ]
 }

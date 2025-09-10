@@ -105,8 +105,8 @@ export {
 } from "./cicd/integration";
 export type { CICDConfig, GitHubActionsConfig } from "./cicd/integration";
 
-// VS Code extension
-export { TypeSyncExtension, activate, deactivate } from "./vscode/extension";
+// VS Code extension (only available in VSCode environment)
+// export { TypeSyncExtension, activate, deactivate } from "./vscode/extension";
 
 // Utilities
 export { fetchWithRetry } from "./utils/fetchWithRetry";

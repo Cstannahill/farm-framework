@@ -1,0 +1,214 @@
+# packages/cli/templates/base/apps/api/src/database/connection.py.hbs
+"""
+Database connection management
+{{#switch database}}
+{{#case "mongodb"}}MongoDB connection using Motor and Beanie{{/case}}
+{{#default}}SQL database connection using SQLAlchemy{{/default}}
+{{/switch}}
+"""
+import logging
+from typing import Optional
+
+{{#switch database}}
+{{#case "mongodb"}}
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from ..models.user import User
+{{#if_template "ai-chat"}}
+from ..models.conversation import Conversation
+from ..models.message import Message
+{{/if_template}}
+{{/case}}
+{{#default}}
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from ..models.user import Base, User
+{{/default}}
+{{/switch}}
+from ..core.config import settings
+
+logger = logging.getLogger(__name__)
+
+{{#switch database}}
+{{#case "mongodb"}}
+# MongoDB client and database
+client: Optional[AsyncIOMotorClient] = None
+database = None
+
+async def init_database():
+    """Initialize MongoDB connection and Beanie"""
+    global client, database
+    
+    try:
+        # Create MongoDB client
+        client = AsyncIOMotorClient(
+            settings.DATABASE_URL,
+            minPoolSize=settings.MONGODB_MIN_CONNECTIONS,
+            maxPoolSize=settings.MONGODB_MAX_CONNECTIONS,
+            connectTimeoutMS=settings.MONGODB_CONNECTION_TIMEOUT_MS,
+            serverSelectionTimeoutMS=settings.MONGODB_CONNECTION_TIMEOUT_MS
+        )
+        
+        # Get database
+        database = client[settings.DATABASE_NAME]
+        
+        # Test connection
+        await client.admin.command('ping')
+        logger.info(f"Connected to MongoDB: {settings.DATABASE_NAME}")
+        
+        # Initialize Beanie with document models
+        document_models = [User]
+        {{#if_template "ai-chat"}}
+        from ..models.conversation import Conversation
+        from ..models.message import Message
+        document_models.extend([Conversation, Message])
+        {{/if_template}}
+        
+        await init_beanie(database=database, document_models=document_models)
+        logger.info("Beanie initialized with document models")
+        
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {str(e)}")
+        raise
+
+async def close_database():
+    """Close MongoDB connection"""
+    global client
+    
+    if client:
+        try:
+            client.close()
+            logger.info("MongoDB connection closed")
+        except Exception as e:
+            logger.error(f"Error closing MongoDB connection: {str(e)}")
+
+async def get_database():
+    """Get MongoDB database instance"""
+    global database
+    if database is None:
+        raise RuntimeError("Database not initialized. Call init_database() first.")
+    return database
+
+{{/case}}
+{{#default}}
+# SQL Database (PostgreSQL, MySQL, SQLite, SQL Server)
+engine = None
+async_session_maker = None
+
+async def init_database():
+    """Initialize SQL database connection"""
+    global engine, async_session_maker
+    
+    try:
+        # Create appropriate database URL for the specific database type
+        {{#if_database "mysql"}}
+        database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+        {{else if_database "sqlite"}}
+        database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+        {{else if_database "sqlserver"}}
+        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
+        {{else}}
+        database_url = settings.DATABASE_URL
+        {{/if_database}}
+        
+        # Create async engine
+        engine = create_async_engine(
+            database_url,
+            {{#unless (eq database "sqlite")}}
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
+            pool_timeout=settings.DB_POOL_TIMEOUT,
+            pool_recycle=settings.DB_POOL_RECYCLE,
+            {{/unless}}
+            {{#if_database "sqlite"}}
+            connect_args={"check_same_thread": settings.SQLITE_CHECK_SAME_THREAD},
+            pool_pre_ping=settings.SQLITE_POOL_PRE_PING,
+            {{else}}
+            pool_pre_ping=True,
+            {{/if_database}}
+            echo=settings.is_development,
+        )
+        
+        # Create session maker
+        async_session_maker = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+        
+        # Test connection
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        
+        logger.info(f"Connected to {{database}} database")
+        
+        # Create tables if they don't exist
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        logger.info("Database tables created/verified")
+        
+    except Exception as e:
+        logger.error(f"Failed to connect to {{database}} database: {str(e)}")
+        raise
+
+async def close_database():
+    """Close SQL database connection"""
+    global engine
+    
+    if engine:
+        try:
+            await engine.dispose()
+            logger.info("{{database}} database connection closed")
+        except Exception as e:
+            logger.error(f"Error closing {{database}} database connection: {str(e)}")
+
+async def get_session() -> AsyncSession:
+    """Get database session"""
+    global async_session_maker
+    
+    if async_session_maker is None:
+        raise RuntimeError("Database not initialized. Call init_database() first.")
+    
+    return async_session_maker()
+
+# Dependency for FastAPI routes
+async def get_db_session():
+    """Database session dependency for FastAPI"""
+    async with get_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+{{/default}}
+{{/switch}}
+
+# Health check function
+async def check_database_connection() -> bool:
+    """Check if database connection is healthy"""
+    try:
+        {{#switch database}}
+        {{#case "mongodb"}}
+        global client
+        if client:
+            await client.admin.command('ping')
+            return True
+        return False
+        {{/case}}
+        {{#default}}
+        global engine
+        if engine:
+            async with engine.connect() as conn:
+                await conn.execute("SELECT 1")
+            return True
+        return False
+        {{/default}}
+        {{/switch}}
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        return False

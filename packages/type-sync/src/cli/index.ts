@@ -34,7 +34,7 @@ program
   .option("--watch", "Watch for changes and regenerate")
   .option("--verbose", "Verbose output")
   .option("--dry-run", "Show what would be generated without writing files")
-  .action(async (options) => {
+  .action(async (options: any) => {
     try {
       await runSync(options);
     } catch (error) {
@@ -48,7 +48,7 @@ program
   .command("init")
   .description("Initialize type-sync configuration interactively")
   .option("-y, --yes", "Use default values for all prompts")
-  .action(async (options) => {
+  .action(async (options: any) => {
     try {
       await runInit(options);
     } catch (error) {
@@ -62,7 +62,7 @@ program
   .command("validate")
   .description("Validate type-sync configuration")
   .option("-c, --config <file>", "Configuration file path")
-  .action(async (options) => {
+  .action(async (options: any) => {
     try {
       await runValidate(options);
     } catch (error) {
@@ -82,7 +82,7 @@ program
   .option("-c, --config <file>", "Configuration file path")
   .option("-i, --input <file>", "OpenAPI specification file")
   .option("-o, --output <dir>", "Output directory")
-  .action(async (options) => {
+  .action(async (options: any) => {
     try {
       await runGenerate(options);
     } catch (error) {
@@ -97,7 +97,7 @@ program
   .description("Analyze OpenAPI specification and suggest optimizations")
   .option("-i, --input <file>", "OpenAPI specification file")
   .option("--format <format>", "Output format (json, table)", "table")
-  .action(async (options) => {
+  .action(async (options: any) => {
     try {
       await runAnalyze(options);
     } catch (error) {
@@ -115,7 +115,7 @@ program
       .description("Set configuration value")
       .argument("<key>", "Configuration key")
       .argument("<value>", "Configuration value")
-      .action(async (key, value) => {
+      .action(async (key: any, value: any) => {
         await setConfigValue(key, value);
       })
   )
@@ -123,7 +123,7 @@ program
     new Command("get")
       .description("Get configuration value")
       .argument("<key>", "Configuration key")
-      .action(async (key) => {
+      .action(async (key: any) => {
         await getConfigValue(key);
       })
   )
@@ -136,7 +136,7 @@ program
   );
 
 // Main execution
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   program.parse();
 }
 

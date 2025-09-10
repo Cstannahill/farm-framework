@@ -1,424 +1,201 @@
-// packages/cli/src/template/registry.ts - Updated file patterns for monorepo structure
-import { TemplateDefinition, TemplateName } from "./types.js";
+/**
+ * Template and Feature Registry System
+ */
+
+import path from "path";
+import fs from "fs-extra";
+import { logger } from "../utils/logger.js";
+
+export interface TemplateFile {
+  path: string;
+  templatePath: string;
+  required: boolean;
+  features?: string[];
+  inheritFromBase?: boolean;
+}
+
+export interface TemplateDefinition {
+  name: string;
+  description: string;
+  baseTemplate?: string;
+  files: TemplateFile[];
+  defaultFeatures?: string[];
+  requiredFeatures?: string[];
+}
 
 export class TemplateRegistry {
-  private templates = new Map<TemplateName, TemplateDefinition>();
+  private templates: Map<string, TemplateDefinition> = new Map();
+  private templatesDir: string;
 
-  constructor() {
-    this.registerBuiltinTemplates();
+  constructor(templatesDir: string) {
+    this.templatesDir = templatesDir;
+    this.initializeRegistry();
   }
 
-  register(template: TemplateDefinition): void {
-    this.templates.set(template.name as TemplateName, template);
+  private initializeRegistry(): void {
+    logger.debug("🔧 Initializing template registry...");
+    this.registerBaseTemplate();
+    this.registerTemplates();
+    logger.debug(`✅ Registry initialized with ${this.templates.size} templates`);
   }
 
-  get(templateName: TemplateName): TemplateDefinition | undefined {
-    return this.templates.get(templateName);
+  private registerBaseTemplate(): void {
+    const baseTemplate: TemplateDefinition = {
+      name: "base",
+      description: "Base template with core FARM framework files",
+      files: [
+        { path: "farm.config.ts", templatePath: "base/farm.config.ts.hbs", required: true },
+        { path: "package.json", templatePath: "base/package.json.hbs", required: true },
+        { path: "docker-compose.yml", templatePath: "base/docker-compose.yml.hbs", required: true },
+        { path: "Dockerfile", templatePath: "base/Dockerfile.hbs", required: true },
+        { path: ".gitignore", templatePath: "base/.gitignore.hbs", required: true },
+        { path: "README.md", templatePath: "base/README.md.hbs", required: true },
+        { path: "apps/api/requirements.txt", templatePath: "base/apps/api/requirements.txt.hbs", required: true },
+        { path: "apps/api/pyproject.toml", templatePath: "base/apps/api/pyproject.toml.hbs", required: true },
+        { path: "apps/api/src/main.py", templatePath: "base/apps/api/src/main.py.hbs", required: true },
+        { path: "apps/api/src/core/config.py", templatePath: "base/apps/api/src/core/config.py.hbs", required: true },
+        { path: "apps/api/src/core/logging.py", templatePath: "base/apps/api/src/core/logging.py.hbs", required: true },
+        { path: "apps/api/src/core/security.py", templatePath: "base/apps/api/src/core/security.py.hbs", required: true },
+        { path: "apps/api/src/auth/oauth.py", templatePath: "base/apps/api/src/auth/oauth.py.hbs", required: true },
+        { path: "apps/api/src/database/connection.py", templatePath: "base/apps/api/src/database/connection.py.hbs", required: true },
+        { path: "apps/api/src/models/user.py", templatePath: "base/apps/api/src/models/user.py.hbs", required: true },
+        { path: "apps/api/src/routes/auth.py", templatePath: "base/apps/api/src/routes/auth.py.hbs", required: true },
+        { path: "apps/api/src/routes/health.py", templatePath: "base/apps/api/src/routes/health.py.hbs", required: true },
+        { path: "apps/api/src/routes/users.py", templatePath: "base/apps/api/src/routes/users.py.hbs", required: true },
+        { path: "apps/web/package.json", templatePath: "base/apps/web/package.json.hbs", required: true },
+        { path: "apps/web/vite.config.ts", templatePath: "base/apps/web/vite.config.ts.hbs", required: true },
+        { path: "apps/web/index.html", templatePath: "base/apps/web/index.html.hbs", required: true },
+        { path: "apps/web/src/main.tsx", templatePath: "base/apps/web/src/main.tsx.hbs", required: true },
+        { path: "apps/web/src/App.tsx", templatePath: "base/apps/web/src/App.tsx.hbs", required: true },
+        { path: "apps/web/src/index.css", templatePath: "base/apps/web/src/index.css.hbs", required: true },
+        { path: "apps/web/src/components/layout/Layout.tsx", templatePath: "base/apps/web/src/components/layout/Layout.tsx.hbs", required: true },
+        { path: "apps/web/src/pages/Home.tsx", templatePath: "base/apps/web/src/pages/Home.tsx.hbs", required: true },
+        { path: "apps/web/src/pages/About.tsx", templatePath: "base/apps/web/src/pages/About.tsx.hbs", required: true },
+        // Static assets
+        { path: "apps/web/public/farm.svg", templatePath: "base/apps/web/public/farm.svg", required: true },
+        { path: "apps/web/public/farm-c.svg", templatePath: "base/apps/web/public/farm-c.svg", required: true },
+        { path: "apps/web/src/assets/farm.svg", templatePath: "base/apps/web/src/assets/farm.svg", required: true },
+      ]
+    };
+    this.templates.set("base", baseTemplate);
   }
 
-  getAll(): TemplateDefinition[] {
-    return Array.from(this.templates.values());
-  }
-
-  private registerBuiltinTemplates(): void {
-    // Basic template
-    this.register({
+  private registerTemplates(): void {
+    this.templates.set("basic", {
       name: "basic",
-      description: "Simple React + FastAPI + MongoDB setup",
-      features: ["auth", "ai", "realtime", "storage"],
-      supportedDatabases: [
-        "mongodb",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "sqlserver",
-      ],
-      defaultDatabase: "mongodb",
+      description: "Basic full-stack template with minimal features",
+      baseTemplate: "base",
       files: [
-        // Root files
-        {
-          src: "base/package.json.hbs",
-          dest: "package.json",
-        },
-        {
-          src: "base/README.md.hbs",
-          dest: "README.md",
-        },
-        { src: "base/.gitignore", dest: ".gitignore" },
-        {
-          src: "base/farm.config.ts.hbs",
-          dest: "farm.config.ts",
-        },
-
-        // Docker files
-        {
-          src: "base/docker-compose.yml.hbs",
-          dest: "docker-compose.yml",
-        },
-
-        // Frontend files (React) - only if not API-only
-        {
-          src: "frontend/basic/package.json.hbs",
-          dest: "apps/web/package.json",
-
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-        {
-          src: "frontend/basic/vite.config.ts.hbs",
-          dest: "apps/web/vite.config.ts",
-
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-        {
-          src: "frontend/basic/index.html.hbs",
-          dest: "apps/web/index.html",
-
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-        {
-          src: "frontend/basic/src/**/*",
-          dest: "apps/web/src/",
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-        {
-          src: "frontend/basic/public/**/*",
-          dest: "apps/web/public/",
-          condition: (ctx) => ctx.template !== "api-only",
-        }, // Backend files (FastAPI) - Use base template as foundation
-        {
-          src: "base/apps/api/src/core/**/*",
-          dest: "apps/api/src/core/",
-        },
-        {
-          src: "base/apps/api/src/database/**/*",
-          dest: "apps/api/src/database/",
-        },
-        {
-          src: "base/apps/api/src/models/**/*",
-          dest: "apps/api/src/models/",
-        },
-        {
-          src: "base/apps/api/src/routes/health.py.hbs",
-          dest: "apps/api/src/routes/health.py",
-        },
-        {
-          src: "base/apps/api/src/main.py.hbs",
-          dest: "apps/api/src/main.py",
-        },
-        {
-          src: "base/apps/api/requirements.txt.hbs",
-          dest: "apps/api/requirements.txt",
-        },
-
-        // Template-specific backend files (tests only)
-        {
-          src: "basic/apps/api/tests/**/*",
-          dest: "apps/api/tests/",
-        },
-
-        // Feature-specific files
-        {
-          src: "backend/auth/**/*",
-          dest: "apps/api/src/",
-          condition: (ctx) => ctx.features.includes("auth"),
-        },
-        {
-          src: "backend/ai/**/*",
-          dest: "apps/api/src/",
-          condition: (ctx) => ctx.features.includes("ai"),
-        },
+        // Basic template overrides - these files exist in basic template and override base
+        { path: ".env.example", templatePath: "basic/.env.example.hbs", required: true },
+        { path: ".gitignore", templatePath: "basic/.gitignore.hbs", required: true },
+        { path: ".prettierignore", templatePath: "basic/.prettierignore.hbs", required: true },
+        { path: ".prettierrc", templatePath: "basic/.prettierrc.hbs", required: true },
+        { path: "apps/api/requirements.txt", templatePath: "basic/apps/api/requirements.txt.hbs", required: true },
+        { path: "apps/api/src/core/config.py", templatePath: "basic/apps/api/src/core/config.py.hbs", required: true },
+        { path: "apps/api/src/core/logging.py", templatePath: "basic/apps/api/src/core/logging.py.hbs", required: true },
+        { path: "apps/api/src/database/connection.py", templatePath: "basic/apps/api/src/database/connection.py.hbs", required: true },
+        { path: "apps/api/src/main.py", templatePath: "basic/apps/api/src/main.py.hbs", required: true },
+        { path: "apps/api/src/models/user.py", templatePath: "basic/apps/api/src/models/user.py.hbs", required: true },
+        { path: "apps/api/src/routes/health.py", templatePath: "basic/apps/api/src/routes/health.py.hbs", required: true },
+        { path: "apps/api/src/routes/users.py", templatePath: "basic/apps/api/src/routes/users.py.hbs", required: true },
+        { path: "apps/api/src/auth/oauth.py", templatePath: "basic/apps/api/src/auth/oauth.py.hbs", required: true },
+        { path: "apps/api/src/core/security.py", templatePath: "basic/apps/api/src/core/security.py.hbs", required: true },
+        { path: "apps/api/src/routes/auth.py", templatePath: "basic/apps/api/src/routes/auth.py.hbs", required: true },
+        { path: "apps/web/eslint.config.js", templatePath: "basic/apps/web/eslint.config.js.hbs", required: true },
+        { path: "apps/web/index.html", templatePath: "basic/apps/web/index.html.hbs", required: true },
+        { path: "apps/web/package.json", templatePath: "basic/apps/web/package.json.hbs", required: true },
+        { path: "apps/web/src/App.tsx", templatePath: "basic/apps/web/src/App.tsx.hbs", required: true },
+        { path: "apps/web/src/components/error-boundary.tsx", templatePath: "basic/apps/web/src/components/error-boundary.tsx.hbs", required: true },
+        { path: "apps/web/src/components/layout/Layout.tsx", templatePath: "basic/apps/web/src/components/layout/Layout.tsx.hbs", required: true },
+        { path: "apps/web/src/components/ui/button.tsx", templatePath: "basic/apps/web/src/components/ui/button.tsx.hbs", required: true },
+        { path: "apps/web/src/components/ui/card.tsx", templatePath: "basic/apps/web/src/components/ui/card.tsx.hbs", required: true },
+        { path: "apps/web/src/components/ui/input.tsx", templatePath: "basic/apps/web/src/components/ui/input.tsx.hbs", required: true },
+        { path: "apps/web/src/components/ui/loading.tsx", templatePath: "basic/apps/web/src/components/ui/loading.tsx.hbs", required: true },
+        { path: "apps/web/src/index.css", templatePath: "basic/apps/web/src/index.css.hbs", required: true },
+        { path: "apps/web/src/main.tsx", templatePath: "basic/apps/web/src/main.tsx.hbs", required: true },
+        { path: "apps/web/src/pages/About.tsx", templatePath: "basic/apps/web/src/pages/About.tsx.hbs", required: true },
+        { path: "apps/web/src/pages/Home.tsx", templatePath: "basic/apps/web/src/pages/Home.tsx.hbs", required: true },
+        { path: "apps/web/src/hooks/use-api.ts", templatePath: "basic/apps/web/src/hooks/use-api.ts.hbs", required: true },
+        { path: "apps/web/src/hooks/use-common.ts", templatePath: "basic/apps/web/src/hooks/use-common.ts.hbs", required: true },
+        { path: "apps/web/src/lib/api-client.ts", templatePath: "basic/apps/web/src/lib/api-client.ts.hbs", required: true },
+        { path: "apps/web/src/lib/utils.ts", templatePath: "basic/apps/web/src/lib/utils.ts.hbs", required: true },
+        { path: "apps/web/src/stores/app-store.ts", templatePath: "basic/apps/web/src/stores/app-store.ts.hbs", required: true },
+        { path: "apps/web/tailwind.config.js", templatePath: "basic/apps/web/tailwind.config.js.hbs", required: true },
+        { path: "apps/web/tsconfig.json", templatePath: "basic/apps/web/tsconfig.json.hbs", required: true },
+        { path: "apps/web/tsconfig.node.json", templatePath: "basic/apps/web/tsconfig.node.json.hbs", required: true },
+        { path: "docker-compose.yml", templatePath: "basic/docker-compose.yml.hbs", required: true },
+        { path: "Dockerfile", templatePath: "basic/Dockerfile.hbs", required: true },
+        { path: "ENVIRONMENT_VARIABLES_GUIDE.md", templatePath: "basic/ENVIRONMENT_VARIABLES_GUIDE.md.hbs", required: true },
+        { path: "farm.config.ts", templatePath: "basic/farm.config.ts.hbs", required: true },
+        { path: "pnpm-workspace.yaml", templatePath: "basic/pnpm-workspace.yaml.hbs", required: true },
+        { path: "README.md", templatePath: "basic/README.md.hbs", required: true },
+        // Static assets
+        { path: "apps/web/public/farm.svg", templatePath: "basic/apps/web/public/farm.svg", required: true },
+        { path: "apps/web/public/farm-c.svg", templatePath: "basic/apps/web/public/farm-c.svg", required: true },
+        { path: "apps/web/src/assets/farm.svg", templatePath: "basic/apps/web/src/assets/farm.svg", required: true },
       ],
-      directories: [],
-      dependencies: this.getBasicTemplateDependencies(),
-    }); // AI Chat template
-    this.register({
-      name: "ai-chat",
-      description: "Chat application with streaming AI responses",
-      features: ["auth", "ai", "realtime"], // Add a features array for compatibility
-      requiredFeatures: ["ai"],
-      supportedFeatures: ["auth", "ai", "realtime", "storage"],
-      defaultFeatures: ["auth", "ai", "realtime"],
-      supportedDatabases: [
-        "mongodb",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "sqlserver",
-      ],
-      defaultDatabase: "mongodb",
-      files: [
-        // Include all basic files
-        ...this.getBasicFiles(), // AI-specific frontend components
-        {
-          src: "ai-chat/apps/web/src/**/*",
-          dest: "apps/web/src/",
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-
-        // AI Chat template-specific routes and AI infrastructure
-        {
-          src: "ai-chat/apps/api/src/routes/**/*",
-          dest: "apps/api/src/routes/",
-        },
-        {
-          src: "ai-chat/apps/api/src/ai/**/*",
-          dest: "apps/api/src/ai/",
-        },
-        {
-          src: "ai-chat/apps/api/src/models/**/*",
-          dest: "apps/api/src/models/",
-        },
-
-        // Feature-specific files (auth and basic AI if needed)
-        {
-          src: "backend/auth/**/*",
-          dest: "apps/api/src/",
-          condition: (ctx) => ctx.features.includes("auth"),
-        },
-
-        // WebSocket support for real-time chat
-        {
-          src: "backend/features/realtime/**/*",
-          dest: "apps/api/src/",
-          condition: (ctx) => ctx.features.includes("realtime"),
-        },
-
-        // Docker Ollama setup
-        { src: "docker/ollama/**/*", dest: "docker/ollama/" },
-      ],
-      directories: [], // Add an empty directories array for compatibility
-      dependencies: this.getAIChatTemplateDependencies(),
-    });
-
-    // AI Dashboard template
-    this.register({
-      name: "ai-dashboard",
-      description: "Data dashboard with ML insights, charts, and analytics",
-      features: ["ai", "analytics"],
-      requiredFeatures: ["ai"],
-      supportedFeatures: ["ai", "auth", "analytics", "storage"],
-      defaultFeatures: ["ai", "analytics"],
-      supportedDatabases: [
-        "mongodb",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "sqlserver",
-      ],
-      defaultDatabase: "mongodb",
-      files: [
-        // Include all basic files as foundation
-        ...this.getBasicFiles(),
-
-        // AI Dashboard template-specific frontend components
-        {
-          src: "ai-dashboard/apps/web/src/**/*",
-          dest: "apps/web/src/",
-          condition: (ctx) => ctx.template !== "api-only",
-        },
-
-        // AI Dashboard template-specific backend routes and models
-        {
-          src: "ai-dashboard/apps/api/src/routes/**/*",
-          dest: "apps/api/src/routes/",
-        },
-        {
-          src: "ai-dashboard/apps/api/src/ai/**/*",
-          dest: "apps/api/src/ai/",
-        },
-        {
-          src: "ai-dashboard/apps/api/src/ml/**/*",
-          dest: "apps/api/src/ml/",
-        },
-        {
-          src: "ai-dashboard/apps/api/src/models/**/*",
-          dest: "apps/api/src/models/",
-        },
-
-        // Dashboard-specific requirements extension
-        {
-          src: "ai-dashboard/apps/api/requirements-dashboard.txt.hbs",
-          dest: "apps/api/requirements-dashboard.txt",
-        },
-
-        // Feature-specific files (auth if enabled)
-        {
-          src: "other/features/authentication/**/*",
-          dest: "apps/api/src/",
-          condition: (ctx) => ctx.features.includes("auth"),
-        },
-      ],
-      directories: [],
-      dependencies: this.getAIDashboardTemplateDependencies(),
-    });
-
-    // Add other templates...
-    this.register({
-      name: "api-only",
-      description: "FastAPI backend only, no React frontend",
-      features: [],
-      requiredFeatures: [],
-      supportedFeatures: ["auth", "ai", "storage", "email", "search"],
-      defaultFeatures: [],
-      supportedDatabases: [
-        "mongodb",
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "sqlserver",
-      ],
-      defaultDatabase: "mongodb",
-      files: [
-        // Root files (no frontend package.json)
-        {
-          src: "base/package.json.hbs",
-          dest: "package.json",
-        },
-        {
-          src: "base/README.md.hbs",
-          dest: "README.md",
-        },
-        { src: "base/.gitignore", dest: ".gitignore" },
-        {
-          src: "base/farm.config.ts.hbs",
-          dest: "farm.config.ts",
-        }, // Only backend files - Use base template as foundation
-        {
-          src: "base/apps/api/src/core/**/*",
-          dest: "apps/api/src/core/",
-        },
-        {
-          src: "base/apps/api/src/database/**/*",
-          dest: "apps/api/src/database/",
-        },
-        {
-          src: "base/apps/api/src/models/**/*",
-          dest: "apps/api/src/models/",
-        },
-        {
-          src: "base/apps/api/src/routes/health.py.hbs",
-          dest: "apps/api/src/routes/health.py",
-        },
-        {
-          src: "base/apps/api/src/main.py.hbs",
-          dest: "apps/api/src/main.py",
-        },
-        {
-          src: "base/apps/api/requirements.txt.hbs",
-          dest: "apps/api/requirements.txt",
-        },
-
-        // API-only template-specific files
-        {
-          src: "api-only/apps/api/tests/**/*",
-          dest: "apps/api/tests/",
-        },
-        {
-          src: "api-only/apps/api/pyproject.toml.hbs",
-          dest: "apps/api/pyproject.toml",
-        },
-      ],
-      directories: [],
-      dependencies: this.getAPIOnlyTemplateDependencies(),
+      defaultFeatures: []
     });
   }
 
-  private getBasicFiles() {
-    // Return the basic file set for reuse in other templates
-    return [
-      {
-        src: "base/package.json.hbs",
-        dest: "package.json",
-      },
-      {
-        src: "base/README.md.hbs",
-        dest: "README.md",
-      },
-      { src: "base/.gitignore", dest: ".gitignore" },
-      {
-        src: "base/farm.config.ts.hbs",
-        dest: "farm.config.ts",
-      },
-      {
-        src: "backend/basic/src/**/*",
-        dest: "apps/api/src/",
-      },
-    ];
+  getTemplate(name: string): TemplateDefinition | undefined {
+    return this.templates.get(name);
   }
 
-  // ... dependency methods remain the same as before
-  private getBasicTemplateDependencies() {
-    return {
-      frontend: [
-        { name: "react", version: "^18.2.0" },
-        { name: "react-dom", version: "^18.2.0" },
-        { name: "@tanstack/react-query", version: "^5.0.0" },
-        { name: "zustand", version: "^4.4.0" },
-        { name: "react-router-dom", version: "^6.0.0" },
-        { name: "@types/react", version: "^18.2.0", dev: true },
-        { name: "@types/react-dom", version: "^18.2.0", dev: true },
-        { name: "@vitejs/plugin-react", version: "^4.0.0", dev: true },
-        { name: "vite", version: "^5.0.0", dev: true },
-        { name: "typescript", version: "^5.0.0", dev: true },
-        { name: "tailwindcss", version: "^3.0.0", dev: true },
-      ],
-      backend: [
-        { name: "fastapi", version: ">=0.104.0" },
-        { name: "uvicorn", version: ">=0.24.0", extras: ["standard"] },
-        { name: "pydantic", version: ">=2.0.0" },
-        { name: "motor", version: ">=3.3.0" },
-        { name: "beanie", version: ">=1.23.0" },
-        { name: "pytest", version: ">=7.0.0" },
-        { name: "pytest-asyncio", version: ">=0.21.0" },
-        { name: "black", version: ">=23.0.0" },
-        { name: "isort", version: ">=5.0.0" },
-        { name: "mypy", version: ">=1.0.0" },
-      ],
-    };
+  resolveFiles(templateName: string, features: string[]): TemplateFile[] {
+    const template = this.getTemplate(templateName);
+    if (!template) {
+      throw new Error(`Template '${templateName}' not found`);
+    }
+
+    const resolvedFiles = new Map<string, TemplateFile>();
+
+    if (template.baseTemplate) {
+      const baseTemplate = this.getTemplate(template.baseTemplate);
+      if (baseTemplate) {
+        for (const file of baseTemplate.files) {
+          resolvedFiles.set(file.path, { ...file, inheritFromBase: true });
+        }
+      }
+    }
+
+    for (const file of template.files) {
+      resolvedFiles.set(file.path, file);
+    }
+
+    return Array.from(resolvedFiles.values());
   }
-  private getAIChatTemplateDependencies() {
-    const base = this.getBasicTemplateDependencies();
+
+  async validateTemplateFiles(templateName: string, features: string[]): Promise<{
+    valid: boolean;
+    missingFiles: string[];
+    errors: string[];
+  }> {
+    const files = this.resolveFiles(templateName, features);
+    const missingFiles: string[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      const fullPath = path.join(this.templatesDir, file.templatePath);
+
+      try {
+        const exists = await fs.pathExists(fullPath);
+        if (!exists) {
+          missingFiles.push(file.templatePath);
+          if (file.required) {
+            errors.push(`Required template file missing: ${file.templatePath}`);
+          }
+        }
+      } catch (error) {
+        errors.push(`Error checking file ${file.templatePath}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
     return {
-      frontend: [
-        ...base.frontend,
-        { name: "marked", version: "^5.0.0" },
-        { name: "prismjs", version: "^1.29.0" },
-      ],
-      backend: [
-        ...base.backend,
-        { name: "httpx", version: ">=0.25.0" },
-        { name: "websockets", version: ">=11.0.0" },
-        { name: "openai", version: ">=1.0.0" },
-      ],
-    };
-  }
-  private getAIDashboardTemplateDependencies() {
-    const base = this.getBasicTemplateDependencies();
-    return {
-      frontend: [
-        ...base.frontend,
-        { name: "react-chartjs-2", version: "^5.2.0" },
-        { name: "chart.js", version: "^4.3.0" },
-        { name: "recharts", version: "^2.8.0" },
-        { name: "d3", version: "^7.8.0" },
-        { name: "@types/d3", version: "^7.4.0" },
-      ],
-      backend: [
-        ...base.backend,
-        { name: "pandas", version: ">=2.3.0" },
-        { name: "scikit-learn", version: ">=1.7.0" },
-        { name: "numpy", version: ">=2.3.0" },
-        { name: "plotly", version: ">=6.1.2" },
-        { name: "scipy", version: ">=1.15.2" },
-        { name: "seaborn", version: ">=0.13.2" },
-      ],
-    };
-  }
-  private getAPIOnlyTemplateDependencies() {
-    const base = this.getBasicTemplateDependencies();
-    return {
-      frontend: [], // No frontend dependencies for API-only
-      backend: base.backend,
+      valid: errors.length === 0,
+      missingFiles,
+      errors
     };
   }
 }

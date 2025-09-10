@@ -13,6 +13,7 @@
     }
   },
   "scripts": {
+    "build:ts": "tsc --build",
     "build": "tsup",
     "build:bundle": "tsup",
     "dev": "tsup --watch",

@@ -80,7 +80,7 @@ export class TypeSyncExtension {
     fileWatcher.onDidDelete(() => this.onPythonFileChange());
 
     // Configuration change events
-    vscode.workspace.onDidChangeConfiguration((e) => {
+    vscode.workspace.onDidChangeConfiguration((e: any) => {
       if (e.affectsConfiguration("type-sync")) {
         this.onConfigChange();
       }
@@ -253,7 +253,7 @@ export class TypeSyncExtension {
     const serverUrl = await vscode.window.showInputBox({
       prompt: "Enter your FastAPI server URL",
       value: "http://localhost:8000",
-      validateInput: (value) => {
+      validateInput: (value: any) => {
         try {
           new URL(value);
           return null;
@@ -485,7 +485,7 @@ export default {
     if (await fs.pathExists(configPath)) {
       try {
         delete require.cache[configPath];
-        const config = require(configPath);
+        const config = await import(configPath);
         return config.default || config;
       } catch (error) {
         this.outputChannel.appendLine(`Error loading config: ${error}`);

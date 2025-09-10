@@ -11,7 +11,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "jest",
-    "clean": "rm -rf dist"
+    "clean": "pnpm dlx rimraf dist"
   },
   "dependencies": {
     "commander": "^11.0.0",

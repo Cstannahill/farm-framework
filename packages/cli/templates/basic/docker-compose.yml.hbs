@@ -1,14 +1,18 @@
-#
-{{project_name}}
-- Docker Compose Configuration # Generated on
-{{timestamp}}
+# {{project_name}}- Docker Compose Configuration
 
-version: '3.8' services: # Backend service backend: build: context: .
-dockerfile: apps/api/Dockerfile ports: - "8000:8000" environment: - NODE_ENV={{default
-  environment
+# Generated on {{timestamp}}
+
+services:
+# Backend service
+  backend:
+    build:
+      context: .
+    dockerfile: apps/api/Dockerfile
+    ports: - "8000:8000"
+    environment: - NODE_ENV={{default environment "development"
   "development"
 }}
-- DATABASE_URL={{#if_database
+- DATABASE_URL={{#if_database "mongodb"
   "mongodb"
 }}mongodb://mongodb:27017/{{project_name_snake}}{{/if_database}}{{#if_database
   "postgresql"

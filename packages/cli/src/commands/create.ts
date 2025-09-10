@@ -42,6 +42,10 @@ export function createCreateCommand(): Command {
       "Database type (mongodb, postgresql, mysql, sqlite)",
       "mongodb"
     )
+    .option(
+      "-o, --output <path>",
+      "Output directory for the project (default: current directory)"
+    )
     .option("--no-typescript", "Disable TypeScript")
     .option("--no-docker", "Disable Docker configuration")
     .option("--no-testing", "Disable testing setup")
@@ -99,11 +103,14 @@ async function createProject(
       process.exit(1);
     }
 
+    // Determine output directory
+    const outputDir = options.output ? path.resolve(options.output) : process.cwd();
+    const projectPath = path.join(outputDir, projectName);
+
     // Check if directory already exists
-    const projectPath = path.resolve(projectName);
     if (await fs.pathExists(projectPath)) {
       console.error(
-        messages.error(`Directory "${projectName}" already exists.`)
+        messages.error(`Directory "${projectPath}" already exists.`)
       );
       process.exit(1);
     }
@@ -115,10 +122,13 @@ async function createProject(
     );
 
     // Create template context
-    const context = createTemplateContext(projectName, normalizedOptions); // Display configuration summary
+    const context = createTemplateContext(projectName, normalizedOptions);     // Display configuration summary
     console.log(styles.subtitle("\n📋 Project Configuration:"));
     console.log(styles.muted("─".repeat(50)));
     console.log(styles.info(`Project Name:  ${styles.emphasis(projectName)}`));
+    if (outputDir !== process.cwd()) {
+      console.log(styles.info(`Output Path:   ${styles.emphasis(projectPath)}`));
+    }
     console.log(
       styles.info(`Template:      ${styles.emphasis(context.template)}`)
     );
@@ -237,7 +247,7 @@ async function createProject(
 
     // Convert context to shared type for scaffolder
     const sharedContext = convertToSharedContext(context);
-    const result = await scaffolder.generateProject(projectName, sharedContext);
+    const result = await scaffolder.generateProject(projectPath, sharedContext);
 
     // Initialize git repository
     if (normalizedOptions.git) {
@@ -260,7 +270,7 @@ async function createProject(
 
     // Next steps
     const nextSteps = [
-      `cd ${projectName}`,
+      `cd ${projectPath}`,
       ...(normalizedOptions.install ? [] : ["pnpm install"]),
       "farm dev",
     ];

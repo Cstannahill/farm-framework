@@ -25,6 +25,9 @@ export default defineConfig([
       "fastapi",
       // Node.js built-ins that should not be bundled
       "typescript",
+      "glob",
+      "fs-extra",
+      "chokidar",
     ],
     env: {
       NODE_ENV: "production",
@@ -54,6 +57,9 @@ export default defineConfig([
       "fastapi",
       // Node.js built-ins that should not be bundled
       "typescript",
+      "glob",
+      "fs-extra",
+      "chokidar",
     ],
     env: {
       NODE_ENV: "production",

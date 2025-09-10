@@ -4,7 +4,7 @@
 
 import path from "path";
 import fs from "fs-extra";
-import Handlebars from "handlebars";
+import { compileTemplate } from "./handlebars-singleton.js";
 import { glob } from "glob";
 import { logger } from "../utils/logger.js";
 
@@ -23,11 +23,11 @@ export interface ValidationResult {
  */
 export interface ValidationError {
   type:
-    | "syntax"
-    | "missing-file"
-    | "circular-dependency"
-    | "invalid-helper"
-    | "schema";
+  | "syntax"
+  | "missing-file"
+  | "circular-dependency"
+  | "invalid-helper"
+  | "schema";
   file: string;
   line?: number;
   column?: number;
@@ -280,7 +280,7 @@ export class TemplateValidator {
 
       // Try to compile the template to catch syntax errors
       try {
-        const template = Handlebars.compile(content);
+        const template = compileTemplate(content);
 
         // Extract helpers used
         const helperMatches = content.match(/\{\{#?(\w+)/g);
@@ -316,11 +316,10 @@ export class TemplateValidator {
         errors.push({
           type: "syntax",
           file: filePath,
-          message: `Handlebars syntax error: ${
-            syntaxError instanceof Error
+          message: `Handlebars syntax error: ${syntaxError instanceof Error
               ? syntaxError.message
               : String(syntaxError)
-          }`,
+            }`,
           details: syntaxError instanceof Error ? syntaxError.stack : undefined,
         });
       }
@@ -328,9 +327,8 @@ export class TemplateValidator {
       errors.push({
         type: "missing-file",
         file: filePath,
-        message: `Could not read file: ${
-          readError instanceof Error ? readError.message : String(readError)
-        }`,
+        message: `Could not read file: ${readError instanceof Error ? readError.message : String(readError)
+          }`,
       });
     }
 

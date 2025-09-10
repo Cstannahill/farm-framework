@@ -1,0 +1,86 @@
+import React from 'react'; export default function About() { return (
+<div className="max-w-4xl mx-auto">
+  <div className="text-center">
+    <h1 className="text-4xl font-bold text-gray-900 mb-8">
+      About
+      {{projectName}}
+    </h1>
+    <div className="prose prose-lg max-w-3xl mx-auto">
+      <p className="text-xl text-gray-600 mb-6">
+        Built with the FARM Stack Framework - a modern, AI-first full-stack
+        platform.
+      </p>
+
+      <div className="grid md:grid-cols-2 gap-8 mt-12">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="text-blue-500 mr-2">⚡</span>
+            FastAPI Backend
+          </h3>
+          <p className="text-gray-600">
+            Modern Python web framework with automatic API documentation and
+            high-performance async capabilities.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="text-green-500 mr-2">⚛️</span>
+            React Frontend
+          </h3>
+          <p className="text-gray-600">
+            Component-based UI with TypeScript, Vite, and modern tooling for the
+            best developer experience.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="text-purple-500 mr-2">🍃</span>
+            MongoDB Database
+          </h3>
+          <p className="text-gray-600">
+            Flexible document database with automatic ODM integration and schema
+            validation.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="text-orange-500 mr-2">🤖</span>
+            AI Integration
+          </h3>
+          <p className="text-gray-600">
+            Built-in support for local AI development with Ollama and seamless
+            cloud provider integration.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-12 text-center">
+        <h3 className="text-2xl font-semibold mb-4">Get Started</h3>
+        <p className="text-gray-600 mb-6">
+          Ready to build something amazing? Check out the API documentation and
+          start creating your application.
+        </p>
+        <div className="space-x-4">
+          <a
+            href="http://localhost:8000/docs"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            API Documentation
+          </a>
+          <a
+            href="/"
+            className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            Back to Home
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+); }

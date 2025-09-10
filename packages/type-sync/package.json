@@ -13,9 +13,10 @@
     "src"
   ],
   "scripts": {
+    "build:ts": "tsc --build",
     "build:bundle": "tsup",
     "build:watch": "tsup --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -59,7 +60,7 @@
     "jsdom": "^23.0.0",
     "tsup": "^8.5.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
+    "vitest": "^3.2.3",
     "concurrently": "^8.0.0",
     "husky": "^8.0.0",
     "lint-staged": "^13.0.0"

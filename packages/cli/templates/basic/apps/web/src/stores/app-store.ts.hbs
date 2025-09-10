@@ -1,0 +1,47 @@
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+
+interface AppState {
+  // UI State
+  sidebarOpen: boolean;
+  theme: 'light' | 'dark';
+  
+  // User State
+  user: {
+    id: string;
+    username: string;
+    email: string;
+  } | null;
+  
+  // Loading State
+  loading: boolean;
+  
+  // Actions
+  setSidebarOpen: (open: boolean) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  setUser: (user: AppState['user']) => void;
+  setLoading: (loading: boolean) => void;
+  logout: () => void;
+}
+
+export const useAppStore = create<AppState>()(
+  devtools(
+    (set) => ({
+      // Initial state
+      sidebarOpen: false,
+      theme: 'light',
+      user: null,
+      loading: false,
+      
+      // Actions
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      setTheme: (theme) => set({ theme }),
+      setUser: (user) => set({ user }),
+      setLoading: (loading) => set({ loading }),
+      logout: () => set({ user: null }),
+    }),
+    {
+      name: 'app-store',
+    }
+  )
+);

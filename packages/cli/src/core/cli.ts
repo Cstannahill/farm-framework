@@ -433,19 +433,6 @@ export class FarmCLI {
           showHelp(topic);
         });
 
-      // Register dev command placeholder
-      this.program
-        .command("dev")
-        .description("Start development server")
-        .option("-p, --port <port>", "Port to run on", "3000")
-        .option("--host <host>", "Host to bind to", "localhost")
-        .action((options) => {
-          console.log(messages.info("Development server starting..."));
-          console.log(
-            `${icons.box} Server: http://${options.host}:${options.port}`
-          );
-          // TODO: Implement dev server
-        });
 
       // Register build command placeholder
       this.program

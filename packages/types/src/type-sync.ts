@@ -16,10 +16,10 @@ export interface SyncOptions {
     aiHooks: boolean;
   };
   performance?: {
-    enableMonitoring: boolean;
-    enableIncrementalGeneration: boolean;
-    maxConcurrency: number;
-    cacheTimeout: number;
+    enableMonitoring?: boolean;
+    enableIncrementalGeneration?: boolean;
+    maxConcurrency?: number;
+    cacheTimeout?: number;
   };
   generators?: {
     typescript?: any;
@@ -33,9 +33,12 @@ export interface SyncOptions {
  * Result summary returned after running a synchronization cycle.
  */
 export interface SyncResult {
+  success: boolean;
   filesGenerated: number;
   fromCache: boolean;
   artifacts?: string[];
+  generatedFiles?: string[]; // For backwards compatibility
+  errors?: string[];
   performance?: {
     totalTime: number;
     extractionTime: number;

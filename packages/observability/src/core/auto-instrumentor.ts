@@ -30,7 +30,7 @@ export class FarmAutoInstrumentor {
     return instance;
   }
 
-  private constructor() {}
+  private constructor() { }
 
   setup(config: ObservabilityConfig = {}): void {
     if (this.initialized) {

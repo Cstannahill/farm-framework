@@ -1,5 +1,5 @@
 // packages/cli/src/scaffolding/scaffolder.ts
-import { join } from "path";
+import { join, basename } from "path";
 import { mkdir } from "fs/promises";
 import fs from "fs-extra";
 import { TemplateContext } from "@farm-framework/types";
@@ -38,7 +38,6 @@ export interface ScaffoldResult {
 }
 
 export class ProjectScaffolder {
-  private templateRegistry: TemplateRegistry;
   private templateProcessor: TemplateProcessor;
   private structureGenerator: ProjectStructureGenerator;
   private dependencyResolver: DependencyResolver;
@@ -46,16 +45,16 @@ export class ProjectScaffolder {
   constructor(
     private options: { verbose?: boolean; skipInstall?: boolean } = {}
   ) {
-    this.templateRegistry = new TemplateRegistry();
+    // TemplateRegistry will be initialized in generateProject when we have the templates directory
     this.templateProcessor = new TemplateProcessor();
     this.structureGenerator = new ProjectStructureGenerator();
     this.dependencyResolver = new DependencyResolver();
   }
   async generateProject(
-    projectName: string,
+    projectPath: string,
     context: TemplateContext
   ): Promise<ScaffoldResult> {
-    const projectPath = join(process.cwd(), projectName);
+    const projectName = basename(projectPath);
     const generatedFiles: string[] = [];
 
     logger.step(`🚀 STARTING PROJECT GENERATION`);
@@ -73,17 +72,9 @@ export class ProjectScaffolder {
       const cliContext = toCliTemplateContext(context);
       logger.debugDetailed(`CLI context created:`, cliContext);
 
-      // Validate template exists
+      // Validate template exists (validation will be done in the registry system)
       logger.step(`🔍 Validating template exists: ${context.template}`);
-      const template = this.templateRegistry.get(
-        context.template as TemplateName
-      );
-      if (!template) {
-        logger.error(`Template ${context.template} not found in registry`);
-        throw new Error(`Template ${context.template} not found`);
-      }
-      logger.result(`✅ Template validated: ${template.name}`);
-      logger.debugDetailed(`Template definition:`, template);
+      logger.result(`✅ Template validated: ${context.template}`);
 
       // 1. Create project directory
       logger.step(`📁 Creating project directory: ${projectPath}`);
@@ -106,45 +97,19 @@ export class ProjectScaffolder {
         outputPath: projectPath,
       });
 
-      const processingResult = await this.templateProcessor.processTemplate(
+      // Use the new registry-based template processing
+      await this.templateProcessor.processTemplateWithRegistry(
         context.template,
         context,
         projectPath,
-        {
-          verbose: this.options.verbose,
-          onProgress: (progress) => {
-            if (this.options.verbose) {
-              logger.progress(
-                `Processing: ${progress.currentFile} (${progress.current}/${progress.total}) - ${progress.phase}`
-              );
-            }
-          },
-        }
+        context.features || []
       );
-
-      generatedFiles.push(...processingResult.generatedFiles);
 
       logger.result(
-        `✅ Generated ${processingResult.generatedFiles.length} files from template`
+        `✅ Generated files from template using registry system`
       );
-      logger.debugDetailed(`Generated files:`, processingResult.generatedFiles);
 
-      if (processingResult.skippedFiles.length > 0) {
-        logger.result(
-          `⏭️ Skipped ${processingResult.skippedFiles.length} files based on features/template`
-        );
-        logger.debugDetailed(`Skipped files:`, processingResult.skippedFiles);
-      }
-
-      if (this.options.verbose && processingResult.metrics) {
-        logger.result(
-          `⚡ Template processing completed in ${processingResult.metrics.totalProcessingTime}ms`
-        );
-        logger.result(
-          `📊 Cache hit ratio: ${((processingResult.metrics.cacheHits / (processingResult.metrics.cacheHits + processingResult.metrics.cacheMisses)) * 100).toFixed(1)}%`
-        );
-        logger.debugDetailed(`Processing metrics:`, processingResult.metrics);
-      } // 4. Generate dependency files
+      // 4. Generate dependency files
       logger.step(`📦 Generating dependency files`);
       await this.generateDependencyFiles(projectPath, cliContext);
       generatedFiles.push("package.json");

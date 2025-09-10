@@ -1,0 +1,56 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "@typescript-eslint/recommended"{{#unless (eq template "api-only")}},
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended"{{/unless}}
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"{{#unless (eq template "api-only")}},
+    "ecmaFeatures": {
+      "jsx": true
+    }{{/unless}}
+  },
+  "plugins": [
+    "@typescript-eslint"{{#unless (eq template "api-only")}},
+    "react"{{/unless}}
+  ],
+  "rules": {
+    {{#unless (eq template "api-only")}}
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    {{/unless}}
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "prefer-const": "error",
+    "no-var": "error"
+  }{{#unless (eq template "api-only")}},
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  }{{/unless}},
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "*.min.js",
+    "coverage/"
+  ]
+}

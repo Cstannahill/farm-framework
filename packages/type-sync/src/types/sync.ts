@@ -6,7 +6,7 @@ export interface SyncResult {
   success: boolean;
   filesGenerated: number;
   fromCache: boolean;
-  artifacts: string[];
+  artifacts?: string[];
   generatedFiles?: string[]; // For backwards compatibility
   errors?: string[];
   performance?: {
@@ -18,13 +18,15 @@ export interface SyncResult {
   };
   generationDetails?: Array<{
     generator: string;
-    path: string;
-    size: number;
+    file: string;
     time: number;
+    fromCache: boolean;
+    size: number;
   }>;
 }
 
 export interface SyncOptions {
+  apiUrl: string;
   outputDir?: string;
   performance?: {
     enableMonitoring?: boolean;

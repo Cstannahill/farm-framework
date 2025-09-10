@@ -25,12 +25,18 @@ export default defineConfig({
     // OpenTelemetry packages (should not be bundled)
     "@opentelemetry/api",
     "@opentelemetry/auto-instrumentations-node",
+    "@opentelemetry/core",
     "@opentelemetry/exporter-console",
     "@opentelemetry/exporter-jaeger",
     "@opentelemetry/exporter-otlp-http",
+    "@opentelemetry/exporter-trace-otlp-http",
+    "@opentelemetry/exporter-metrics-otlp-http",
     "@opentelemetry/instrumentation",
     "@opentelemetry/resources",
     "@opentelemetry/sdk-node",
+    "@opentelemetry/sdk-metrics",
+    "@opentelemetry/sdk-trace-base",
+    "@opentelemetry/sdk-trace-node",
     "@opentelemetry/semantic-conventions",
 
     // External packages that should not be bundled

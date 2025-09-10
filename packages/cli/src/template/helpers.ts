@@ -376,12 +376,19 @@ export function registerHandlebarsHelpers(
     "if_template",
     function (
       this: TemplateContext,
-      templateName: TemplateName,
-      options: HandlebarsOptions
+      ...args: any[]
     ): string {
       const config = this.config || this;
       const selectedTemplate = config.template || "basic";
-      return selectedTemplate === templateName
+
+      // Get the last argument (options) and the rest are template names
+      const options = args[args.length - 1];
+      const templateNames = args.slice(0, -1);
+
+      // Check if selected template matches any of the provided template names
+      const matches = templateNames.includes(selectedTemplate);
+
+      return matches
         ? options.fn(this)
         : options.inverse(this);
     }

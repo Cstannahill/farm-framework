@@ -24,6 +24,7 @@ export interface CreateCommandOptions {
   template?: TemplateName;
   features?: FeatureName[];
   database?: string;
+  output?: string;
   typescript?: boolean;
   docker?: boolean;
   testing?: boolean;

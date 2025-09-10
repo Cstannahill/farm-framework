@@ -18,8 +18,6 @@ export class ProjectStructureGenerator {
     "apps/api/src/core": { description: "Core utilities and config" },
     "apps/api/src/database": { description: "Database connection and ODM" },
     "apps/api/tests": { description: "Backend test suite" },
-    packages: { description: "Shared packages" },
-    tools: { description: "Build tools and scripts" },
     docs: { description: "Documentation" },
   };
 

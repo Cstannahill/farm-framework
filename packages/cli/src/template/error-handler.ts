@@ -284,17 +284,8 @@ export class TemplateErrorHandler {
         }
       }
 
-      // Check for deprecated patterns
-      if (line.includes("{{#switch") || line.includes("{{#case")) {
-        issues.push({
-          type: "syntax_error",
-          message: "Switch/case helpers are not implemented",
-          file: fileName,
-          line: lineNumber,
-          suggestion: 'Use {{#if_database "type"}} pattern instead',
-          severity: "error",
-        });
-      }
+      // Check for deprecated patterns (switch/case helpers are now implemented)
+      // Removed the hardcoded check that was preventing switch/case from working
     });
 
     return issues;

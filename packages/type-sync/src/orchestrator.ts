@@ -402,6 +402,7 @@ export class TypeSyncOrchestrator {
    * Build result object for cached artifacts.
    */ private buildCacheResult(cachedResults: any[]): SyncResult {
     const result: SyncResult = {
+      success: true,
       filesGenerated: cachedResults.length,
       fromCache: true,
       artifacts: cachedResults.map((r: any) => r.path),
@@ -425,6 +426,7 @@ export class TypeSyncOrchestrator {
    * Build result object for newly generated artifacts.
    */ private buildGenerationResult(results: any[]): SyncResult {
     const result: SyncResult = {
+      success: true,
       filesGenerated: results.length,
       fromCache: false,
       artifacts: results.map((r: any) => r.path),
@@ -499,8 +501,7 @@ export class TypeSyncOrchestrator {
       try {
         const result = await this.syncOnce(config);
         console.log(
-          `✅ Generated ${result.filesGenerated} files${
-            result.fromCache ? " (from cache)" : ""
+          `✅ Generated ${result.filesGenerated} files${result.fromCache ? " (from cache)" : ""
           }`
         );
         if (result.performance) {

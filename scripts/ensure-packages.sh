@@ -29,7 +29,7 @@ types_json='{
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {},
@@ -56,7 +56,7 @@ core_json='{
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

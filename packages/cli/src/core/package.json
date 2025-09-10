@@ -11,7 +11,7 @@
   "scripts": {
     "build:bundle": "tsup",
     "build:watch": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

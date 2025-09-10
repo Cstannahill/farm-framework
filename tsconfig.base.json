@@ -1,8 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -16,23 +22,83 @@
     "declarationMap": true,
     "sourceMap": true,
     "module": "ESNext",
-
     // Path mapping for monorepo packages
     "baseUrl": ".",
     "paths": {
-      "@farm-framework/types": ["./packages/types/src/index.ts"],
-      "@farm-framework/types/*": ["./packages/types/src/*"],
-      "@farm-framework/type-sync": ["./packages/type-sync/src/index.ts"],
-      "@farm-framework/type-sync/*": ["./packages/type-sync/src/*"],
-      "@farm-framework/core": ["./packages/core/src/index.ts"],
-      "@farm-framework/core/*": ["./packages/core/src/*"],
-      "@farm-framework/cli": ["./packages/cli/src/index.ts"],
-      "@farm-framework/cli/*": ["./packages/cli/src/*"],
+      "@farm-framework/types": [
+        "./packages/types/src/index.ts"
+      ],
+      "@farm-framework/types/*": [
+        "./packages/types/src/*"
+      ],
+      "@farm-framework/type-sync": [
+        "./packages/type-sync/src/index.ts"
+      ],
+      "@farm-framework/type-sync/*": [
+        "./packages/type-sync/src/*"
+      ],
+      "@farm-framework/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@farm-framework/core/*": [
+        "./packages/core/src/*"
+      ],
+      "@farm-framework/cli": [
+        "./packages/cli/src/index.ts"
+      ],
+      "@farm-framework/cli/*": [
+        "./packages/cli/src/*"
+      ],
+      "@farm-framework/dev-server": [
+        "./tools/dev-server/src/index.ts"
+      ],
+      "@farm-framework/dev-server/*": [
+        "./tools/dev-server/src/*"
+      ],
+      "@farm-framework/code-intelligence": [
+        "./packages/code-intelligence/src/index.ts"
+      ],
+      "@farm-framework/code-intelligence/*": [
+        "./packages/code-intelligence/src/*"
+      ],
+      "@farm-framework/observability": [
+        "./packages/observability/src/index.ts"
+      ],
+      "@farm-framework/observability/*": [
+        "./packages/observability/src/*"
+      ],
+      "@farm-framework/deployment": [
+        "./packages/deployment/src/index.ts"
+      ],
+      "@farm-framework/deployment/*": [
+        "./packages/deployment/src/*"
+      ],
       "@farm-framework/ui-components": [
         "./packages/ui-components/src/index.ts"
       ],
-      "@farm-framework/ui-components/*": ["./packages/ui-components/src/*"]
+      "@farm-framework/ui-components/*": [
+        "./packages/ui-components/src/*"
+      ],
+      "@farm-framework/ai": [
+        "./packages/ai/src/index.ts"
+      ],
+      "@farm-framework/ai/*": [
+        "./packages/ai/src/*"
+      ],
+      "@farm-framework/api-client": [
+        "./packages/api-client/src/index.ts"
+      ],
+      "@farm-framework/api-client/*": [
+        "./packages/api-client/src/*"
+      ]
     }
   },
-  "exclude": ["node_modules", "dist", "build", "coverage", ".next", ".turbo"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    ".next",
+    ".turbo"
+  ]
 }

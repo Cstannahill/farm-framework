@@ -6,11 +6,10 @@ import {
   TemplateContext,
 } from "../template/types.js";
 import { ProjectStructureGenerator } from "./project-structure.js";
-import { registerHandlebarsHelpers } from "../template/helpers.js";
+import { getHandlebars, compileTemplate, handlebarsSingleton } from "../template/handlebars-singleton.js";
 import { moduleDirname } from "../utils/modulePath.js";
 import fsExtra from "fs-extra";
 import path from "path";
-import Handlebars from "handlebars";
 import chalk from "chalk";
 import prettier from "prettier";
 import { formatPython } from "../postProcessors/pythonFormatter.js";
@@ -39,8 +38,7 @@ export interface GenerationMetrics {
 export class ProjectFileGenerator {
   private structureGenerator = new ProjectStructureGenerator();
   private currentProjectPath?: string;
-  private templateCache = new Map<string, HandlebarsTemplateDelegate>();
-  private handlebarsInstance: typeof Handlebars;
+  private templateCache = new Map<string, any>();
 
   // 🔧 CRITICAL FIX: Cache template root resolution
   private _templateRoot: string | null = null;
@@ -142,9 +140,8 @@ export class ProjectFileGenerator {
   };
 
   constructor() {
-    // Initialize Handlebars once and reuse
-    this.handlebarsInstance = Handlebars.create();
-    registerHandlebarsHelpers(this.handlebarsInstance);
+    // Handlebars instance is now managed by the singleton
+    // All helpers are automatically registered and available
   }
 
   /**
@@ -248,12 +245,12 @@ export class ProjectFileGenerator {
 
     throw new Error(
       `❌ Could not locate FARM templates directory.\n` +
-        `Searched locations:\n` +
-        `  - Bundled: dist/templates\n` +
-        `  - Source: templates/\n` +
-        `  - Development paths: ${devPaths.join(", ")}\n` +
-        `  - Environment: ${process.env.FARM_TEMPLATES_PATH || "not set"}\n\n` +
-        `Please ensure farm-framework is properly installed or set FARM_TEMPLATES_PATH environment variable.`
+      `Searched locations:\n` +
+      `  - Bundled: dist/templates\n` +
+      `  - Source: templates/\n` +
+      `  - Development paths: ${devPaths.join(", ")}\n` +
+      `  - Environment: ${process.env.FARM_TEMPLATES_PATH || "not set"}\n\n` +
+      `Please ensure farm-framework is properly installed or set FARM_TEMPLATES_PATH environment variable.`
     );
   }
 
@@ -323,7 +320,7 @@ export class ProjectFileGenerator {
       console.log(
         chalk.blue(
           `ℹ️ Processing ${filesToGenerate.length} files ` +
-            `(${templateFiles.length} templates, ${staticFiles.length} static)`
+          `(${templateFiles.length} templates, ${staticFiles.length} static)`
         )
       );
 
@@ -366,8 +363,8 @@ export class ProjectFileGenerator {
       console.log(
         chalk.green(
           `✅ Generated ${generatedFiles.length} files successfully ` +
-            `(${this.metrics.templatesProcessed} templates, ${this.metrics.staticFilesCopied} static) ` +
-            `in ${duration}s`
+          `(${this.metrics.templatesProcessed} templates, ${this.metrics.staticFilesCopied} static) ` +
+          `in ${duration}s`
         )
       );
 
@@ -564,12 +561,10 @@ export class ProjectFileGenerator {
 
             // 🔧 ENHANCED: Better Handlebars error handling
             try {
-              compiledTemplate = this.handlebarsInstance.compile(
-                templateContent,
-                {
-                  strict: false, // More lenient parsing
-                  noEscape: false, // Allow HTML escaping
-                }
+              compiledTemplate = compileTemplate(templateContent, {
+                strict: false, // More lenient parsing
+                noEscape: false, // Allow HTML escaping
+              }
               );
               this.templateCache.set(templatePath, compiledTemplate);
               this.metrics.cacheMisses++;

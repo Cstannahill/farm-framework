@@ -5,10 +5,15 @@ packages:
 
 # Configure package linking for development
 catalog:
-  "@farm/types": "workspace:*"
-  "@farm/core": "workspace:*"
-  "@farm/cli": "workspace:*"
-  "@farm/ui-components": "workspace:*"
+  "@farm-framework/types": "workspace:*"
+  "@farm-framework/core": "workspace:*"
+  "@farm-framework/cli": "workspace:*"
+  "@farm-framework/ui-components": "workspace:*"
+  "@farm-framework/dev-server": "workspace:*"
+  "@farm-framework/code-intelligence": "workspace:*"
+  "@farm-framework/observability": "workspace:*"
+  "@farm-framework/deployment": "workspace:*"
+  "@farm-framework/type-sync": "workspace:*"
 
 # Shared dependencies
 shared-workspace-lockfile: true

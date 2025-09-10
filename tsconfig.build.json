@@ -1,15 +1,41 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/types" },
-    { "path": "./packages/type-sync" },
-    { "path": "./packages/core" },
-    { "path": "./packages/observability" },
-    { "path": "./packages/deployment" },
-    { "path": "./packages/code-intelligence" },
-    { "path": "./packages/cli" },
-    { "path": "./packages/code-intelligence" },
-    { "path": "./packages/ui-components" },
-    { "path": "./tools/cli" }
+    {
+      "path": "./packages/types"
+    },
+    {
+      "path": "./packages/type-sync"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/observability"
+    },
+    {
+      "path": "./packages/deployment"
+    },
+    {
+      "path": "./packages/code-intelligence"
+    },
+    {
+      "path": "./packages/ui-components"
+    },
+    {
+      "path": "./packages/ai"
+    },
+    {
+      "path": "./packages/api-client"
+    },
+    {
+      "path": "./tools/dev-server"
+    },
+    {
+      "path": "./packages/cli"
+    },
+    {
+      "path": "./tools/cli"
+    }
   ]
 }

@@ -221,7 +221,7 @@ export class TypeSyncConfigManager {
       };
     }
 
-    const errors: ValidationIssue[] = result.error.issues.map((issue) => ({
+    const errors: ValidationIssue[] = result.error.issues.map((issue: any) => ({
       path: issue.path.join("."),
       message: issue.message,
       severity: "error" as const,

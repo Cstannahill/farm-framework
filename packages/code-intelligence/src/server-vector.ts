@@ -1,4 +1,4 @@
-const glob = require("glob");
+import { glob } from "glob";
 // Updated Code Intelligence Server with Vector Database Integration
 import type { CodeIntelligenceConfig } from "./config";
 import type {

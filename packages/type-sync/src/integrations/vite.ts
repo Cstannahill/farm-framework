@@ -81,13 +81,13 @@ export function typeSyncPlugin(options: ViteTypeSyncOptions = {}): Plugin {
           ...options,
           watch: options.watch
             ? {
-                enabled: true,
-                patterns: ["**/*.py"],
-                ignorePatterns: ["**/node_modules/**"],
-                debounceMs: 1000,
-                enablePolling: false,
-                pollingInterval: 1000,
-              }
+              enabled: true,
+              patterns: ["**/*.py"],
+              ignorePatterns: ["**/node_modules/**"],
+              debounceMs: 1000,
+              enablePolling: false,
+              pollingInterval: 1000,
+            }
             : config.watch,
         };
 
@@ -151,7 +151,7 @@ export function typeSyncPlugin(options: ViteTypeSyncOptions = {}): Plugin {
                 console.log("✅ Types regenerated successfully");
 
                 // Trigger HMR for generated files
-                result.generatedFiles?.forEach((file) => {
+                result.generatedFiles?.forEach((file: any) => {
                   server.reloadModule(server.moduleGraph.getModuleById(file)!);
                 });
 

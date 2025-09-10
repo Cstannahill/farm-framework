@@ -20,7 +20,7 @@
     "build": "tsup",
     "build:bundle": "tsup",
     "dev": "tsup --watch",
-    "clean": "rm -rf dist",
+    "clean": "pnpm dlx rimraf dist",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

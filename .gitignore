@@ -59,3 +59,26 @@ tmp/
 temp/
 .farm/cache/
 test-*
+
+# Test and debug files
+test-*.js
+test-*.ts
+test-*.py
+test-*.sh
+
+# Archive and documentation files
+archive/
+TEMPLATE_FIXES_DOCUMENTATION.md
+*.md.bak
+
+# CLI development artifacts
+
+
+# Cursor IDE
+.cursor/
+
+# Build artifacts outside dist directories
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map

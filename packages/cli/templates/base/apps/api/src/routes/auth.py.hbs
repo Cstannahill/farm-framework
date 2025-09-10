@@ -1,0 +1,28 @@
+"""
+Authentication routes
+Simple authentication endpoints for {{name}}
+"""
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/auth")
+
+class Login(BaseModel):
+    username: str
+    password: str
+
+# Simple mock authentication for now
+fake_user = {"username": "admin", "password": "password"}
+
+@router.post("/login")
+async def login(data: Login):
+    """Simple login endpoint"""
+    if data.username == fake_user["username"] and data.password == fake_user["password"]:
+        # For now, return a simple token
+        return {"access_token": "mock_token", "token_type": "bearer"}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+@router.get("/me")
+async def get_current_user():
+    """Get current user info"""
+    return {"username": "admin", "role": "user"}

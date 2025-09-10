@@ -18,7 +18,7 @@ export class CodegenOrchestrator {
   private progressCallback?: (progress: CodegenProgressInfo) => void;
   private isVerbose = false;
 
-  constructor(private farmConfig?: FarmConfig) {}
+  constructor(private farmConfig?: FarmConfig) { }
 
   async initialize(config: CodegenOptions) {
     this.progressCallback = config.progressCallback;
@@ -61,6 +61,7 @@ export class CodegenOrchestrator {
         100
       );
       return {
+        success: true,
         filesGenerated: 0,
         fromCache: false,
         artifacts: [],
@@ -80,6 +81,7 @@ export class CodegenOrchestrator {
     this.reportProgress("completion", "Code generation complete", 100, result); // Enhance result with framework-specific data
     return {
       ...result,
+      success: result.success ?? true,
       performance: {
         totalTime: performance.now() - this.startTime,
         extractionTime: result.performance?.extractionTime || 0,
@@ -109,6 +111,7 @@ export class CodegenOrchestrator {
 
     // This won't actually be reached since watch() doesn't return
     return {
+      success: true,
       filesGenerated: 0,
       fromCache: false,
       artifacts: [],

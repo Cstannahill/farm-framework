@@ -34,7 +34,7 @@ export function createIntelCommand(): Command {
         const errors = validateConfig(config);
         if (errors.length > 0) {
           logger.error("Configuration validation failed:");
-          errors.forEach((error) => logger.error(`  - ${error}`));
+          errors.forEach((error: string) => logger.error(`  - ${error}`));
           process.exit(1);
         }
 
@@ -42,18 +42,18 @@ export function createIntelCommand(): Command {
         logger.info(`Server will run on ${config.api.host}:${config.api.port}`);
 
         const server = new CodeIntelligenceServer(config, process.cwd());
-        
+
         if (options.reset) {
           logger.info("Resetting vector database...");
-          await server.reset();
+          await server.reindex();
         }
 
         await server.start();
-        
+
         logger.success("✅ Code Intelligence server started successfully!");
         logger.info(`🔍 Query endpoint: http://${config.api.host}:${config.api.port}/query`);
         logger.info(`📖 Explain endpoint: http://${config.api.host}:${config.api.port}/explain`);
-        
+
         // Keep the process running
         process.on("SIGINT", async () => {
           logger.info("Shutting down Code Intelligence server...");
@@ -83,10 +83,10 @@ export function createIntelCommand(): Command {
         logger.info(`🔍 Querying codebase: "${query}"`);
         logger.info(`📊 Format: ${options.format}`);
         logger.info(`🔢 Limit: ${options.limit}`);
-        
+
         logger.warn("⚠️  Code Intelligence server integration coming soon!");
         logger.info("💡 To get started, run: farm intel start");
-        
+
       } catch (error) {
         logger.error("Query failed:");
         logger.error(error instanceof Error ? error.message : String(error));
@@ -104,10 +104,10 @@ export function createIntelCommand(): Command {
         if (line) {
           logger.info(`📍 Line: ${line} (±${options.context} context)`);
         }
-        
+
         logger.warn("⚠️  Code explanation integration coming soon!");
         logger.info("💡 To get started, run: farm intel start");
-        
+
       } catch (error) {
         logger.error("Explanation failed:");
         logger.error(error instanceof Error ? error.message : String(error));
@@ -123,7 +123,7 @@ export function createIntelCommand(): Command {
         logger.info("📊 Code Intelligence Status");
         logger.warn("⚠️  Status check integration coming soon!");
         logger.info("💡 To get started, run: farm intel start");
-        
+
       } catch (error) {
         logger.error("Status check failed:");
         logger.error(error instanceof Error ? error.message : String(error));
