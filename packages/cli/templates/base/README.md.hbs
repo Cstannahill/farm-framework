@@ -64,7 +64,7 @@ A full-stack application built with the **FARM Stack Framework**.
 ## Features
 
 {{#each features}}
-- ✅ **{{this}}** - {{#switch this}}{{#case "auth"}}Authentication and user management{{/case}}{{#case "ai"}}AI/ML integration with Ollama and cloud providers{{/case}}{{#case "realtime"}}Real-time features with WebSocket support{{/case}}{{#case "payments"}}Payment processing integration{{/case}}{{#case "email"}}Email service integration{{/case}}{{#case "storage"}}File upload and storage{{/case}}{{#case "search"}}Full-text search capabilities{{/case}}{{#case "analytics"}}Analytics and monitoring{{/case}}{{#default}}{{this}} feature{{/default}}{{/switch}}
+- ✅ **{{this}}** - {{#switch this}}{{#case "auth"}}Authentication and user management{{/case}}{{#case "ai"}}AI/ML integration with Ollama and cloud providers{{/case}}{{#case "realtime"}}Real-time features with WebSocket support{{/case}}{{#case "payments"}}Payment processing integration{{/case}}{{#case "email"}}Email service integration{{/case}}{{#case "storage"}}File upload and storage{{/case}}{{#case "search"}}Full-text search capabilities{{/case}}{{#case "analytics"}}Analytics and monitoring{{/case}}{{#defaultBlock}}{{this}} feature{{/defaultBlock}}{{/switch}}
 {{/each}}
 
 {{#if_feature "ai"}}

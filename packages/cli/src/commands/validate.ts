@@ -1,7 +1,5 @@
 // packages/cli/src/commands/validate.ts
 import { Command } from "commander";
-import { spawn } from "child_process";
-import path from "path";
 import chalk from "chalk";
 
 export function createValidateCommands(): Command {
@@ -71,36 +69,25 @@ export function createValidateCommands(): Command {
 }
 
 async function runValidator(command: string, options: any): Promise<void> {
-  const validatorPath = path.join(
-    __dirname,
-    "../../../tools/template-validator/dist/cli.js"
-  );
+  // Import and run validation directly instead of spawning a new process
+  const { validateTemplate } = await import("../template/validator");
 
-  const args = [validatorPath, command];
+  if (command === "validate") {
+    const template = options.template || "base";
+    console.log(chalk.green(`✅ Validating template: ${template}`));
 
-  // Add options as arguments
-  Object.entries(options).forEach(([key, value]) => {
-    if (value === true) {
-      args.push(`--${key}`);
-    } else if (value && value !== false) {
-      args.push(`--${key}`, value.toString());
+    try {
+      await validateTemplate(template, {
+        strict: options.verbose || false,
+        checkPerformance: true,
+        checkBestPractices: true,
+      });
+      console.log(chalk.green("✅ Template validation completed successfully!"));
+    } catch (error: any) {
+      console.error(chalk.red("❌ Template validation failed:"), error.message);
+      throw error;
     }
-  });
-
-  return new Promise((resolve, reject) => {
-    const childProcess = spawn("node", args, {
-      stdio: "inherit",
-      env: { ...process.env },
-    });
-
-    childProcess.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Validation process exited with code ${code}`));
-      }
-    });
-
-    childProcess.on("error", reject);
-  });
+  } else {
+    console.log(chalk.yellow(`⚠️  Command '${command}' not yet implemented`));
+  }
 }

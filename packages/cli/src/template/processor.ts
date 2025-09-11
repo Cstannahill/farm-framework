@@ -2,11 +2,11 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import Handlebars from "handlebars";
 import { glob } from "glob";
 import { TemplateContext } from "@farm-framework/types";
 import { logger } from "../utils/logger.js";
-import { getHandlebars, compileTemplate, handlebarsSingleton } from "./handlebars-singleton.js";
+import { getHandlebars, compileTemplate, handlebarsSingleton, compileAndExecuteTemplate } from "./handlebars-singleton.js";
+import { errorLogger, logTemplateProcessingError, logContextValidationError, ErrorCategory } from "../utils/error-logger.js";
 import { TemplateRegistry } from "./registry.js";
 import {
   TemplateInheritanceResolver,
@@ -178,6 +178,12 @@ export class TemplateProcessor {
       logger.error("❌ switch helper is NOT registered");
     }
 
+    if (helpers.includes("if_feature")) {
+      logger.debug("✅ if_feature helper is registered");
+    } else {
+      logger.error("❌ if_feature helper is NOT registered");
+    }
+
     logger.debug(
       `✅ TemplateProcessor initialized with templates at: ${this.templatesDir}`
     );
@@ -280,6 +286,12 @@ export class TemplateProcessor {
     outputPath: string,
     options: EnhancedTemplateProcessingOptions = {}
   ): Promise<EnhancedTemplateProcessingResult> {
+    // Start error logging session
+    const sessionId = errorLogger.startSession('template_processing', {
+      projectName: context.projectName || context.name,
+      templateName: templateName
+    });
+
     this.resetMetrics();
     this.metrics.startTime = Date.now();
 
@@ -289,185 +301,201 @@ export class TemplateProcessor {
     logger.debugVerbose(`Options:`, options);
     logger.debugVerbose(`Context:`, context);
 
-    logger.info(
-      `🏗️  Processing template with inheritance: ${templateName} ${options.dryRun ? "(dry run)" : ""}`
-    );
+    try {
+      logger.info(
+        `🏗️  Processing template with inheritance: ${templateName} ${options.dryRun ? "(dry run)" : ""}`
+      );
 
-    const inheritanceStartTime = Date.now();
-    logger.step(`🔍 Resolving template inheritance`);
+      const inheritanceStartTime = Date.now();
+      logger.step(`🔍 Resolving template inheritance`);
 
-    // Resolve template inheritance
-    logger.progress(`Looking up template files for: ${templateName}`);
-    const inheritanceFiles =
-      await this.inheritanceResolver.resolveTemplateFiles(
+      // Resolve template inheritance
+      logger.progress(`Looking up template files for: ${templateName}`);
+      const inheritanceFiles =
+        await this.inheritanceResolver.resolveTemplateFiles(
+          templateName,
+          context
+        );
+
+      this.metrics.inheritanceResolutionTime = Date.now() - inheritanceStartTime;
+      logger.result(
+        `⚡ Inheritance resolved in ${this.metrics.inheritanceResolutionTime}ms`
+      );
+
+      // Get inheritance info for metrics
+      logger.progress(`Getting inheritance information`);
+      const inheritanceInfo = await this.inheritanceResolver.getInheritanceInfo(
         templateName,
         context
       );
 
-    this.metrics.inheritanceResolutionTime = Date.now() - inheritanceStartTime;
-    logger.result(
-      `⚡ Inheritance resolved in ${this.metrics.inheritanceResolutionTime}ms`
-    );
-
-    // Get inheritance info for metrics
-    logger.progress(`Getting inheritance information`);
-    const inheritanceInfo = await this.inheritanceResolver.getInheritanceInfo(
-      templateName,
-      context
-    );
-
-    logger.result(
-      `📋 Resolved inheritance: ${inheritanceFiles.length} files (${inheritanceInfo.baseFiles} base, ${inheritanceInfo.templateFiles} template, ${inheritanceInfo.featureFiles} features)`
-    );
-    logger.debugDetailed(`Inheritance info:`, inheritanceInfo);
-    logger.debugDetailed(
-      `Inheritance files:`,
-      inheritanceFiles.map((f) => ({
-        path: f.relativePath,
-        source: f.source,
-        isHandlebars: f.isHandlebars,
-        priority: f.priority,
-      }))
-    );
-
-    // Validate and merge package.json dependencies
-    logger.step(`🔍 Validating dependencies`);
-    let dependencyValidationResult: DependencyValidationResult | undefined;
-    if (options.dependencyValidation?.skipValidation !== true) {
-      logger.progress(`Starting dependency validation`);
-      dependencyValidationResult = await this.validateAndMergeDependencies(
-        inheritanceFiles,
-        templateName,
-        options.dependencyValidation || {}
-      );
-
       logger.result(
-        `Dependency validation completed: ${dependencyValidationResult.valid ? "VALID" : "INVALID"}`
+        `📋 Resolved inheritance: ${inheritanceFiles.length} files (${inheritanceInfo.baseFiles} base, ${inheritanceInfo.templateFiles} template, ${inheritanceInfo.featureFiles} features)`
       );
-      logger.debugVerbose(`Validation result:`, dependencyValidationResult);
-
-      if (dependencyValidationResult.conflicts.length > 0) {
-        logger.warn(
-          `Found ${dependencyValidationResult.conflicts.length} dependency conflicts`
-        );
-        logger.debugDetailed(
-          `Conflicts:`,
-          dependencyValidationResult.conflicts
-        );
-      }
-
-      if (
-        !dependencyValidationResult.valid &&
-        !options.dependencyValidation?.warnOnly
-      ) {
-        logger.error(`Dependency validation failed - aborting`);
-        throw new Error(
-          `Dependency validation failed. ${dependencyValidationResult.conflicts.length} conflicts found. ` +
-          `Use dependencyValidation.warnOnly=true to proceed with warnings.`
-        );
-      }
-
-      if (options.verbose && dependencyValidationResult.conflicts.length > 0) {
-        logger.info(
-          "\n" +
-          this.dependencyValidator.generateValidationReport(
-            dependencyValidationResult
-          )
-        );
-      }
-    } else {
-      logger.progress(`Dependency validation skipped`);
-    }
-
-    const generatedFiles: string[] = [];
-    const skippedFiles: string[] = [];
-    const inheritedFiles: string[] = [];
-    const overriddenFiles: string[] = [];
-
-    // Create template data once and cache it
-    logger.step(`🎨 Creating template data context`);
-    const templateData = this.getCachedTemplateData(context);
-    logger.debugDetailed(`Template data created:`, templateData);
-
-    // Process files in optimized batches
-    logger.step(`🔄 Processing files in batches`);
-    const batches = this.createBatches(
-      inheritanceFiles,
-      options.batchSize || this.batchSize
-    );
-    logger.result(
-      `Created ${batches.length} batches for ${inheritanceFiles.length} files`
-    );
-
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      logger.progress(
-        `Processing batch ${i + 1}/${batches.length} (${batch.length} files)`
-      );
-      logger.debugTrace(
-        `Batch ${i + 1} files:`,
-        batch.map((f) => f.relativePath)
+      logger.debugDetailed(`Inheritance info:`, inheritanceInfo);
+      logger.debugDetailed(
+        `Inheritance files:`,
+        inheritanceFiles.map((f) => ({
+          path: f.relativePath,
+          source: f.source,
+          isHandlebars: f.isHandlebars,
+          priority: f.priority,
+        }))
       );
 
-      if (options.onProgress) {
-        options.onProgress({
-          current: i * this.batchSize,
-          total: inheritanceFiles.length,
-          currentFile: batch[0]?.relativePath || "",
-          phase: "processing",
-        });
+      // Validate and merge package.json dependencies
+      logger.step(`🔍 Validating dependencies`);
+      let dependencyValidationResult: DependencyValidationResult | undefined;
+      if (options.dependencyValidation?.skipValidation !== true) {
+        logger.progress(`Starting dependency validation`);
+        dependencyValidationResult = await this.validateAndMergeDependencies(
+          inheritanceFiles,
+          templateName,
+          options.dependencyValidation || {}
+        );
+
+        logger.result(
+          `Dependency validation completed: ${dependencyValidationResult.valid ? "VALID" : "INVALID"}`
+        );
+        logger.debugVerbose(`Validation result:`, dependencyValidationResult);
+
+        if (dependencyValidationResult.conflicts.length > 0) {
+          logger.warn(
+            `Found ${dependencyValidationResult.conflicts.length} dependency conflicts`
+          );
+          logger.debugDetailed(
+            `Conflicts:`,
+            dependencyValidationResult.conflicts
+          );
+        }
+
+        if (
+          !dependencyValidationResult.valid &&
+          !options.dependencyValidation?.warnOnly
+        ) {
+          logger.error(`Dependency validation failed - aborting`);
+          throw new Error(
+            `Dependency validation failed. ${dependencyValidationResult.conflicts.length} conflicts found. ` +
+            `Use dependencyValidation.warnOnly=true to proceed with warnings.`
+          );
+        }
+
+        if (options.verbose && dependencyValidationResult.conflicts.length > 0) {
+          logger.info(
+            "\n" +
+            this.dependencyValidator.generateValidationReport(
+              dependencyValidationResult
+            )
+          );
+        }
+      } else {
+        logger.progress(`Dependency validation skipped`);
       }
 
-      logger.debugVerbose(`Calling processInheritanceBatch for batch ${i + 1}`);
-      const batchResults = await this.processInheritanceBatch(
-        batch,
+      const generatedFiles: string[] = [];
+      const skippedFiles: string[] = [];
+      const inheritedFiles: string[] = [];
+      const overriddenFiles: string[] = [];
+
+      // Create template data once and cache it
+      logger.step(`🎨 Creating template data context`);
+      const templateData = this.getCachedTemplateData(context);
+      logger.debugDetailed(`Template data created:`, templateData);
+
+      // Process files in optimized batches
+      logger.step(`🔄 Processing files in batches`);
+      const batches = this.createBatches(
+        inheritanceFiles,
+        options.batchSize || this.batchSize
+      );
+      logger.result(
+        `Created ${batches.length} batches for ${inheritanceFiles.length} files`
+      );
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        logger.progress(
+          `Processing batch ${i + 1}/${batches.length} (${batch.length} files)`
+        );
+        logger.debugTrace(
+          `Batch ${i + 1} files:`,
+          batch.map((f) => f.relativePath)
+        );
+
+        if (options.onProgress) {
+          options.onProgress({
+            current: i * this.batchSize,
+            total: inheritanceFiles.length,
+            currentFile: batch[0]?.relativePath || "",
+            phase: "processing",
+          });
+        }
+
+        logger.debugVerbose(`Calling processInheritanceBatch for batch ${i + 1}`);
+        const batchResults = await this.processInheritanceBatch(
+          batch,
+          outputPath,
+          templateData,
+          context,
+          options
+        );
+
+        logger.debugTrace(`Batch ${i + 1} results:`, batchResults);
+
+        generatedFiles.push(...batchResults.generated);
+        skippedFiles.push(...batchResults.skipped);
+        inheritedFiles.push(...batchResults.inherited);
+        overriddenFiles.push(...batchResults.overridden);
+
+        logger.progress(
+          `Batch ${i + 1} completed: ${batchResults.generated.length} generated, ${batchResults.skipped.length} skipped`
+        );
+      }
+
+      const processingTime = Date.now() - this.metrics.startTime;
+      this.metrics.totalProcessingTime = processingTime;
+
+      logger.step(`📊 Template processing completed`);
+      logger.result(`Generated: ${generatedFiles.length} files`);
+      logger.result(`Skipped: ${skippedFiles.length} files`);
+      logger.result(`Inherited: ${inheritedFiles.length} files`);
+      logger.result(`Overridden: ${overriddenFiles.length} files`);
+      logger.result(`Total processing time: ${processingTime}ms`);
+
+      // Log performance metrics
+      if (options.verbose) {
+        logger.step(`📈 Performance metrics`);
+        this.logPerformanceMetrics();
+        this.logInheritanceMetrics(inheritanceInfo);
+      }
+
+      logger.success(`🎉 ENHANCED TEMPLATE PROCESSING COMPLETED`);
+
+      return {
+        generatedFiles,
+        skippedFiles,
+        inheritedFiles,
+        overriddenFiles,
+        metrics: { ...this.metrics },
+        inheritanceInfo,
+        dependencyValidation: dependencyValidationResult,
+        templateData: options.includeTemplateData ? templateData : undefined,
+      };
+    } catch (error) {
+      // Log template processing error
+      logTemplateProcessingError(error instanceof Error ? error : new Error(String(error)), {
+        templateName,
+        projectName: context.projectName || context.name,
         outputPath,
-        templateData,
-        context,
-        options
-      );
+        operation: 'processTemplateEnhanced'
+      });
 
-      logger.debugTrace(`Batch ${i + 1} results:`, batchResults);
-
-      generatedFiles.push(...batchResults.generated);
-      skippedFiles.push(...batchResults.skipped);
-      inheritedFiles.push(...batchResults.inherited);
-      overriddenFiles.push(...batchResults.overridden);
-
-      logger.progress(
-        `Batch ${i + 1} completed: ${batchResults.generated.length} generated, ${batchResults.skipped.length} skipped`
-      );
+      // Re-throw the error
+      throw error;
+    } finally {
+      // End error logging session
+      errorLogger.endSession();
     }
-
-    const processingTime = Date.now() - this.metrics.startTime;
-    this.metrics.totalProcessingTime = processingTime;
-
-    logger.step(`📊 Template processing completed`);
-    logger.result(`Generated: ${generatedFiles.length} files`);
-    logger.result(`Skipped: ${skippedFiles.length} files`);
-    logger.result(`Inherited: ${inheritedFiles.length} files`);
-    logger.result(`Overridden: ${overriddenFiles.length} files`);
-    logger.result(`Total processing time: ${processingTime}ms`);
-
-    // Log performance metrics
-    if (options.verbose) {
-      logger.step(`📈 Performance metrics`);
-      this.logPerformanceMetrics();
-      this.logInheritanceMetrics(inheritanceInfo);
-    }
-
-    logger.success(`🎉 ENHANCED TEMPLATE PROCESSING COMPLETED`);
-
-    return {
-      generatedFiles,
-      skippedFiles,
-      inheritedFiles,
-      overriddenFiles,
-      metrics: { ...this.metrics },
-      inheritanceInfo,
-      dependencyValidation: dependencyValidationResult,
-      templateData: options.includeTemplateData ? templateData : undefined,
-    };
   }
 
   /**
@@ -605,6 +633,18 @@ export class TemplateProcessor {
         const errorReport = this.errorHandler.formatErrorReport(result.errors);
         logger.error(errorReport);
 
+        // Log each specific error to the error logger
+        result.errors.forEach((error, index) => {
+          logTemplateProcessingError(`Template processing error ${index + 1}: ${error.message}`, {
+            filePath: sourcePath,
+            operation: 'processHandlebarsFile',
+            errorType: error.type,
+            templateError: error,
+            errorIndex: index,
+            totalErrors: result.errors.length
+          });
+        });
+
         // Try fallback processing for development
         logger.progress("Attempting fallback processing...");
         try {
@@ -623,6 +663,16 @@ export class TemplateProcessor {
             fallbackError instanceof Error
               ? fallbackError.message
               : String(fallbackError);
+
+          // Log the fallback failure
+          logTemplateProcessingError(`Fallback processing failed: ${fallbackMessage}`, {
+            filePath: sourcePath,
+            operation: 'fallback_processing',
+            errorType: 'fallback_failure',
+            originalErrors: result.errors,
+            fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+          });
+
           throw new Error(
             `Template processing failed: ${sourcePath}\n${errorReport}\nFallback error: ${fallbackMessage}`
           );
@@ -637,6 +687,18 @@ export class TemplateProcessor {
         result.warnings
       );
       logger.debugVerbose(warningReport);
+
+      // Log each warning to the error logger
+      result.warnings.forEach((warning, index) => {
+        logTemplateProcessingError(`Template warning ${index + 1}: ${warning.message}`, {
+          filePath: sourcePath,
+          operation: 'processHandlebarsFile',
+          errorType: warning.type,
+          templateWarning: warning,
+          warningIndex: index,
+          totalWarnings: result.warnings.length
+        });
+      });
     }
 
     // Write successful result
@@ -944,6 +1006,7 @@ export class TemplateProcessor {
     const template = context.template || "basic";
 
     return {
+      name: projectName,
       projectName,
       projectNamePascal: this.toPascalCase(projectName),
       projectNameKebab: kebabName,
@@ -1046,6 +1109,18 @@ export class TemplateProcessor {
       git: context.git,
       currentYear: new Date().getFullYear(),
 
+      // Environment configuration
+      environment: {
+        NODE_ENV: context.environment || "development",
+        ENVIRONMENT: context.environment || "development",
+      },
+
+      // Utility functions
+      now: new Date().toISOString(),
+      pascalCase: (str: string) => this.toPascalCase(str),
+      kebabCase: (str: string) => this.toKebabCase(str),
+      camelCase: (str: string) => this.toCamelCase(str),
+
       isApiOnly: context.template === "api-only",
       hasAI: context.features.includes("ai"),
       hasAuth: context.features.includes("auth"),
@@ -1095,21 +1170,31 @@ export class TemplateProcessor {
   public resolveTemplatesDirectory(): string {
     const currentDir = __dirname;
 
-    // Option 1: Try relative to the current file (development)
-    let templatesPath = path.resolve(currentDir, "../../../templates");
+    // Option 1: Check if templates are bundled with the CLI (PRIORITY)
+    let templatesPath = path.resolve(currentDir, "templates");
+    logger.debug(`Checking bundled templates path: ${templatesPath}`);
+    if (fs.existsSync(templatesPath)) {
+      logger.debug(`✅ Found templates (bundled): ${templatesPath}`);
+      return templatesPath;
+    } else {
+      logger.debug(`❌ Bundled templates not found at: ${templatesPath}`);
+    }
+
+    // Option 2: Try relative to the current file (development)
+    templatesPath = path.resolve(currentDir, "../../../templates");
     if (fs.existsSync(templatesPath)) {
       logger.debug(`Found templates (dev): ${templatesPath}`);
       return templatesPath;
     }
 
-    // Option 2: Try relative to the package root (when installed)
+    // Option 3: Try relative to the package root (when installed)
     templatesPath = path.resolve(currentDir, "../../templates");
     if (fs.existsSync(templatesPath)) {
       logger.debug(`Found templates (installed): ${templatesPath}`);
       return templatesPath;
     }
 
-    // Option 3: Try from the npm global location
+    // Option 4: Try from the npm global location
     const packageRoot = this.findPackageRoot(currentDir);
     if (packageRoot) {
       templatesPath = path.join(packageRoot, "templates");
@@ -1119,19 +1204,12 @@ export class TemplateProcessor {
       }
     }
 
-    // Option 4: Check if templates are bundled with the CLI
-    templatesPath = path.resolve(currentDir, "../templates");
-    if (fs.existsSync(templatesPath)) {
-      logger.debug(`Found templates (bundled): ${templatesPath}`);
-      return templatesPath;
-    }
-
     // Fallback: Create a more informative error
     const searchedPaths = [
+      path.resolve(currentDir, "templates"),
       path.resolve(currentDir, "../../../templates"),
       path.resolve(currentDir, "../../templates"),
       packageRoot ? path.join(packageRoot, "templates") : "N/A",
-      path.resolve(currentDir, "../templates"),
     ];
 
     throw new Error(
@@ -1217,6 +1295,15 @@ export class TemplateProcessor {
       : "";
   }
 
+  private toCamelCase(str: string): string {
+    return str
+      ? str
+        .split(/[-_]/)
+        .map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join("")
+      : "";
+  }
+
   private toKebabCase(str: string): string {
     return str
       ? str
@@ -1289,5 +1376,40 @@ export class TemplateProcessor {
     }
 
     return allErrors;
+  }
+
+  /**
+   * Process a single template file and return its content
+   */
+  async processTemplateFile(
+    templatePath: string,
+    context: TemplateContext,
+    outputPath: string
+  ): Promise<string> {
+    const templateRoot = this.resolveTemplateRoot();
+    const fullTemplatePath = path.join(templateRoot, templatePath);
+
+    if (!(await fs.pathExists(fullTemplatePath))) {
+      throw new Error(`Template file not found: ${templatePath}`);
+    }
+
+    const templateContent = await fs.readFile(fullTemplatePath, "utf-8");
+    const compiledTemplate = compileTemplate(templateContent);
+
+    return compiledTemplate(context);
+  }
+
+  /**
+   * Resolve the template root directory
+   */
+  private resolveTemplateRoot(): string {
+    return this.resolveTemplatesDirectory();
+  }
+
+  /**
+   * Get the templates directory path (public method for external use)
+   */
+  getTemplatesDir(): string {
+    return this.resolveTemplateRoot();
   }
 }

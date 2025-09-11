@@ -17,6 +17,163 @@ export interface DockerOptions {
 export class DockerManager extends EventEmitter {
   private containers = new Map<string, ChildProcess>();
 
+  /**
+   * Check if a port is in use and return the process using it
+   */
+  async checkPortInUse(port: number): Promise<{ inUse: boolean; process?: string }> {
+    try {
+      // Check if port is bound by Docker containers
+      const dockerContainers = await this.getContainersUsingPort(port);
+      if (dockerContainers.length > 0) {
+        return { inUse: true, process: `Docker container(s): ${dockerContainers.join(', ')}` };
+      }
+
+      // Check if port is bound by system processes
+      const systemProcess = await this.getSystemProcessUsingPort(port);
+      if (systemProcess) {
+        return { inUse: true, process: `System process: ${systemProcess}` };
+      }
+
+      return { inUse: false };
+    } catch (error) {
+      console.warn(`⚠️ Failed to check port ${port}:`, wrapError(error));
+      return { inUse: false };
+    }
+  }
+
+  /**
+   * Get Docker containers using a specific port
+   */
+  private async getContainersUsingPort(port: number): Promise<string[]> {
+    try {
+      const stdout = await this.runDockerCommand([
+        "ps",
+        "--format",
+        "{{.Names}} {{.Ports}}",
+        "--filter",
+        "status=running"
+      ]);
+
+      const containers: string[] = [];
+      const lines = stdout.trim().split('\n');
+
+      for (const line of lines) {
+        if (line.includes(`:${port}->`) || line.includes(`:${port}/`)) {
+          const containerName = line.split(' ')[0];
+          if (containerName) {
+            containers.push(containerName);
+          }
+        }
+      }
+
+      return containers;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get system process using a specific port (Windows/Linux/macOS)
+   */
+  private async getSystemProcessUsingPort(port: number): Promise<string | null> {
+    try {
+      const { spawn } = await import("child_process");
+      const { platform } = await import("os");
+
+      let command: string;
+      let args: string[];
+
+      if (platform() === "win32") {
+        command = "netstat";
+        args = ["-ano"];
+      } else {
+        command = "lsof";
+        args = ["-i", `:${port}`];
+      }
+
+      return new Promise((resolve) => {
+        const process = spawn(command, args, { stdio: "pipe" });
+        let stdout = "";
+
+        process.stdout?.on("data", (data) => {
+          stdout += data.toString();
+        });
+
+        process.on("close", (code) => {
+          if (code === 0) {
+            if (platform() === "win32") {
+              // Parse Windows netstat output
+              const lines = stdout.split('\n');
+              for (const line of lines) {
+                if (line.includes(`:${port} `) && line.includes('LISTENING')) {
+                  const parts = line.trim().split(/\s+/);
+                  const pid = parts[parts.length - 1];
+                  if (pid && pid !== '0') {
+                    resolve(`PID ${pid}`);
+                    return;
+                  }
+                }
+              }
+            } else {
+              // Parse Unix lsof output
+              const lines = stdout.split('\n');
+              for (const line of lines) {
+                if (line.includes(`:${port}`)) {
+                  const parts = line.trim().split(/\s+/);
+                  const processName = parts[0];
+                  const pid = parts[1];
+                  if (processName && pid) {
+                    resolve(`${processName} (PID ${pid})`);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+          resolve(null);
+        });
+
+        process.on("error", () => resolve(null));
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Stop containers that are using conflicting ports
+   */
+  async resolvePortConflicts(ports: number[]): Promise<void> {
+    console.log("🔍 Checking for port conflicts...");
+
+    for (const port of ports) {
+      const portCheck = await this.checkPortInUse(port);
+      if (portCheck.inUse) {
+        console.log(`⚠️ Port ${port} is in use by: ${portCheck.process}`);
+
+        // If it's a Docker container, try to stop it
+        if (portCheck.process?.includes('Docker container')) {
+          const containerNames = portCheck.process
+            .replace('Docker container(s): ', '')
+            .split(', ')
+            .map(name => name.trim());
+
+          for (const containerName of containerNames) {
+            try {
+              console.log(`🛑 Stopping conflicting container: ${containerName}`);
+              await this.runDockerCommand(["stop", containerName]);
+              console.log(`✅ Stopped container: ${containerName}`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to stop container ${containerName}:`, wrapError(error));
+            }
+          }
+        } else {
+          console.log(`💡 Please manually stop the process using port ${port}: ${portCheck.process}`);
+        }
+      }
+    }
+  }
+
   async startOllama(options: DockerOptions = {}): Promise<void> {
     const {
       gpu = false,
@@ -31,6 +188,10 @@ export class DockerManager extends EventEmitter {
     if (!(await this.isDockerAvailable())) {
       throw new Error("Docker is not available or not running");
     }
+
+    // Resolve port conflicts before starting
+    const portNumbers = ports.map(p => parseInt(p.split(':')[0]));
+    await this.resolvePortConflicts(portNumbers);
 
     const args = [
       "run",
@@ -151,6 +312,10 @@ export class DockerManager extends EventEmitter {
     } = options;
 
     console.log("🐳 Starting MongoDB container...");
+
+    // Resolve port conflicts before starting
+    const portNumbers = ports.map(p => parseInt(p.split(':')[0]));
+    await this.resolvePortConflicts(portNumbers);
 
     const args = [
       "run",

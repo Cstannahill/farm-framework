@@ -33,6 +33,9 @@ export interface CreateCommandOptions {
   interactive?: boolean;
   verbose?: boolean;
   preflight?: boolean;
+  setupScript?: boolean;
+  runSetup?: boolean;
+  skipSetup?: boolean;
 }
 
 /**
@@ -51,6 +54,9 @@ export interface CLITemplateContext
   // CLI options that might be passed through
   interactive?: boolean;
   verbose?: boolean;
+  setupScript?: boolean;
+  runSetup?: boolean;
+  skipSetup?: boolean;
 
   // Additional properties needed by CLI
   testing?: boolean;
@@ -194,5 +200,8 @@ export function createTemplateContext(
     // CLI-specific options
     interactive: options.interactive,
     verbose: options.verbose,
+    setupScript: options.setupScript !== false, // Default to true
+    runSetup: options.runSetup,
+    skipSetup: options.skipSetup,
   };
 }

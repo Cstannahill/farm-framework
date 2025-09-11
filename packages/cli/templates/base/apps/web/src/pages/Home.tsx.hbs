@@ -1,41 +1,211 @@
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "../components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 
 export function Home() {
-  const { data: health, isLoading } = useQuery({
-    queryKey: ["health"],
-    queryFn: async () => {
-      const response = await fetch("/api/health");
-      if (!response.ok) throw new Error("Health check failed");
-      return response.json();
-    },
-  });
-
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Welcome to Your FARM App
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          FastAPI + React + MongoDB = ❤️
-        </p>
-
-        <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-          <h2 className="text-lg font-semibold mb-4">API Status</h2>
-          {isLoading ? (
-            <div className="text-gray-500">Checking...</div>
-          ) : health ? (
-            <div className="text-green-600">
-              ✅ API is {health.status}
-              <div className="text-sm text-gray-500 mt-1">
-                Service: {health.service} v{health.version}
-              </div>
-            </div>
-          ) : (
-            <div className="text-red-600">❌ API unavailable</div>
-          )}
-        </div>
+const { data: health, isLoading } = useQuery({
+queryKey: ["health"],
+queryFn: async () => {
+const response = await fetch("/api/health");
+if (!response.ok) throw new Error("Health check failed");
+return response.json();
+},
+});
+type BgStyle = {
+background: string
+}
+const bgStyle: BgStyle = {
+  background: "radial-gradient(ellipse at center, rgba(34,197,94,0.20) 0%, rgba(34,197,94,0.12) 35%, rgba(34,197,94,0.06) 55%, transparent 70%)"
+};
+return (
+  <div className="px-4">
+  {/* Hero */}
+  <section className="relative isolate overflow-hidden">
+    <div
+      className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-100/60 to-transparent dark:from-emerald-900/20" />
+    {/* Soft radial highlight */}
+    <div aria-hidden
+      className="pointer-events-none select-none absolute -z-10 left-1/2 top-6 h-[38rem] w-[38rem] -translate-x-1/2 rounded-full blur-3xl opacity-60"
+      style={bgStyle} />
+    <div className="container py-16 sm:py-20 text-center">
+      <div
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground bg-background/80">
+        <span className="h-1.5 w-1.5 rounded-full bg-farm-green" />
+        Next-Gen Framework 2025
+      </div>
+      <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight">
+        Build faster with <span className="text-primary">FARM</span> Framework
+      </h1>
+      <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+        The modern full-stack framework combining FastAPI, React, and MongoDB.
+        Ship production-ready applications in minutes, not months.
+      </p>
+      <div className="mt-8 flex items-center justify-center gap-3">
+        <a href="http://localhost:8000/docs">
+          <Button className="px-5">API Docs ztest-farm22</Button>
+        </a>
+        <a href="https://github.com/cstannahill/farm-framework" target="_blank" rel="noreferrer">
+          <Button variant="outline" className="px-5">View Farm on GitHub</Button>
+        </a>
+      </div>
+      <div className="container z-50 my-3">
+        <Card className="order-2 md:order-1 mx-15">
+          <CardHeader>
+            <CardTitle>API Status</CardTitle>
+            <CardDescription>
+              {isLoading ? (
+              <span className="text-muted-foreground">Checking...</span>
+              ) : health ? (
+              <span className="text-[#22c55e]">✅ API is {health.status}</span>
+              ) : (
+              <span className="text-red-500">❌ API unavailable</span>
+              )}
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     </div>
-  );
+    {/* Bottom fade out into page background */}
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-background" />
+  </section>
+
+  {/* Divider */}
+  <div className="container">
+    <div className="my-10 h-px w-full bg-gradient-to-r from-transparent via-border/70 to-transparent" />
+  </div>
+
+  {/* Features */}
+  <section className="relative isolate">
+    <div aria-hidden
+      className="pointer-events-none absolute inset-x-0 -top-8 h-16 bg-gradient-to-b from-background to-transparent -z-10" />
+    <div className="container py-12">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold">Everything you need to build modern apps</h2>
+        <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+          FARM Framework provides a complete toolkit for building scalable, production-ready applications.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-emerald-200/60 dark:border-emerald-900/40">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+              ⚡</div>
+            <CardTitle className="flex items-center gap-2">
+              Lightning Fast
+            </CardTitle>
+            <CardDescription>
+              Built on FastAPI and React with hot reload, async support, and optimized builds for maximum performance.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-emerald-200/60 dark:border-emerald-900/40">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-farm-green/10 text-farm-green ring-1 ring-farm-green/30">
+              🧩</div>
+            <CardTitle className="flex items-center gap-2">
+              MongoDB Ready
+            </CardTitle>
+            <CardDescription>
+              Seamless MongoDB integration with ODM, migrations, and real-time data synchronization out of the box.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-emerald-200/60 dark:border-emerald-900/40">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20">
+              🛡️</div>
+            <CardTitle className="flex items-center gap-2">
+              Type Safe
+            </CardTitle>
+            <CardDescription>
+              Full TypeScript support with automatic API types generation and end-to-end type safety.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-rose-200/60 dark:border-rose-900/30">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20">
+              🏭</div>
+            <CardTitle className="flex items-center gap-2">
+              Production Ready
+            </CardTitle>
+            <CardDescription>
+              Built-in authentication, caching, monitoring, and deployment tools for enterprise applications.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-amber-200/60 dark:border-amber-900/30">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20">
+              🧰</div>
+            <CardTitle className="flex items-center gap-2">
+              Modern Stack
+            </CardTitle>
+            <CardDescription>
+              React 18, FastAPI 0.100+, MongoDB 7.0, with modern tooling and best practices included.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card
+          className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/50 border-purple-200/60 dark:border-purple-900/30">
+          <CardHeader>
+            <div
+              className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-ai-purple/10 text-ai-purple ring-1 ring-ai-purple/20">
+              ✨</div>
+            <CardTitle className="flex items-center gap-2">
+              Developer Experience
+            </CardTitle>
+            <CardDescription>
+              Exceptional DX with CLI tools, code generation, auto-completion, and comprehensive documentation.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  </section>
+
+  {/* Resources */}
+  <section className="mt-6">
+    <div className="grid gap-4 sm:grid-cols-3">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Read the docs</CardTitle>
+          <CardDescription>Comprehensive guides and API references to get you started</CardDescription>
+          <a href="https://farm-rho-green.vercel.app/" target="_blank" rel="noreferrer">
+            <Button variant="success" className="px-0 mt-2">Documentation →</Button>
+          </a>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Try templates</CardTitle>
+          <CardDescription>Start with pre-built templates for common use cases</CardDescription>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Join community</CardTitle>
+          <CardDescription>Connect with other devs and get help when you need it</CardDescription>
+        </CardHeader>
+      </Card>
+    </div>
+  </section>
+
+  {/* Divider */}
+  <div className="container">
+    <div className="my-10 h-px w-full bg-gradient-to-r from-transparent via-border/70 to-transparent" />
+  </div>
+  </div>
+);
 }

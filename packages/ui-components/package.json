@@ -27,14 +27,14 @@
     "@farm-framework/types": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@types/react": ">=18.2.0",
+    "@types/react-dom": ">=18.2.0",
+    "react": ">=18.2.0",
+    "react-dom": ">=18.2.0",
     "tsup": "^8.0.2",
     "typescript": "^5.8.3"
   },

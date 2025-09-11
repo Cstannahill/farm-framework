@@ -23,16 +23,16 @@ classifiers = [
 ]
 dependencies = [
     # FastAPI and ASGI server
-    "fastapi==0.115.10",
-    "uvicorn[standard]==0.34.0",
+    "fastapi==0.116.1",
+    "uvicorn[standard]==0.35.0",
     
     # Database dependencies
     {{#switch database}}
     {{#case "mongodb"}}
     # MongoDB
-    "motor==3.6.0",
-    "beanie==1.30.0",
-    "pymongo==4.13",
+    "motor==3.7.1",
+    "beanie==2.0.0",
+    "pymongo==4.14.1",
     {{/case}}
     {{#case "postgresql"}}
     # PostgreSQL
@@ -75,7 +75,7 @@ dependencies = [
     {{#if_template "ai-chat" "ai-dashboard"}}
     {{#if ai.providers.openai.enabled}}
     # OpenAI
-    "openai==5.3.0",
+    "openai==1.107.0",
     {{/if}}
     
     {{#if ai.providers.anthropic.enabled}}
@@ -90,7 +90,7 @@ dependencies = [
     {{/if}}
     {{else}}
     # Basic AI support
-    "openai==5.3.0",
+    "openai==1.107.0",
     {{/if_template}}
     {{/if_feature}}
     
@@ -131,11 +131,11 @@ dependencies = [
     {{/if_feature}}
     
     # Configuration management
-    "pydantic[email]==2.1.0",
-    "pydantic-settings==2.7.0",
+    "pydantic[email]==2.11.7",
+    "pydantic-settings==2.10.0",
     
     # Logging and monitoring
-    "python-json-logger==3.13.4",
+    "python-json-logger==3.3.0",
     "coloredlogs==15.0.1",
     
     {{#if_feature "observability"}}
@@ -160,7 +160,7 @@ dev = [
     "faker==33.1.0",  # For test data generation
     
     # Code quality
-    "black==24.12.0",
+    "black==24.10.0",
     "isort==5.13.2",
     "flake8==7.1.1",
     "mypy==1.14.0",
@@ -168,8 +168,8 @@ dev = [
 
 docs = [
     # Documentation
-    "mkdocs==1.6.2",
-    "mkdocs-material==9.5.52",
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.6.19",
 ]
 
 [project.urls]

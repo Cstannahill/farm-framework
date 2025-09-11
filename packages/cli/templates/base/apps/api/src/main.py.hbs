@@ -2,7 +2,7 @@
 """
 {{name}} API
 
-{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application with streaming responses{{/case}}{{#case "ai-dashboard"}}AI analytics and insights dashboard{{/case}}{{#case "api-only"}}RESTful API service{{/case}}{{#default}}Full-stack web application{{/default}}{{/switch}}{{/if}}
+{{safeDescription}}
 
 Built with FARM Stack Framework
 """
@@ -23,11 +23,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .core.config import settings
 from .core.logging import setup_logging
-{{#if_database "mongodb"}}
-from .database.mongodb import init_database, close_database
-{{else}}
 from .database.connection import init_database, close_database
-{{/if_database}}
 
 # Import routes
 from .routes import health
@@ -112,7 +108,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="{{pascalCase name}} API",
-    description="{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application with multi-provider support, streaming responses, and conversation management{{/case}}{{#case "ai-dashboard"}}AI analytics dashboard with data insights, model metrics, and intelligent visualizations{{/case}}{{#case "api-only"}}RESTful API service with authentication, database integration, and comprehensive health monitoring{{/case}}{{#default}}Full-stack web application with modern UI, secure authentication, and scalable backend architecture{{/default}}{{/switch}}{{/if}}",
+    description="{{safeDescription}}",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.is_development else None,
@@ -331,7 +327,7 @@ async def root():
     return {
         "name": "{{pascalCase name}} API",
         "version": "1.0.0",
-        "description": "{{#if description}}{{description}}{{else}}{{#switch template}}{{#case "ai-chat"}}AI-powered chat application{{/case}}{{#case "ai-dashboard"}}AI analytics dashboard{{/case}}{{#case "api-only"}}RESTful API service{{/case}}{{#default}}Full-stack web application{{/default}}{{/switch}}{{/if}}",
+        "description": "{{safeDescription}}",
         "template": "{{template}}",
         "database": "{{database}}",
         "features": [

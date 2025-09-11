@@ -1,0 +1,43 @@
+# Theming: Light/Dark Mode
+
+This template ships with a basic, doc-site-aligned light/dark mode.
+
+## Goals
+- Mirror the look-and-feel of the FARM docs site
+- Zero FOUC (no flash of wrong theme) on load
+- Persisted theme choice (light/dark/system)
+- Semantic Tailwind tokens instead of hard-coded grays
+
+## References
+- Live site: https://farm-rho-green.vercel.app/
+- Reference images in `reference-images/`:
+  - `title.png`, `landing.png`, `landinghigh.png`, `quickstart.png`, `ref.png`
+- Tailwind and CSS are aligned with docs and already configured here:
+  - `apps/web/tailwind.config.js.hbs`
+  - `apps/web/src/index.css.hbs`
+
+## How it works
+- `index.html.hbs` contains a tiny inline script that reads the persisted theme from the app store key `{{projectName}}-app-store` and sets the `dark` class on `<html>` before CSS loads.
+- `useAppStore` (Zustand) holds `theme: 'light' | 'dark' | 'system'` and persists it.
+- `Layout` reacts to theme changes and toggles the `dark` class at runtime. It also shows a Theme Toggle button that cycles through light → dark → system.
+- Components/pages were updated to use semantic colors: `bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`, etc.
+
+## Files touched
+- `apps/web/index.html.hbs`: no-FOUC theme script
+- `apps/web/src/components/layout/Layout.tsx.hbs`: ThemeToggle and runtime `dark` class sync, semantic tokens in nav
+- `apps/web/src/pages/Home.tsx.hbs`: semantic tokens
+- `apps/web/src/pages/About.tsx.hbs`: semantic tokens
+- `apps/web/src/components/ui/loading.tsx.hbs`: semantic tokens
+
+## Using it
+- Click the theme icon in the top-right of the nav to cycle modes.
+- Default is `system`, following the OS preference.
+
+## Notes
+- Tailwind is set with `darkMode: 'class'` and color variables come from `index.css.hbs` using OKLCH values to match brand palette.
+- The brand accent uses `bg-primary`/`text-primary` and `text-farm-green` for the primary green when needed.
+
+## Future enhancements
+- Add an accessible dropdown to explicitly choose Light/Dark/System.
+- Animate the theme switch with subtle transitions.
+- Sync across tabs via `storage` event.

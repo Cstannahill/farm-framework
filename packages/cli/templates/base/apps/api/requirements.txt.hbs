@@ -2,7 +2,33 @@
 # FastAPI and ASGI server
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
+# Development and testing dependencies
+pytest==8.4.0
+pytest-asyncio==1.0.0
+pytest-cov==6.0.0
+httpx==0.28.1  # For testing
+faker==33.1.0  # For test data generation
 
+# Code quality
+black==24.10.0
+isort==5.13.2
+flake8==7.1.1
+mypy==1.14.0
+
+# Documentation
+mkdocs==1.6.1
+mkdocs-material==9.6.19
+
+# Configuration management
+pydantic[email]==2.11.7
+pydantic-settings==2.10.0
+
+# Logging and monitoring
+python-json-logger==3.3.0
+coloredlogs==15.0.1
+
+# Environment management
+python-dotenv==1.0.1
 # Database dependencies - All 5 databases supported
 {{#switch database}}
 {{#case "mongodb"}}
@@ -107,14 +133,6 @@ mixpanel==5.0.0
 elasticsearch[async]==8.16.0
 {{/if_feature}}
 
-# Configuration management
-pydantic[email]==2.11.7
-pydantic-settings==2.10.0
-
-# Logging and monitoring
-python-json-logger==3.3.0
-coloredlogs==15.0.1
-
 {{#if_feature "observability"}}
 # Observability
 prometheus-client==0.22.0
@@ -122,23 +140,3 @@ opentelemetry-api==1.30.0
 opentelemetry-sdk==1.30.0
 opentelemetry-instrumentation-fastapi==0.51b0
 {{/if_feature}}
-
-# Development and testing dependencies
-pytest==8.4.0
-pytest-asyncio==1.0.0
-pytest-cov==6.0.0
-httpx==0.28.1  # For testing
-faker==33.1.0  # For test data generation
-
-# Code quality
-black==25.1.0
-isort==5.13.2
-flake8==7.1.1
-mypy==1.14.0
-
-# Documentation
-mkdocs==1.6.1
-mkdocs-material==9.6.19
-
-# Environment management
-python-dotenv==1.0.1

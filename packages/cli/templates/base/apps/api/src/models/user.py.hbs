@@ -3,7 +3,7 @@
 User model
 {{#switch database}}
 {{#case "mongodb"}}User document model using Beanie for MongoDB{{/case}}
-{{#default}}User model using SQLAlchemy for SQL databases{{/default}}
+{{#defaultBlock}}User model using SQLAlchemy for SQL databases{{/defaultBlock}}
 {{/switch}}
 """
 
@@ -342,42 +342,142 @@ class User(Base):
 {{/if_database}}
 
 {{else}}
-# Auth feature not enabled - provide stub User class
+# Auth feature not enabled - provide basic User class
+{{#if_database "mongodb"}}
+from datetime import datetime
+from typing import Optional, Dict, Any
+from beanie import Document
+from pydantic import Field
 
-class User:
-    """Stub User class when auth is disabled"""
+class User(Document):
+    """Basic User document for MongoDB when auth is disabled"""
     
-    def __init__(self, **kwargs):
-        self.id = "anonymous"
-        self.email = "anonymous@example.com"
-        self.username = "anonymous"
-        self.full_name = "Anonymous User"
-        self.is_active = True
-        self.is_superuser = False
-        self.is_verified = True
-        {{#if_feature "ai"}}
-        self.ai_preferences = {{#if_template "ai-chat" "ai-dashboard"}}{
+    # Basic user information
+    email: str = Field(default="anonymous@example.com", description="User email address")
+    username: str = Field(default="anonymous", description="Username")
+    full_name: str = Field(default="Anonymous User", description="User's full name")
+    
+    # Status fields
+    is_active: bool = Field(default=True, description="Whether the user account is active")
+    is_superuser: bool = Field(default=False, description="Whether the user has admin privileges")
+    is_verified: bool = Field(default=True, description="Whether the user's email is verified")
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Account creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")
+    
+    # User preferences
+    preferences: Dict[str, Any] = Field(default_factory=dict, description="User preferences and settings")
+    
+    {{#if_feature "ai"}}
+    # AI preferences
+    ai_preferences: Dict[str, Any] = Field(
+        default_factory={{#if_template "ai-chat" "ai-dashboard"}}lambda: {
             "preferred_provider": "ollama",
             "preferred_model": "llama3.1",
-            "default_temperature": 0.7
-        }{{else}}{
+            "default_temperature": 0.7,
+            "default_max_tokens": 1000,
+            "streaming_enabled": True
+        }{{else}}lambda: {
             "ai_enabled": True,
             "preferred_provider": "ollama"
-        }{{/if_template}}
-        {{/if_feature}}
+        }{{/if_template}},
+        description="AI-related user preferences"
+    )
+    {{/if_feature}}
     
     def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
-        """Convert anonymous user to dictionary"""
+        """Convert user to dictionary"""
         return {
+            "id": str(self.id),
+            "email": self.email,
+            "username": self.username,
+            "full_name": self.full_name,
+            "is_active": self.is_active,
+            "is_verified": self.is_verified,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "preferences": self.preferences,
+            {{#if_feature "ai"}}
+            "ai_preferences": self.ai_preferences
+            {{/if_feature}}
+        }
+    
+    def __str__(self) -> str:
+        return f"User({self.email})"
+
+{{else}}
+# SQL Database Implementation - Auth not enabled
+from datetime import datetime
+from typing import Optional, Dict, Any
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
+from sqlalchemy.sql import func
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class User(Base):
+    """Basic User model for SQL databases when auth is disabled"""
+    __tablename__ = "users"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Basic user information
+    email = Column(String(255), unique=True, index=True, nullable=False, default="anonymous@example.com")
+    username = Column(String(50), unique=True, index=True, nullable=True, default="anonymous")
+    full_name = Column(String(100), nullable=True, default="Anonymous User")
+    
+    # Status fields
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
+    is_verified = Column(Boolean, default=True, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # User preferences
+    {{#if_database "postgresql" "mysql"}}
+    preferences = Column(JSON, nullable=True)
+    {{#if_feature "ai"}}
+    ai_preferences = Column(JSON, nullable=True)
+    {{/if_feature}}
+    {{else}}
+    preferences = Column(Text, nullable=True)  # JSON string for SQLite/SQL Server
+    {{#if_feature "ai"}}
+    ai_preferences = Column(Text, nullable=True)  # JSON string
+    {{/if_feature}}
+    {{/if_database}}
+    
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
+        """Convert user to dictionary"""
+        data = {
             "id": self.id,
             "email": self.email,
             "username": self.username,
             "full_name": self.full_name,
             "is_active": self.is_active,
             "is_verified": self.is_verified,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            {{#if_database "postgresql" "mysql"}}
+            "preferences": self.preferences or {},
             {{#if_feature "ai"}}
-            "ai_preferences": self.ai_preferences
+            "ai_preferences": self.ai_preferences or {},
             {{/if_feature}}
+            {{else}}
+            "preferences": self.get_preferences() if hasattr(self, 'get_preferences') else {},
+            {{#if_feature "ai"}}
+            "ai_preferences": self.get_ai_preferences() if hasattr(self, 'get_ai_preferences') else {},
+            {{/if_feature}}
+            {{/if_database}}
         }
+        
+        return data
+    
+    def __str__(self) -> str:
+        return f"User({self.email})"
 
+{{/if_database}}
 {{/if_feature}}

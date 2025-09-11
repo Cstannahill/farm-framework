@@ -1,0 +1,25 @@
+import * as React from "react";
+import { Button } from "./ui/button";
+import { Moon, Sun } from "lucide-react";
+import { useAppStore } from "../stores/app-store";
+
+export function ThemeToggle() {
+const theme = useAppStore((s) => s.theme);
+const setTheme = useAppStore((s) => s.setTheme);
+
+const toggleTheme = React.useCallback(() => {
+const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+setTheme(next);
+}, [theme, setTheme]);
+
+return (
+<Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={toggleTheme}>
+    <Moon className="size-4 dark:hidden" />
+    <Sun className="size-4 hidden dark:block" />
+    <span className="sr-only">Toggle theme</span>
+</Button>
+
+);
+}
+
+export default ThemeToggle;
