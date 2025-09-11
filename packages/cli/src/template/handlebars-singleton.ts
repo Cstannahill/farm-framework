@@ -9,6 +9,7 @@
 import Handlebars from "handlebars";
 import { registerHandlebarsHelpers } from "./helpers.js";
 import { logger } from "../utils/logger.js";
+import { errorLogger, logHandlebarsError, ErrorCategory } from "../utils/error-logger.js";
 
 export type HandlebarsInstance = typeof Handlebars;
 
@@ -75,8 +76,52 @@ export class HandlebarsSingleton {
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             logger.error(`❌ Template compilation failed: ${errorMsg}`);
+
+            // Log detailed error information for debugging
+            logHandlebarsError(error instanceof Error ? error : new Error(String(error)), {
+                operation: 'template_compilation',
+                templateContent: template.substring(0, 500), // First 500 chars
+                templateLength: template.length,
+                options: options,
+                cacheKey: cacheKey.substring(0, 50),
+                errorType: error instanceof Error ? error.constructor.name : 'unknown'
+            });
+
             throw error;
         }
+    }
+
+    /**
+     * Execute a compiled template with error logging
+     */
+    public execute(template: Handlebars.TemplateDelegate, context: any, options?: any): string {
+        this.ensureInitialized();
+
+        try {
+            const result = template(context, options);
+            return result;
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            logger.error(`❌ Template execution failed: ${errorMsg}`);
+
+            // Log detailed error information for debugging
+            logHandlebarsError(error instanceof Error ? error : new Error(String(error)), {
+                operation: 'template_execution',
+                context: this.sanitizeContext(context),
+                options: options,
+                errorType: error instanceof Error ? error.constructor.name : 'unknown'
+            });
+
+            throw error;
+        }
+    }
+
+    /**
+     * Compile and execute a template in one step with error logging
+     */
+    public compileAndExecute(template: string, context: any, options?: any): string {
+        const compiledTemplate = this.compile(template, options);
+        return this.execute(compiledTemplate, context, options);
     }
 
     /**
@@ -226,6 +271,56 @@ export class HandlebarsSingleton {
     }
 
     /**
+     * Sanitize context data for error logging
+     */
+    private sanitizeContext(context: any): any {
+        if (!context || typeof context !== 'object') {
+            return context;
+        }
+
+        const sanitized: any = {};
+        const maxDepth = 3;
+        const seen = new WeakSet();
+
+        const sanitize = (obj: any, depth: number = 0): any => {
+            if (depth > maxDepth || seen.has(obj)) {
+                return '[Circular or too deep]';
+            }
+
+            if (obj === null || typeof obj !== 'object') {
+                return obj;
+            }
+
+            seen.add(obj);
+
+            if (Array.isArray(obj)) {
+                return obj.slice(0, 10).map(item => sanitize(item, depth + 1));
+            }
+
+            const result: any = {};
+            for (const [key, value] of Object.entries(obj)) {
+                // Skip sensitive or large data
+                if (key.toLowerCase().includes('password') ||
+                    key.toLowerCase().includes('secret') ||
+                    key.toLowerCase().includes('token') ||
+                    key.toLowerCase().includes('key')) {
+                    result[key] = '[REDACTED]';
+                } else if (typeof value === 'string' && value.length > 200) {
+                    result[key] = value.substring(0, 200) + '...[TRUNCATED]';
+                } else if (typeof value === 'function') {
+                    result[key] = '[Function]';
+                } else {
+                    result[key] = sanitize(value, depth + 1);
+                }
+            }
+
+            return result;
+        };
+
+        return sanitize(context);
+    }
+
+    /**
      * Create a cache key for template caching
      */
     private createCacheKey(template: string, options?: any): string {
@@ -267,6 +362,20 @@ export function hasHelper(name: string): boolean {
  */
 export function getRegisteredHelpers(): string[] {
     return HandlebarsSingleton.getInstance().getRegisteredHelpers();
+}
+
+/**
+ * Convenience function to execute a compiled template with error logging
+ */
+export function executeTemplate(template: Handlebars.TemplateDelegate, context: any, options?: any): string {
+    return HandlebarsSingleton.getInstance().execute(template, context, options);
+}
+
+/**
+ * Convenience function to compile and execute a template with error logging
+ */
+export function compileAndExecuteTemplate(template: string, context: any, options?: any): string {
+    return HandlebarsSingleton.getInstance().compileAndExecute(template, context, options);
 }
 
 // Export the singleton instance for direct access if needed

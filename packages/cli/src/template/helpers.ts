@@ -916,6 +916,222 @@ export function registerHandlebarsHelpers(
   );
 
   // =============================================================================
+  // MISSING HELPER ALIASES (for backward compatibility)
+  // =============================================================================
+
+  // Direct variable access helpers (these should be available as context properties)
+  handlebars.registerHelper(
+    "projectName",
+    function (this: TemplateContext): string {
+      return this.projectName || this.name || "";
+    }
+  );
+
+  handlebars.registerHelper(
+    "projectNameKebab",
+    function (this: TemplateContext): string {
+      const name = this.projectName || this.name || "";
+      return name.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+    }
+  );
+
+  handlebars.registerHelper(
+    "author",
+    function (this: TemplateContext): string {
+      return this.author || "Unknown Author";
+    }
+  );
+
+  handlebars.registerHelper(
+    "description",
+    function (this: TemplateContext): string {
+      return this.description || "A FARM Framework project";
+    }
+  );
+
+  // Template name helper
+  handlebars.registerHelper(
+    "template",
+    function (this: TemplateContext): string {
+      return this.template || "basic";
+    }
+  );
+
+  // Database type helper
+  handlebars.registerHelper(
+    "database",
+    function (this: TemplateContext): string {
+      const db = this.database;
+      if (typeof db === "string") {
+        return db;
+      } else if (typeof db === "object" && db?.type) {
+        return db.type;
+      }
+      return "mongodb";
+    }
+  );
+
+  // Current timestamp helper
+  handlebars.registerHelper(
+    "now",
+    function (this: TemplateContext): string {
+      return this.timestamp || new Date().toISOString();
+    }
+  );
+
+  // Name alias helper
+  handlebars.registerHelper(
+    "name",
+    function (this: TemplateContext): string {
+      return this.projectName || this.name || "";
+    }
+  );
+
+  // AI feature helper
+  handlebars.registerHelper(
+    "ai",
+    function (this: TemplateContext): boolean {
+      return this.features?.includes('ai') || false;
+    }
+  );
+
+  // Context reference helper (for 'this' usage)
+  handlebars.registerHelper(
+    "this",
+    function (this: TemplateContext, property?: string): any {
+      if (property) {
+        return (this as any)[property];
+      }
+      return this.projectName || this.name || "";
+    }
+  );
+
+  // =============================================================================
+  // BUILT-IN HANDLEBARS HELPERS
+  // =============================================================================
+
+  // Else helper for if/else blocks
+  handlebars.registerHelper(
+    "else",
+    function (this: TemplateContext, options: HandlebarsOptions): string {
+      // The else helper is typically used with if blocks
+      // This is a simple implementation that returns the inverse block
+      return options.inverse(this);
+    }
+  );
+
+  // Safe description helper that handles undefined and object cases
+  handlebars.registerHelper(
+    "safeDescription",
+    function (this: TemplateContext): string {
+      const { description, template } = this;
+
+      // Only use description if it's a non-empty string
+      if (typeof description === "string" && description.trim()) {
+        return description;
+      }
+
+      // Fallback based on template type
+      switch (template) {
+        case "ai-chat":
+          return "AI-powered chat application with streaming responses";
+        case "ai-dashboard":
+          return "AI analytics and insights dashboard";
+        case "api-only":
+          return "RESTful API service";
+        default:
+          return "Full-stack web application";
+      }
+    }
+  );
+
+  // Safe environment helper that handles undefined and object cases
+  handlebars.registerHelper(
+    "safeEnvironment",
+    function (this: TemplateContext): string {
+      const env = this.environment;
+      if (typeof env === "string" && env.trim()) {
+        return env;
+      }
+
+      // Default to development if not properly set
+      return "development";
+    }
+  );
+
+  // Safe database helper that handles undefined and object cases
+  handlebars.registerHelper(
+    "safeDatabase",
+    function (this: TemplateContext): string {
+      const db = this.database;
+      if (typeof db === "string" && db.trim()) {
+        return db;
+      }
+
+      // If it's an object, try to extract the type
+      if (db && typeof db === "object" && "type" in db) {
+        return (db as any).type;
+      }
+
+      // Default to mongodb if not properly set
+      return "mongodb";
+    }
+  );
+
+  // Switch helper for conditional rendering ({{#switch value}}...{{/switch}})
+  handlebars.registerHelper(
+    "switch",
+    function (this: TemplateContext, value: any, options: any): string {
+      // Store the switch value in the context for case helpers to use
+      (this as any).__switch_value = value;
+      (this as any).__switch_break = false;
+      const result = options.fn(this);
+      // Clean up the switch context
+      delete (this as any).__switch_value;
+      delete (this as any).__switch_break;
+      return result;
+    }
+  );
+
+  // Case helper for switch statements ({{#case value}}...{{/case}})
+  handlebars.registerHelper(
+    "case",
+    function (this: TemplateContext, value: any, options: any): string {
+      const switchValue = (this as any).__switch_value;
+      const switchBreak = (this as any).__switch_break;
+
+      // If we've already hit a break, don't render this case
+      if (switchBreak) {
+        return "";
+      }
+
+      // If this case matches the switch value, render it and set break
+      if (switchValue === value) {
+        (this as any).__switch_break = true;
+        return options.fn(this);
+      }
+
+      return "";
+    }
+  );
+
+  // Default block helper for switch statements ({{#defaultBlock}}...{{/defaultBlock}})
+  handlebars.registerHelper(
+    "defaultBlock",
+    function (this: TemplateContext, options: any): string {
+      const switchBreak = (this as any).__switch_break;
+
+      // If we've already hit a break, don't render the default
+      if (switchBreak) {
+        return "";
+      }
+
+      // This is the default case when no other case matches
+      return options.fn(this);
+    }
+  );
+
+  // =============================================================================
   // DEBUG HELPERS
   // =============================================================================
 

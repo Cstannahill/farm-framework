@@ -5,6 +5,17 @@
  */
 
 import { logger } from "../utils/logger.js";
+import { logHandlebarsError, logTemplateProcessingError, ErrorCategory } from "../utils/error-logger.js";
+import {
+  getAllHelpers,
+  getAllVariables,
+  isValidHelper,
+  isValidVariable,
+  getHelperSuggestions,
+  getVariableSuggestions,
+  generateErrorMessage,
+  HELPER_ALIASES
+} from "./template-specification.js";
 
 export interface TemplateError {
   type: "missing_helper" | "syntax_error" | "jsx_conflict" | "unknown";
@@ -27,7 +38,10 @@ export class TemplateErrorHandler {
   private knownHelpers: Set<string> = new Set();
 
   constructor(registeredHelpers: string[]) {
-    this.knownHelpers = new Set(registeredHelpers);
+    // Use the authoritative helper list from template specification
+    this.knownHelpers = new Set(getAllHelpers());
+    // Also include any additional registered helpers
+    registeredHelpers.forEach(helper => this.knownHelpers.add(helper));
   }
 
   /**
@@ -44,6 +58,15 @@ export class TemplateErrorHandler {
       );
       const missingHelper = helperMatch?.[1] || "unknown";
 
+      // Log the missing helper error
+      logHandlebarsError(`Missing helper: ${missingHelper}`, {
+        filePath: filePath,
+        operation: 'missing_helper_detection',
+        missingHelper: missingHelper,
+        errorMessage: error.message,
+        suggestion: this.suggestHelperFix(missingHelper)
+      });
+
       return {
         type: "missing_helper",
         message: `Missing Handlebars helper: "${missingHelper}"`,
@@ -55,6 +78,15 @@ export class TemplateErrorHandler {
 
     // Options.inverse error (common with inline vs block helper usage)
     if (errorMessage.includes("options.inverse is not a function")) {
+      // Log the syntax error
+      logHandlebarsError("Helper used incorrectly - inline vs block helper mismatch", {
+        filePath: filePath,
+        operation: 'syntax_error_detection',
+        errorType: 'options_inverse_error',
+        errorMessage: error.message,
+        suggestion: "Check if helper is being used as inline ({{helper arg}}) vs block ({{#helper}}...{{/helper}})"
+      });
+
       return {
         type: "syntax_error",
         message:
@@ -71,6 +103,15 @@ export class TemplateErrorHandler {
       errorMessage.includes("expecting 'id', 'string'") &&
       fileName.includes(".tsx")
     ) {
+      // Log the JSX conflict error
+      logHandlebarsError("JSX syntax conflicts with Handlebars", {
+        filePath: filePath,
+        operation: 'jsx_conflict_detection',
+        errorType: 'jsx_syntax_conflict',
+        errorMessage: error.message,
+        suggestion: "Use \\{{}} or {\\{}} to escape JSX object syntax in React templates"
+      });
+
       return {
         type: "jsx_conflict",
         message:
@@ -86,6 +127,16 @@ export class TemplateErrorHandler {
     const lineMatch = error.message.match(/line (\d+)/i);
     const line = lineMatch ? parseInt(lineMatch[1]) : undefined;
 
+    // Log unknown Handlebars errors
+    logHandlebarsError(`Unknown Handlebars error: ${error.message}`, {
+      filePath: filePath,
+      operation: 'unknown_error_detection',
+      errorType: 'unknown_handlebars_error',
+      errorMessage: error.message,
+      line: line,
+      suggestion: "Check template syntax and ensure all helpers are properly registered"
+    });
+
     return {
       type: "unknown",
       message: error.message,
@@ -98,75 +149,29 @@ export class TemplateErrorHandler {
   }
 
   /**
-   * Suggest fixes for missing helpers
+   * Suggest fixes for missing helpers using the template specification
    */
   private suggestHelperFix(missingHelper: string): string {
-    const suggestions: Record<string, string> = {
-      switch: 'Use {{#if_database "type"}} instead of {{#switch database}}',
-      case: 'Use individual database checks like {{#if_database "mongodb"}}',
-      kebabCase:
-        "Helper added - use project_name_kebab or kebab_case for existing helpers",
-      pascalCase:
-        "Helper added - use project_name_pascal or pascal_case for existing helpers",
-      camelCase: "Use camel_case helper instead",
-      snakeCase: "Use snake_case helper instead",
-    };
-
-    if (suggestions[missingHelper]) {
-      return suggestions[missingHelper];
+    // Check if it's a known alias
+    if (missingHelper in HELPER_ALIASES) {
+      const alias = HELPER_ALIASES[missingHelper as keyof typeof HELPER_ALIASES];
+      return `Use ${alias} instead of ${missingHelper}`;
     }
 
-    // Check for similar helpers
-    const similar = this.findSimilarHelpers(missingHelper);
-    if (similar.length > 0) {
-      return `Did you mean: ${similar.join(", ")}?`;
+    // Get suggestions from the template specification
+    const suggestions = getHelperSuggestions(missingHelper);
+    if (suggestions.length > 0) {
+      return `Did you mean: ${suggestions.join(", ")}?`;
     }
 
     return `Add helper to src/template/helpers.ts or use existing alternatives`;
   }
 
   /**
-   * Find similar helper names
+   * Find similar helper names using the template specification
    */
   private findSimilarHelpers(target: string): string[] {
-    const helpers = Array.from(this.knownHelpers);
-    return helpers
-      .filter((helper) => {
-        const similarity = this.calculateSimilarity(
-          target.toLowerCase(),
-          helper.toLowerCase()
-        );
-        return similarity > 0.6;
-      })
-      .slice(0, 3);
-  }
-
-  /**
-   * Calculate string similarity (Levenshtein distance)
-   */
-  private calculateSimilarity(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1)
-      .fill(null)
-      .map(() => Array(str1.length + 1).fill(null));
-
-    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-
-    for (let j = 1; j <= str2.length; j++) {
-      for (let i = 1; i <= str1.length; i++) {
-        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,
-          matrix[j - 1][i] + 1,
-          matrix[j - 1][i - 1] + indicator
-        );
-      }
-    }
-
-    const maxLength = Math.max(str1.length, str2.length);
-    return maxLength === 0
-      ? 1
-      : (maxLength - matrix[str2.length][str1.length]) / maxLength;
+    return getHelperSuggestions(target);
   }
 
   /**
@@ -219,6 +224,15 @@ export class TemplateErrorHandler {
     } catch (error) {
       const templateError = this.parseHandlebarsError(error as Error, filePath);
       result.errors.push(templateError);
+
+      // Log the template processing failure
+      logTemplateProcessingError(`Template processing failed: ${templateError.message}`, {
+        filePath: filePath,
+        operation: 'safe_process_template',
+        errorType: templateError.type,
+        templateError: templateError,
+        originalError: error instanceof Error ? error.message : String(error)
+      });
     }
 
     return result;
@@ -256,14 +270,26 @@ export class TemplateErrorHandler {
         helperMatches.forEach((match) => {
           const helper = match.replace(/\{\{#?/, "");
           if (!this.knownHelpers.has(helper) && !this.isBuiltinHelper(helper)) {
-            issues.push({
-              type: "missing_helper",
+            const issue = {
+              type: "missing_helper" as const,
               message: `Unknown helper "${helper}" found`,
               file: fileName,
               line: lineNumber,
               suggestion: this.suggestHelperFix(helper),
-              severity: "warning",
+              severity: "warning" as const,
+            };
+
+            // Log the unknown helper warning
+            logHandlebarsError(`Unknown helper "${helper}" found in preflight check`, {
+              filePath: filePath,
+              operation: 'preflight_check',
+              errorType: 'unknown_helper_warning',
+              helper: helper,
+              line: lineNumber,
+              suggestion: this.suggestHelperFix(helper)
             });
+
+            issues.push(issue);
           }
         });
       }
@@ -272,15 +298,26 @@ export class TemplateErrorHandler {
       if (fileName.includes(".tsx") && line.includes("={{")) {
         const jsxMatches = line.match(/\w+=\{\{/g);
         if (jsxMatches) {
-          issues.push({
-            type: "jsx_conflict",
+          const issue = {
+            type: "jsx_conflict" as const,
             message: "Potential JSX syntax conflict detected",
             file: fileName,
             line: lineNumber,
             suggestion:
               "Consider escaping JSX object syntax: prop={\\{{ value }}}",
-            severity: "warning",
+            severity: "warning" as const,
+          };
+
+          // Log the JSX conflict warning
+          logHandlebarsError("Potential JSX syntax conflict detected in preflight check", {
+            filePath: filePath,
+            operation: 'preflight_check',
+            errorType: 'jsx_conflict_warning',
+            line: lineNumber,
+            suggestion: "Consider escaping JSX object syntax: prop={\\{{ value }}}"
           });
+
+          issues.push(issue);
         }
       }
 

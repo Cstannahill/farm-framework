@@ -8,7 +8,7 @@ export default defineConfig({
   // Database configuration
   database: {
     type: '{{database}}',
-    url: process.env.DATABASE_URL || '{{#switch database}}{{#case "mongodb"}}mongodb://localhost:27017/{{kebabCase projectName}}{{/case}}{{#case "postgresql"}}postgresql://user:password@localhost:5432/{{kebabCase projectName}}{{/case}}{{#case "mysql"}}mysql://user:password@localhost:3306/{{kebabCase projectName}}{{/case}}{{#case "sqlite"}}sqlite:///./{{kebabCase projectName}}.db{{/case}}{{/switch}}'
+  url: process.env.DATABASE_URL || '{{#switch database}}{{#case "mongodb"}}mongodb://farm:development@localhost:27017/{{kebabCase projectName}}?authSource=admin{{/case}}{{#case "postgresql"}}postgresql://user:password@localhost:5432/{{kebabCase projectName}}{{/case}}{{#case "mysql"}}mysql://user:password@localhost:3306/{{kebabCase projectName}}{{/case}}{{#case "sqlite"}}sqlite:///./{{kebabCase projectName}}.db{{/case}}{{/switch}}'
   },
 
 {{#if_feature "ai"}}

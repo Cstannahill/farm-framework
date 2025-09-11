@@ -6,6 +6,7 @@ import { ProcessManager } from "./process-manager.js";
 import { ServiceConfigManager } from "./service-configs.js";
 import { Logger } from "./logger.js";
 import { HealthChecker } from "./health-checker.js";
+import { DockerManager } from "./docker-manager.js";
 import type {
   DevServerOptions,
   DevServerState,
@@ -38,6 +39,7 @@ export class FarmDevServer extends EventEmitter<DevServerEvents> {
   private serviceConfigManager: ServiceConfigManager;
   private logger: Logger;
   private healthChecker: HealthChecker;
+  private dockerManager: DockerManager;
   private state: DevServerState;
   private options: Required<DevServerOptions>;
 
@@ -63,6 +65,7 @@ export class FarmDevServer extends EventEmitter<DevServerEvents> {
     this.healthChecker = new HealthChecker(this.logger);
     this.processManager = new ProcessManager(this.logger);
     this.serviceConfigManager = new ServiceConfigManager(this.logger);
+    this.dockerManager = new DockerManager();
 
     // Initialize state
     this.state = {
@@ -272,6 +275,9 @@ export class FarmDevServer extends EventEmitter<DevServerEvents> {
     // Group services by startup phases
     const phases = this.groupServicesByPhases(serviceConfigs);
 
+    // Resolve port conflicts before starting any services
+    await this.resolvePortConflicts(serviceConfigs);
+
     for (const phase of phases) {
       this.logger.section(`Starting ${phase.name} Services`);
 
@@ -305,6 +311,33 @@ export class FarmDevServer extends EventEmitter<DevServerEvents> {
       }
 
       this.logger.newLine();
+    }
+  }
+
+  private async resolvePortConflicts(serviceConfigs: ServiceConfig[]): Promise<void> {
+    // Collect all ports that will be used by services
+    const portsToCheck: number[] = [];
+
+    for (const config of serviceConfigs) {
+      if (config.key === 'database' && this.state.config?.database?.type === 'mongodb') {
+        portsToCheck.push(27017); // MongoDB default port
+      } else if (config.key === 'backend') {
+        portsToCheck.push(8000); // FastAPI default port
+      } else if (config.key === 'frontend') {
+        portsToCheck.push(4000); // Vite default port
+      } else if (config.key === 'ai' && this.state.config?.ai?.providers?.ollama?.enabled) {
+        portsToCheck.push(11434); // Ollama default port
+      }
+    }
+
+    // Add proxy port
+    portsToCheck.push(this.options.port);
+
+    // Remove duplicates
+    const uniquePorts = [...new Set(portsToCheck)];
+
+    if (uniquePorts.length > 0) {
+      await this.dockerManager.resolvePortConflicts(uniquePorts);
     }
   }
 

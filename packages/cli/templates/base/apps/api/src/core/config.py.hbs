@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     WORKERS: int = 1
     
     # Database - Support all 5 database types with complete URLs
-    DATABASE_URL: str = "{{#switch database}}{{#case 'mongodb'}}mongodb://localhost:27017/{{kebabCase name}}{{/case}}{{#case 'postgresql'}}postgresql://user:password@localhost:5432/{{kebabCase name}}{{/case}}{{#case 'mysql'}}mysql://user:password@localhost:3306/{{kebabCase name}}{{/case}}{{#case 'sqlite'}}sqlite:///./{{kebabCase name}}.db{{/case}}{{#case 'sqlserver'}}mssql://user:password@localhost:1433/{{kebabCase name}}{{/case}}{{/switch}}"
+    DATABASE_URL: str = "{{#switch database}}{{#case 'mongodb'}}mongodb://farm:development@localhost:27017/{{kebabCase name}}?authSource=admin{{/case}}{{#case 'postgresql'}}postgresql://user:password@localhost:5432/{{kebabCase name}}{{/case}}{{#case 'mysql'}}mysql://user:password@localhost:3306/{{kebabCase name}}{{/case}}{{#case 'sqlite'}}sqlite:///./{{kebabCase name}}.db{{/case}}{{#case 'sqlserver'}}mssql://user:password@localhost:1433/{{kebabCase name}}{{/case}}{{/switch}}"
     DATABASE_NAME: str = "{{kebabCase name}}"
     
     # Database connection settings
@@ -259,7 +259,7 @@ class TestingSettings(Settings):
     # Use in-memory/test databases
     {{#switch database}}
     {{#case "mongodb"}}
-    DATABASE_URL: str = "mongodb://localhost:27017/{{kebabCase name}}_test"
+    DATABASE_URL: str = "mongodb://farm:development@localhost:27017/{{kebabCase name}}_test?authSource=admin"
     {{/case}}
     {{#case "postgresql"}}
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/{{kebabCase name}}_test"

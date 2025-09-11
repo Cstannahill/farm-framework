@@ -102,7 +102,8 @@ export default defineConfig(${JSON.stringify(config, null, 2)});
   private getDefaultDatabaseUrl(database: string, projectName: string): string {
     switch (database) {
       case "mongodb":
-        return `mongodb://localhost:27017/${projectName}`;
+        // Standardized development credentials for MongoDB
+        return `mongodb://farm:development@localhost:27017/${projectName}?authSource=admin`;
       case "postgresql":
         return `postgresql://user:password@localhost:5432/${projectName}`;
       case "mysql":
@@ -392,8 +393,9 @@ services:
   ): string {
     switch (database) {
       case "mongodb":
-        return `MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
+        // Standardized development MongoDB credentials
+        return `MONGO_INITDB_ROOT_USERNAME: farm
+      MONGO_INITDB_ROOT_PASSWORD: development
       MONGO_INITDB_DATABASE: ${projectName}`;
       case "postgresql":
         return `POSTGRES_DB: ${projectName}

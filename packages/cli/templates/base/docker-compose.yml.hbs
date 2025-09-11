@@ -8,8 +8,9 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
+      # Standardized development MongoDB credentials (must match .env and config.py templates)
+      MONGO_INITDB_ROOT_USERNAME: farm
+      MONGO_INITDB_ROOT_PASSWORD: development
       MONGO_INITDB_DATABASE: {{kebabCase projectName}}
     volumes:
       - mongodb_data:/data/db
@@ -32,7 +33,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - farm-network
-
 {{/if_database}}
 {{#if_feature "ai"}}
   ollama:
@@ -50,24 +50,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
 {{/if_feature}}
 
 volumes:
-{{#if_database "mongodb"}}
-  mongodb_data:
-{{/if_database}}
-{{#if_database "postgresql"}}
-  postgres_data:
-{{/if_database}}
-{{#if_database "mysql"}}
-  mysql_data:
-{{/if_database}}
-{{#if_database "sqlserver"}}
-  sqlserver_data:
-{{/if_database}}
-{{#if_feature "ai"}}
-  ollama_data:
+{{#if_database "mongodb"}}  mongodb_data:
+{{/if_database}}{{#if_database "postgresql"}}  postgres_data:
+{{/if_database}}{{#if_database "mysql"}}  mysql_data:
+{{/if_database}}{{#if_database "sqlserver"}}  sqlserver_data:
+{{/if_database}}{{#if_feature "ai"}}  ollama_data:
 {{/if_feature}}
 
 networks:

@@ -4,6 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="{{description}}" />
+    <script>
+      // Prevent theme flash: read persisted theme (Zustand store) or system and set class early
+      (function() {
+        try {
+          var storeKey = "{{projectName}}-app-store";
+          var raw = localStorage.getItem(storeKey);
+          var theme = null;
+          if (raw) {
+            try {
+              var parsed = JSON.parse(raw);
+              // Zustand persist shape
+              theme = parsed?.state?.theme || parsed?.theme || null;
+            } catch (e) {
+              // ignore
+            }
+          }
+          if (!theme) {
+            theme = 'system';
+          }
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var effective = theme === 'dark' || (theme === 'system' && prefersDark) ? 'dark' : 'light';
+          var root = document.documentElement;
+          if (effective === 'dark') {
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link href="/src/index.css" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="/farm-c.svg" />
     <title>{{projectName}}</title>

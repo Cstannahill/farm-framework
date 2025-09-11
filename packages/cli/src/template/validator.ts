@@ -7,6 +7,7 @@ import fs from "fs-extra";
 import { compileTemplate } from "./handlebars-singleton.js";
 import { glob } from "glob";
 import { logger } from "../utils/logger.js";
+import { getAllHelpers } from "./template-specification.js";
 
 /**
  * Template validation result
@@ -74,87 +75,8 @@ export class TemplateValidator {
   private knownHelpers: Set<string>;
 
   constructor() {
-    // Initialize with known Handlebars helpers
-    this.knownHelpers = new Set([
-      // Built-in Handlebars helpers
-      "if",
-      "unless",
-      "each",
-      "with",
-      "lookup",
-      "log",
-
-      // FARM framework helpers (from helpers.ts)
-      "eq",
-      "ne",
-      "gt",
-      "lt",
-      "and",
-      "or",
-      "not",
-      "includes",
-      "capitalize",
-      "lowercase",
-      "uppercase",
-      "kebab_case",
-      "snake_case",
-      "camel_case",
-      "pascal_case",
-      "pluralize",
-      "join",
-      "length",
-      "default",
-      "if_feature",
-      "unless_feature",
-      "has_features",
-      "if_database",
-      "unless_database",
-      "is_mongodb",
-      "is_postgresql",
-      "is_mysql",
-      "is_sqlite",
-      "if_template",
-      "is_basic",
-      "is_ai_chat",
-      "is_ai_dashboard",
-      "is_ecommerce",
-      "is_cms",
-      "is_api_only",
-      "if_env",
-      "is_development",
-      "is_production",
-      "is_staging",
-      "if_ai_provider",
-      "has_ollama",
-      "has_openai",
-      "has_huggingface",
-      "has_ai_enabled",
-      "project_name",
-      "project_name_kebab",
-      "project_name_snake",
-      "project_name_camel",
-      "project_name_pascal",
-      "farm_version",
-      "timestamp",
-      "year",
-      "has_typescript",
-      "has_docker",
-      "has_testing",
-      "if_plugin",
-      "get_config",
-      "json",
-      "debug",
-      "log",
-
-      // Template processor helpers
-      "switch",
-      "case",
-      "indent",
-      "comment",
-      "import_path",
-      "validate_name",
-      "lazy",
-    ]);
+    // Use the authoritative helper list from template specification
+    this.knownHelpers = new Set(getAllHelpers());
   }
 
   /**
@@ -317,8 +239,8 @@ export class TemplateValidator {
           type: "syntax",
           file: filePath,
           message: `Handlebars syntax error: ${syntaxError instanceof Error
-              ? syntaxError.message
-              : String(syntaxError)
+            ? syntaxError.message
+            : String(syntaxError)
             }`,
           details: syntaxError instanceof Error ? syntaxError.stack : undefined,
         });

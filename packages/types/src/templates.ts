@@ -73,10 +73,14 @@ export interface TemplateContext {
   name: string; // Project name (legacy field name, required)
   // Optional properties that may be provided by different parts of the system
   description?: string;
+  environment?: string; // Environment name (development, staging, production)
   typescript?: boolean;
   docker?: boolean;
   git?: boolean;
   install?: boolean; // Whether to install dependencies
+  setupScript?: boolean; // Whether to generate setup scripts
+  runSetup?: boolean; // Whether to run setup script after generation
+  skipSetup?: boolean; // Whether to skip setup script generation and execution
 }
 
 /**

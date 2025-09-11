@@ -15,10 +15,10 @@ export class ServiceConfigManager {
     farmConfig: FarmConfig,
     projectPath: string
   ): ServiceConfig[] {
-    console.log('🔍 ServiceConfigManager.getServiceConfigs called with:', {
+    console.log("🔍 ServiceConfigManager.getServiceConfigs called with:", {
       template: farmConfig.template,
       features: farmConfig.features,
-      projectPath
+      projectPath,
     });
     const configs: ServiceConfig[] = [];
 
@@ -40,13 +40,16 @@ export class ServiceConfigManager {
 
     // Add frontend (React/Vite) if not API-only
     if (farmConfig.template !== "api-only") {
-      console.log('✅ Adding frontend config - template is not api-only');
+      console.log("✅ Adding frontend config - template is not api-only");
       configs.push(this.getFrontendConfig(farmConfig, projectPath));
     } else {
-      console.log('❌ Skipping frontend config - template is api-only');
+      console.log("❌ Skipping frontend config - template is api-only");
     }
 
-    console.log('🔍 ServiceConfigManager returning configs:', configs.map(c => ({ name: c.name, key: c.key, order: c.order })));
+    console.log(
+      "🔍 ServiceConfigManager returning configs:",
+      configs.map((c) => ({ name: c.name, key: c.key, order: c.order }))
+    );
     return configs.sort((a, b) => a.order - b.order);
   }
   private shouldStartOllama(farmConfig: FarmConfig): boolean {
@@ -81,7 +84,8 @@ export class ServiceConfigManager {
             args: ["compose", "up", "mongodb", "-d"],
           },
           cwd: projectPath,
-          healthCheck: `http://localhost:${ports.database || 27017}`,
+          // Mongo isn't HTTP; rely on small delay + autoRestart. A dedicated TCP health check can be added later.
+          healthCheck: undefined,
           healthTimeout: 30000,
           required: true,
           autoRestart: true,
@@ -283,40 +287,16 @@ export class ServiceConfigManager {
         cmd: "node",
         args: [
           "-e",
-          `
-          const { TypeSyncOrchestrator, TypeSyncWatcher } = require('@farm-framework/type-sync');
-            async function startTypeSync() {
-            const orchestrator = new TypeSyncOrchestrator();
-            await orchestrator.initialize({
-              apiUrl: 'http://localhost:${backendPort}',
-              outputDir: 'generated',
-              features: {
-                client: true,
-                hooks: true,
-                streaming: true, // Enable streaming by default
-                aiHooks: ${farmConfig.features?.includes("ai") || false},
-              },
-              performance: {
-                enableMonitoring: true,
-                enableIncrementalGeneration: true,
-                maxConcurrency: 4,
-                cacheTimeout: 300000,
-              },
-            });
-
-            // Initial sync
-            console.log('🔄 Starting initial type sync...');
-            const result = await orchestrator.syncOnce();
-            console.log(\`✅ Generated \${result.filesGenerated} type files\`);
-
-            // Start watching
-            const watcher = new TypeSyncWatcher(orchestrator);
-            await watcher.start();
-            console.log('👁️  Watching for API changes...');
-          }
-
-          startTypeSync().catch(console.error);
-          `,
+          "const { TypeSyncOrchestrator, TypeSyncWatcher } = require('@farm-framework/type-sync');" +
+            "(async()=>{try{const orchestrator=new TypeSyncOrchestrator();" +
+            `await orchestrator.initialize({apiUrl:'http://localhost:${backendPort}',outputDir:'generated',features:{client:true,hooks:true,streaming:true,aiHooks:${farmConfig.features?.includes("ai") || false}},performance:{enableMonitoring:true,enableIncrementalGeneration:true,maxConcurrency:4,cacheTimeout:300000}});` +
+            "console.log('🔄 Starting initial type sync...');" +
+            "const result=await orchestrator.syncOnce();" +
+            "console.log('✅ Generated '+result.filesGenerated+' type files');" +
+            "const watcher=new TypeSyncWatcher(orchestrator);" +
+            "await watcher.start();" +
+            "console.log('👁️  Watching for API changes...');" +
+            "}catch(err){console.error('TypeSync failed',err);setTimeout(()=>process.exit(1),2000);}})();",
         ],
       },
       cwd: projectPath,
@@ -343,8 +323,9 @@ export class ServiceConfigManager {
       env.DATABASE_URL = farmConfig.database.url;
     } else {
       const dbPort = ports.database || 27017;
-      env.DATABASE_URL = `mongodb://localhost:${dbPort}/${farmConfig.name || "farmapp"
-        }`;
+      env.DATABASE_URL = `mongodb://localhost:${dbPort}/${
+        farmConfig.name || "farmapp"
+      }`;
     }
 
     // AI provider configuration

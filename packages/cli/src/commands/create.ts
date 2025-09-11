@@ -57,6 +57,23 @@ export function createCreateCommand(): Command {
       "--preflight",
       "Run preflight checks on templates before processing"
     )
+    .option(
+      "--setup-script",
+      "Generate setup script for the project (default: true)",
+      true
+    )
+    .option(
+      "--no-setup-script",
+      "Skip setup script generation"
+    )
+    .option(
+      "--run-setup",
+      "Run setup script after project generation"
+    )
+    .option(
+      "--skip-setup",
+      "Skip both setup script generation and execution"
+    )
     .action(createProject);
   return createCmd;
 }
@@ -249,6 +266,12 @@ async function createProject(
     const sharedContext = convertToSharedContext(context);
     const result = await scaffolder.generateProject(projectPath, sharedContext);
 
+    // Run setup script if requested
+    if (normalizedOptions.runSetup && !normalizedOptions.skipSetup) {
+      console.log(messages.step("🚀 Running setup script..."));
+      await runSetupScript(projectPath, normalizedOptions.verbose);
+    }
+
     // Initialize git repository
     if (normalizedOptions.git) {
       console.log(messages.step("📦 Initializing git repository..."));
@@ -432,6 +455,7 @@ function convertToSharedContext(
     template: context.template,
     features: context.features || [],
     database: getDatabaseType(context.database),
+    environment: context.environment || "development", // Default to development
     answers: {}, // Empty answers object for compatibility
     timestamp: new Date().toISOString(), // Current timestamp
     farmVersion: "1.0.0", // TODO: Get from package.json
@@ -441,7 +465,73 @@ function convertToSharedContext(
     docker: context.docker,
     git: context.git,
     install: context.install,
+    setupScript: context.setupScript,
+    runSetup: context.runSetup,
+    skipSetup: context.skipSetup,
   };
+}
+
+/**
+ * Run the appropriate setup script for the current platform
+ */
+async function runSetupScript(projectPath: string, verbose?: boolean): Promise<void> {
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+
+  try {
+    let scriptPath: string;
+    let command: string;
+
+    if (process.platform === "win32") {
+      // Try PowerShell first, then batch
+      const psScriptPath = path.join(projectPath, "setup.ps1");
+      const batScriptPath = path.join(projectPath, "setup.bat");
+
+      if (await fs.pathExists(psScriptPath)) {
+        scriptPath = psScriptPath;
+        command = `powershell -ExecutionPolicy Bypass -File "${scriptPath}"`;
+      } else if (await fs.pathExists(batScriptPath)) {
+        scriptPath = batScriptPath;
+        command = `"${scriptPath}"`;
+      } else {
+        throw new Error("No setup script found for Windows");
+      }
+    } else {
+      // Unix-like systems
+      scriptPath = path.join(projectPath, "setup.sh");
+      if (!(await fs.pathExists(scriptPath))) {
+        throw new Error("No setup script found for Unix");
+      }
+      command = `bash "${scriptPath}"`;
+    }
+
+    console.log(chalk.blue(`Running: ${command}`));
+
+    const { stdout, stderr } = await execAsync(command, {
+      cwd: projectPath,
+    });
+
+    if (verbose && stdout) {
+      console.log(stdout);
+    }
+    if (stderr && verbose) {
+      console.error(chalk.yellow(stderr));
+    }
+
+    console.log(chalk.green("✅ Setup script completed successfully"));
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(chalk.red(`❌ Setup script failed: ${errorMessage}`));
+    console.log(chalk.yellow("💡 You can run the setup script manually later:"));
+    if (process.platform === "win32") {
+      console.log(chalk.gray("  setup.bat"));
+      console.log(chalk.gray("  powershell -ExecutionPolicy Bypass -File setup.ps1"));
+    } else {
+      console.log(chalk.gray("  ./setup.sh"));
+    }
+    throw error;
+  }
 }
 
 export { createProject };

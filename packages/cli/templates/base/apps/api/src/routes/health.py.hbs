@@ -28,7 +28,7 @@ async def health_check():
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
             "version": "1.0.0",
-            "environment": "{{#switch environment}}{{#case 'production'}}production{{/case}}{{#case 'staging'}}staging{{/case}}{{#default}}development{{/default}}{{/switch}}",
+            "environment": "{{safeEnvironment}}",
             "services": {}
         }
         

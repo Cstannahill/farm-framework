@@ -11,7 +11,6 @@ import {
 import { TemplateRegistry } from "../template/registry.js";
 import { TemplateProcessor } from "../template/processor.js";
 import { ProjectStructureGenerator } from "../generators/project-structure.js";
-import { DependencyResolver } from "../template/dependencies.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { logger } from "../utils/logger.js";
@@ -40,7 +39,6 @@ export interface ScaffoldResult {
 export class ProjectScaffolder {
   private templateProcessor: TemplateProcessor;
   private structureGenerator: ProjectStructureGenerator;
-  private dependencyResolver: DependencyResolver;
 
   constructor(
     private options: { verbose?: boolean; skipInstall?: boolean } = {}
@@ -48,7 +46,6 @@ export class ProjectScaffolder {
     // TemplateRegistry will be initialized in generateProject when we have the templates directory
     this.templateProcessor = new TemplateProcessor();
     this.structureGenerator = new ProjectStructureGenerator();
-    this.dependencyResolver = new DependencyResolver();
   }
   async generateProject(
     projectPath: string,
@@ -109,20 +106,20 @@ export class ProjectScaffolder {
         `✅ Generated files from template using registry system`
       );
 
-      // 4. Generate dependency files
-      logger.step(`📦 Generating dependency files`);
-      await this.generateDependencyFiles(projectPath, cliContext);
-      generatedFiles.push("package.json");
-      if (context.template !== "api-only") {
-        generatedFiles.push("apps/web/package.json");
-      }
-      generatedFiles.push(
-        "apps/api/requirements.txt",
-        "apps/api/pyproject.toml"
-      );
-      logger.result(`✅ Dependency files generated`);
+      // 4. Dependency files are now generated through templates
+      logger.step(`📦 Dependency files generated through template system`);
+      logger.result(`✅ All files generated through unified template system`);
 
-      // 5. Initialize git if requested
+      // 5. Generate setup scripts if requested
+      logger.step(
+        `📜 Setup script generation ${context.setupScript !== false ? "requested" : "skipped"}`
+      );
+      const setupScriptsGenerated = context.setupScript !== false
+        ? await this.generateSetupScripts(projectPath, cliContext)
+        : false;
+      logger.result(`Setup scripts generated: ${setupScriptsGenerated ? "Yes" : "No"}`);
+
+      // 6. Initialize git if requested
       logger.step(
         `🔧 Git initialization ${context.git ? "requested" : "skipped"}`
       );
@@ -131,7 +128,7 @@ export class ProjectScaffolder {
         : false;
       logger.result(`Git initialized: ${gitInitialized ? "Yes" : "No"}`);
 
-      // 6. Install dependencies if requested
+      // 7. Install dependencies if requested
       logger.step(
         `📦 Dependency installation ${context.install && !this.options.skipInstall ? "requested" : "skipped"}`
       );
@@ -173,66 +170,6 @@ export class ProjectScaffolder {
         generatedFiles,
       };
     }
-  }
-  private async generateDependencyFiles(
-    projectPath: string,
-    context: CLITemplateContext
-  ): Promise<void> {
-    logger.step(`📦 Starting dependency file generation`);
-    logger.debugVerbose(`Project path: ${projectPath}`);
-    logger.debugVerbose(`Template: ${context.template}`);
-
-    // Generate root package.json
-    logger.progress(`Generating root package.json`);
-    const rootPackageJson =
-      this.dependencyResolver.generateRootPackageJson(context);
-    logger.debugDetailed(`Root package.json content:`, rootPackageJson);
-    await fs.writeJSON(join(projectPath, "package.json"), rootPackageJson, {
-      spaces: 2,
-    });
-    logger.result(`✅ Root package.json written`);
-
-    // Generate frontend package.json (if not API-only)
-    if (context.template !== "api-only") {
-      logger.progress(`Generating frontend package.json`);
-      const frontendPackageJson =
-        this.dependencyResolver.generateFrontendPackageJson(context);
-      logger.debugDetailed(
-        `Frontend package.json content:`,
-        frontendPackageJson
-      );
-      await fs.writeJSON(
-        join(projectPath, "apps/web/package.json"),
-        frontendPackageJson,
-        { spaces: 2 }
-      );
-      logger.result(`✅ Frontend package.json written`);
-    } else {
-      logger.progress(`Skipping frontend package.json (API-only template)`);
-    }
-
-    // Generate Python requirements
-    logger.progress(`Generating Python requirements.txt`);
-    const requirements = this.dependencyResolver.generateRequirements(context);
-    logger.debugDetailed(`Requirements content:`, requirements);
-    await fs.writeFile(
-      join(projectPath, "apps/api/requirements.txt"),
-      requirements
-    );
-    logger.result(`✅ Requirements.txt written`);
-
-    // Generate pyproject.toml
-    logger.progress(`Generating pyproject.toml`);
-    const pyprojectToml =
-      this.dependencyResolver.generatePyprojectToml(context);
-    logger.debugDetailed(`Pyproject.toml content:`, pyprojectToml);
-    await fs.writeFile(
-      join(projectPath, "apps/api/pyproject.toml"),
-      pyprojectToml
-    );
-    logger.result(`✅ Pyproject.toml written`);
-
-    logger.result(`✅ All dependency files generated successfully`);
   }
 
   private async initializeGit(projectPath: string): Promise<boolean> {
@@ -384,5 +321,54 @@ coverage/
 # FARM specific
 .farm/
 `;
+  }
+
+  private async generateSetupScripts(
+    projectPath: string,
+    context: CLITemplateContext
+  ): Promise<boolean> {
+    try {
+      logger.info(`📜 Generating setup scripts...`);
+
+      // Use the template registry to get setup script files
+      const templateRegistry = new TemplateRegistry(this.templateProcessor.getTemplatesDir());
+      const setupScriptFiles = templateRegistry.resolveFiles("base", [])
+        .filter(file => file.path.startsWith("setup."));
+
+      let generatedCount = 0;
+      for (const file of setupScriptFiles) {
+        try {
+          const outputPath = join(projectPath, file.path);
+          const content = await this.templateProcessor.processTemplateFile(
+            file.templatePath,
+            context,
+            projectPath
+          );
+          await fs.writeFile(outputPath, content);
+
+          // Make the script executable on Unix systems
+          if (file.path.endsWith(".sh") && process.platform !== "win32") {
+            await fs.chmod(outputPath, 0o755);
+          }
+
+          generatedCount++;
+          logger.debugVerbose(`Generated setup script: ${file.path}`);
+        } catch (error) {
+          logger.warn(`⚠️ Failed to generate ${file.path}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      if (generatedCount > 0) {
+        logger.result(`✅ Generated ${generatedCount} setup scripts`);
+        return true;
+      } else {
+        logger.warn(`⚠️ No setup scripts were generated`);
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ Failed to generate setup scripts: ${errorMessage}`);
+      return false;
+    }
   }
 }
