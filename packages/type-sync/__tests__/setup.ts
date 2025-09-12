@@ -13,8 +13,8 @@ declare global {
   var testUtils: {
     createTempDir: () => Promise<string>;
     cleanupTempDir: (dir: string) => Promise<void>;
-    createMockSchema: () => any;
-    createMockConfig: () => any;
+    createMockSchema: () => object;
+    createMockConfig: () => object;
   };
 }
 
@@ -64,62 +64,13 @@ function createMockSchema() {
             },
           },
         },
-        post: {
-          operationId: "createUser",
-          summary: "Create a new user",
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/UserCreate" },
-              },
-            },
-          },
-          responses: {
-            "201": {
-              description: "User created",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/User" },
-                },
-              },
-            },
-          },
-        },
-      },
-      "/users/{id}": {
-        get: {
-          operationId: "getUser",
-          summary: "Get user by ID",
-          parameters: [
-            {
-              name: "id",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
-          ],
-          responses: {
-            "200": {
-              description: "User details",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/User" },
-                },
-              },
-            },
-            "404": {
-              description: "User not found",
-            },
-          },
-        },
       },
     },
     components: {
       schemas: {
         User: {
           type: "object",
-          required: ["id", "email"],
+          required: ["id", "email", "name"],
           properties: {
             id: {
               type: "string",
@@ -132,67 +83,9 @@ function createMockSchema() {
             },
             name: {
               type: "string",
-              description: "User full name",
-            },
-            age: {
-              type: "integer",
-              minimum: 0,
-              maximum: 120,
-              description: "User age",
-            },
-            profile: {
-              $ref: "#/components/schemas/UserProfile",
-            },
-            status: {
-              $ref: "#/components/schemas/UserStatus",
-            },
-            createdAt: {
-              type: "string",
-              format: "date-time",
-              description: "Account creation timestamp",
+              description: "User display name",
             },
           },
-        },
-        UserCreate: {
-          type: "object",
-          required: ["email"],
-          properties: {
-            email: {
-              type: "string",
-              format: "email",
-            },
-            name: {
-              type: "string",
-            },
-            age: {
-              type: "integer",
-              minimum: 0,
-              maximum: 120,
-            },
-          },
-        },
-        UserProfile: {
-          type: "object",
-          properties: {
-            bio: {
-              type: "string",
-              description: "User biography",
-            },
-            avatar: {
-              type: "string",
-              format: "uri",
-              description: "Avatar image URL",
-            },
-            preferences: {
-              type: "object",
-              additionalProperties: { type: "string" },
-            },
-          },
-        },
-        UserStatus: {
-          type: "string",
-          enum: ["active", "inactive", "suspended", "pending"],
-          description: "User account status",
         },
       },
     },
@@ -203,82 +96,155 @@ function createMockSchema() {
 function createMockConfig() {
   return {
     apiUrl: "http://localhost:8000",
-    outputDir: "./src/generated",
+    outputDir: "./test-output",
     features: {
       client: true,
       hooks: true,
       streaming: false,
       aiHooks: false,
-      types: true,
-    },
-    extraction: {
-      timeout: 10000,
-      retries: 2,
-      enableCache: true,
-    },
-    cache: {
-      enabled: true,
-      timeout: 300000,
-      enableCompression: true,
     },
     performance: {
       enableMonitoring: true,
-      maxConcurrency: 2,
+      enableIncrementalGeneration: true,
+      maxConcurrency: 4,
+      cacheTimeout: 300000,
     },
     generators: {
       typescript: {
-        outputDir: "./src/generated",
-        enabled: true,
-        options: {
-          generateComments: true,
-          enumType: "union",
-        },
+        enumType: "union",
+        strict: true,
+        generateComments: true,
       },
-      "api-client": {
-        outputDir: "./src/generated",
-        enabled: true,
-        options: {
-          enableAI: false,
-          authentication: "bearer",
-        },
-      },
-      "react-hooks": {
-        outputDir: "./src/generated",
-        enabled: true,
-        options: {
-          enableInfiniteQueries: true,
-        },
+      apiClient: {
+        httpClient: "fetch",
+        baseURL: "http://localhost:8000",
       },
     },
   };
 }
 
-// Make utilities available globally
-globalThis.testUtils = {
+// Mock fs-extra with proper default export
+vi.mock("fs-extra", () => {
+  const actualFs = {
+    ensureDir: vi.fn().mockResolvedValue(undefined),
+    pathExists: vi.fn().mockResolvedValue(false),
+    readFile: vi.fn().mockResolvedValue(""),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    readJson: vi.fn().mockResolvedValue({}),
+    writeJson: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    emptyDir: vi.fn().mockResolvedValue(undefined),
+    mkdtemp: vi.fn().mockImplementation(() => Promise.resolve("/tmp/test-dir")),
+  };
+
+  return {
+    default: actualFs,
+    ...actualFs,
+  };
+});
+
+// Set up global utilities
+(globalThis as any).testUtils = {
   createTempDir,
   cleanupTempDir,
   createMockSchema,
   createMockConfig,
 };
 
-// Mock filesystem operations by default
-vi.mock("fs-extra", () => ({
-  ensureDir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
-  readFile: vi.fn().mockResolvedValue(""),
-  pathExists: vi.fn().mockResolvedValue(true),
-  remove: vi.fn().mockResolvedValue(undefined),
-  mkdtemp: vi
-    .fn()
-    .mockImplementation(() =>
-      Promise.resolve("/tmp/test-" + Math.random().toString(36).substring(7))
-    ),
+// Mock fs-extra with proper default export
+vi.mock("fs-extra", () => {
+  const actualFs = {
+    ensureDir: vi.fn().mockResolvedValue(undefined),
+    pathExists: vi.fn().mockResolvedValue(false),
+    readFile: vi.fn().mockResolvedValue(""),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    readJson: vi.fn().mockResolvedValue({}),
+    writeJson: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    emptyDir: vi.fn().mockResolvedValue(undefined),
+    mkdtemp: vi.fn().mockImplementation(() => Promise.resolve("/tmp/test-dir")),
+    stat: vi.fn().mockResolvedValue({ size: 0, mtime: new Date() } as any),
+  };
+
+  return {
+    default: actualFs,
+    ...actualFs,
+  };
+});
+
+// Mock the zlib module for cache compression tests
+vi.mock("zlib", () => ({
+  default: {
+    gzip: vi.fn((data, callback) => {
+      // Check if input is already compressed
+      if (Buffer.isBuffer(data) && data.toString().startsWith("compressed:")) {
+        callback(null, data); // Return as-is if already compressed
+        return;
+      }
+
+      const originalContent = Buffer.isBuffer(data) ? data.toString() : data;
+      const compressedBuffer = Buffer.from(`compressed:${originalContent}`);
+      callback(null, compressedBuffer);
+    }),
+    gunzip: vi.fn((data, callback) => {
+      try {
+        const dataStr = Buffer.isBuffer(data) ? data.toString() : String(data);
+        if (dataStr.startsWith("compressed:")) {
+          const original = dataStr.replace("compressed:", "");
+          callback(null, Buffer.from(original));
+        } else {
+          // If not compressed format, return original
+          callback(
+            null,
+            Buffer.isBuffer(data) ? data : Buffer.from(String(data))
+          );
+        }
+      } catch (error) {
+        callback(error, null);
+      }
+    }),
+  },
+  gzip: vi.fn((data, callback) => {
+    const originalContent = Buffer.isBuffer(data) ? data.toString() : data;
+    const compressedBuffer = Buffer.from(`compressed:${originalContent}`);
+    callback(null, compressedBuffer);
+  }),
+  gunzip: vi.fn((data, callback) => {
+    try {
+      const dataStr = Buffer.isBuffer(data) ? data.toString() : String(data);
+      if (dataStr.startsWith("compressed:")) {
+        const original = dataStr.replace("compressed:", "");
+        callback(null, Buffer.from(original));
+      } else {
+        callback(
+          null,
+          Buffer.isBuffer(data) ? data : Buffer.from(String(data))
+        );
+      }
+    } catch (error) {
+      callback(error, null);
+    }
+  }),
 }));
 
-// Mock performance API
+// Mock chokidar
+vi.mock("chokidar", () => ({
+  watch: vi.fn(() => ({
+    on: vi.fn(),
+    close: vi.fn(),
+  })),
+}));
+
+// Performance monitoring global
 const mockPerformanceNow = vi.fn(() => Date.now());
 vi.stubGlobal("performance", {
   now: mockPerformanceNow,
+  mark: vi.fn(),
+  measure: vi.fn(),
+  getEntriesByName: vi.fn(() => []),
+  getEntriesByType: vi.fn(() => []),
+  clearMarks: vi.fn(),
+  clearMeasures: vi.fn(),
 });
 
 // Mock process.memoryUsage
@@ -290,14 +256,15 @@ vi.spyOn(process, "memoryUsage").mockReturnValue({
   arrayBuffers: 1 * 1024 * 1024,
 });
 
-// Reset mocks before each test
-beforeEach(() => {
+// Global setup and cleanup hooks
+beforeEach(async () => {
   vi.clearAllMocks();
-  mockPerformanceNow.mockImplementation(() => Date.now());
+
+  // Reset performance mocks
+  mockPerformanceNow.mockReturnValue(Date.now());
 });
 
-// Cleanup after each test
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
 });
 

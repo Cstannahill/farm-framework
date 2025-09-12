@@ -1,50 +1,105 @@
-# {{name}} - AI Chat Application
+# {{projectName}}
 
-An impressive, production-ready AI chat application built with the FARM Stack Framework. Features seamless local AI development with Ollama and cloud deployment with OpenAI.
+{{description}}
 
-![FARM Stack](https://img.shields.io/badge/FARM-Stack-ff6b6b?style=for-the-badge)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+A full-stack application built with the **FARM Stack Framework**.
 
-## 🚀 Features
+## Tech Stack
 
-- **🤖 Multi-Provider AI Support** - Seamless switching between Ollama (local) and OpenAI (cloud)
-- **💬 Real-time Streaming** - Watch AI responses appear as they're generated
-- **🎨 Beautiful UI** - Modern, responsive design with dark/light themes
-- **📝 Rich Text Support** - Full markdown rendering with syntax highlighting
-- **💾 Conversation Management** - Save, organize, and search your chat history
-- **⚡ Lightning Fast** - Optimized performance with intelligent caching
-- **🔒 Secure** - JWT authentication and rate limiting built-in
-- **🐳 Docker Ready** - One command to run everything locally
+- **F**astAPI - Modern Python web framework
+{{#if_feature "ai"}}
+- **A**I/ML - Ollama (local) + OpenAI (cloud) integration
+{{else}}
+- **A**I/ML - Ready for AI integration
+{{/if_feature}}
+{{#unless (eq template "api-only")}}
+- **R**eact - Frontend with TypeScript and Vite
+{{/unless}}
+- **M**ongoDB - Document database with ODM
 
-## 📦 Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 18+ and npm
 - Python 3.11+
-- Docker & Docker Compose
-- NVIDIA GPU (optional, for local AI acceleration)
+{{#if docker}}
+- Docker and Docker Compose
+{{/if}}
+{{#if_feature "ai"}}
+- Docker (for Ollama AI service)
+{{/if_feature}}
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd {{name}}
+1. **Install dependencies:**
+   ```bash
+   cd {{projectName}}
+   npm install
+   cd apps/api && pip install -r requirements.txt
+   ```
 
-# Install dependencies
-pnpm install
-cd apps/api && pip install -r requirements.txt && cd ../..
+{{#if docker}}
+2. **Start development environment:**
+   ```bash
+   npm run docker:up
+   ```
+{{/if}}
 
-# Copy environment variables
-cp .env.example .env
+{{#unless (eq template "api-only")}}
+3. **Start development servers:**
+   ```bash
+   npm run dev        # Start both frontend and backend
+   # OR
+   npm run dev:frontend   # Frontend only (http://localhost:3000)
+   npm run dev:backend    # Backend only (http://localhost:8000)
+   ```
+{{else}}
+3. **Start development server:**
+   ```bash
+   npm run dev:backend    # Start FastAPI server (http://localhost:8000)
+   ```
+{{/unless}}
 
-# Start services (MongoDB & Ollama)
-docker-compose up -d mongodb ollama
+## Features
 
-# Start development servers
-pnpm dev
-```
+{{#each features}}
+- ✅ **{{this}}** - {{#switch this}}{{#case "auth"}}Authentication and user management{{/case}}{{#case "ai"}}AI/ML integration with Ollama and cloud providers{{/case}}{{#case "realtime"}}Real-time features with WebSocket support{{/case}}{{#case "payments"}}Payment processing integration{{/case}}{{#case "email"}}Email service integration{{/case}}{{#case "storage"}}File upload and storage{{/case}}{{#case "search"}}Full-text search capabilities{{/case}}{{#case "analytics"}}Analytics and monitoring{{/case}}{{#defaultBlock}}{{this}} feature{{/defaultBlock}}{{/switch}}
+{{/each}}
+
+{{#if_feature "ai"}}
+## AI Development
+
+This project includes **Ollama** for local AI development:
+
+- 🤖 **Zero-cost development** - No API keys required for local work
+- 🔄 **Seamless deployment** - Automatic switch to OpenAI in production
+- 📦 **Auto-model management** - Models downloaded and cached automatically
+- 🚀 **Hot model swapping** - Update models without service restart
+
+### AI API Endpoints
+
+- `POST /api/ai/chat` - Chat completion
+- `POST /api/ai/chat/stream` - Streaming chat (real-time)
+- `GET /api/ai/models` - List available models
+- `GET /api/ai/health` - Check AI provider status
+
+{{/if_feature}}
+
+## Available Scripts
+
+- `npm run dev` - Start development server(s)
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run test` - Run tests
+- `npm run lint` - Lint code
+- `npm run type-check` - Type checking
+- `npm run generate` - Generate types and API clients
+
+## API Documentation
+
+Visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API documentation.
+
+---
+
+Built with ❤️ using [FARM Stack Framework](https://github.com/your-org/farm-framework)

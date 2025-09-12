@@ -213,8 +213,18 @@ export class TemplateErrorHandler {
         return result;
       }
 
+      // Configure Handlebars options based on file type
+      const isJSFile = filePath && (
+        filePath.endsWith('.tsx.hbs') ||
+        filePath.endsWith('.jsx.hbs') ||
+        filePath.endsWith('.ts.hbs') ||
+        filePath.endsWith('.js.hbs')
+      );
+
       // Attempt compilation
-      const compiledTemplate = handlebarsInstance.compile(preprocessedContent);
+      const compiledTemplate = handlebarsInstance.compile(preprocessedContent, {
+        noEscape: isJSFile, // Disable HTML escaping for JS/TS files
+      });
 
       // Attempt execution
       const output = compiledTemplate(context);

@@ -1,0 +1,218 @@
+# packages/cli/templates/base/apps/api/src/routes/health.py.hbs
+"""
+Health check routes for {{projectName}} API
+"""
+import logging
+from datetime import datetime
+from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
+
+from ..core.config import settings
+from ..database.connection import check_database_health, get_database_info
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/health", tags=["Health"])
+
+@router.get("/")
+async def health_check():
+    """Basic health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "{{kebabCase projectName}}-api",
+        "version": "1.0.0",
+        "environment": settings.ENVIRONMENT
+    }
+
+@router.get("/database")
+async def database_health():
+    """Database health check"""
+    try:
+        is_healthy = await check_database_health()
+        db_info = await get_database_info()
+        
+        if is_healthy:
+            return {
+                "status": "healthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "database": db_info
+            }
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unhealthy",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "database": db_info,
+                    "error": "Database connection failed"
+                }
+            )
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "database": {"status": "error", "error": str(e)},
+                "error": "Database health check failed"
+            }
+        )
+
+@router.get("/liveness")
+async def liveness_probe():
+    """Kubernetes liveness probe"""
+    return {
+        "status": "alive",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.get("/readiness")
+async def readiness_probe():
+    """Kubernetes readiness probe"""
+    try:
+        # Check database connectivity
+        db_healthy = await check_database_health()
+        
+        if db_healthy:
+            return {
+                "status": "ready",
+                "timestamp": datetime.utcnow().isoformat(),
+                "checks": {
+                    "database": "healthy"
+                }
+            }
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "not_ready",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "checks": {
+                        "database": "unhealthy"
+                    }
+                }
+            )
+    except Exception as e:
+        logger.error(f"Readiness probe failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            }
+        )
+
+{{#if_feature "ai"}}
+@router.get("/ai")
+async def ai_health():
+    """AI providers health check"""
+    try:
+        {{#if_template "ai-chat" "ai-dashboard"}}
+        from ..ai.manager import get_ai_manager
+        
+        ai_manager = await get_ai_manager()
+        health_results = await ai_manager.health_check_all()
+        
+        healthy_providers = sum(1 for status in health_results.values() if status)
+        total_providers = len(health_results)
+        
+        return {
+            "status": "healthy" if healthy_providers > 0 else "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "providers": {
+                "healthy": healthy_providers,
+                "total": total_providers,
+                "details": health_results
+            }
+        }
+        {{else}}
+        return {
+            "status": "enabled",
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": "AI features are enabled but no specific providers configured"
+        }
+        {{/if_template}}
+    except Exception as e:
+        logger.error(f"AI health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            }
+        )
+{{/if_feature}}
+
+@router.get("/detailed")
+async def detailed_health():
+    """Detailed health check with all components"""
+    try:
+        # Check database
+        db_healthy = await check_database_health()
+        db_info = await get_database_info()
+        
+        # Check AI providers
+        {{#if_feature "ai"}}
+        {{#if_template "ai-chat" "ai-dashboard"}}
+        ai_healthy = True
+        ai_info = {}
+        try:
+            from ..ai.manager import get_ai_manager
+            ai_manager = await get_ai_manager()
+            ai_health = await ai_manager.health_check_all()
+            ai_healthy = any(ai_health.values())
+            ai_info = {
+                "healthy_providers": sum(1 for status in ai_health.values() if status),
+                "total_providers": len(ai_health),
+                "providers": ai_health
+            }
+        except Exception as e:
+            ai_healthy = False
+            ai_info = {"error": str(e)}
+        {{else}}
+        ai_healthy = True
+        ai_info = {"status": "enabled"}
+        {{/if_template}}
+        {{else}}
+        ai_healthy = True
+        ai_info = {"status": "disabled"}
+        {{/if_feature}}
+        
+        # Overall health
+        overall_healthy = db_healthy and ai_healthy
+        
+        return {
+            "status": "healthy" if overall_healthy else "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "{{kebabCase projectName}}-api",
+            "version": "1.0.0",
+            "environment": settings.ENVIRONMENT,
+            "components": {
+                "database": {
+                    "status": "healthy" if db_healthy else "unhealthy",
+                    "details": db_info
+                },
+                {{#if_feature "ai"}}
+                "ai": {
+                    "status": "healthy" if ai_healthy else "unhealthy",
+                    "details": ai_info
+                },
+                {{/if_feature}}
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Detailed health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            }
+        )

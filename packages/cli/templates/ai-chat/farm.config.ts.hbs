@@ -1,0 +1,74 @@
+import { defineConfig } from '@farm-framework/core';
+
+export default defineConfig({
+  name: '{{projectName}}',
+  template: '{{template}}',
+  features: [{{#each features}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}],
+
+  // Database configuration
+  database: {
+    type: '{{database}}',
+  url: process.env.DATABASE_URL || '{{#switch database}}{{#case "mongodb"}}mongodb://farm:development@localhost:27017/{{kebabCase projectName}}?authSource=admin{{/case}}{{#case "postgresql"}}postgresql://user:password@localhost:5432/{{kebabCase projectName}}{{/case}}{{#case "mysql"}}mysql://user:password@localhost:3306/{{kebabCase projectName}}{{/case}}{{#case "sqlite"}}sqlite:///./{{kebabCase projectName}}.db{{/case}}{{/switch}}'
+  },
+
+{{#if_feature "ai"}}
+  // AI/ML configuration
+  ai: {
+    providers: {
+      ollama: {
+        enabled: true,
+        url: 'http://localhost:11434',
+        models: ['llama3.1'{{#if_template "ai-chat"}}, 'codestral'{{/if_template}}],
+        defaultModel: 'llama3.1',
+        autoStart: true,
+        autoPull: ['llama3.1']
+      },
+      openai: {
+        enabled: true,
+        apiKey: process.env.OPENAI_API_KEY,
+        models: ['gpt-4', 'gpt-3.5-turbo'],
+        defaultModel: 'gpt-3.5-turbo'
+      }
+    },
+    routing: {
+      development: 'ollama',
+      staging: 'openai',
+      production: 'openai'
+    },
+    features: {
+      streaming: true,
+      caching: true,
+      rateLimiting: true,
+      fallback: true
+    }
+  },
+{{/if_feature}}
+
+  // Development server configuration
+  development: {
+    ports: {
+{{#unless (eq template "api-only")}}
+      frontend: 4000,
+{{/unless}}
+      backend: 8000,
+      proxy: 4200,
+      database: {{#switch database}}{{#case "mongodb"}}27017{{/case}}{{#case "postgresql"}}5432{{/case}}{{#case "mysql"}}3306{{/case}}{{#case "sqlite"}}null{{/case}}{{#case "sqlserver"}}1433{{/case}}{{/switch}}{{#if_feature "ai"}},
+      ollama: 11434{{/if_feature}}
+    },
+    hotReload: {
+      enabled: true,
+      typeGeneration: true{{#if_feature "ai"}},
+      aiModels: true{{/if_feature}}
+    }
+  },
+
+  // Build configuration
+  build: {
+    target: 'es2020',
+    sourcemap: true,
+    minify: process.env.NODE_ENV === 'production'
+  },
+
+  // Plugin configuration
+  plugins: []
+});

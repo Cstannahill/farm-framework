@@ -234,16 +234,20 @@ async def root_health_check():
         client.close()
         {{/case}}
         {{#case "postgresql" "mysql" "sqlite" "sqlserver"}}
-        from sqlalchemy.ext.asyncio import create_async_engine
-        {{#if_database "mysql"}}
-        database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
-        {{else if_database "sqlite"}}
-        database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
-        {{else if_database "sqlserver"}}
-        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
-        {{else}}
-        database_url = settings.DATABASE_URL
-        {{/if_database}}
+                from sqlalchemy.ext.asyncio import create_async_engine
+                {{#if_database "mysql"}}
+                database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+                {{else}}
+                    {{#if_database "sqlite"}}
+                    database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+                    {{else}}
+                        {{#if_database "sqlserver"}}
+                        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
+                        {{else}}
+                        database_url = settings.DATABASE_URL
+                        {{/if_database}}
+                    {{/if_database}}
+                {{/if_database}}
         engine = create_async_engine(database_url)
         async with engine.connect() as conn:
             await conn.execute("SELECT 1")

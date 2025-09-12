@@ -333,44 +333,50 @@ async def get_database_details() -> Dict[str, Any]:
         from sqlalchemy.ext.asyncio import create_async_engine
         from ..core.config import settings
         
-        {{#if_database "mysql"}}
-        database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
-        {{else if_database "sqlite"}}
-        database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
-        {{else if_database "sqlserver"}}
-        database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
-        {{else}}
-        database_url = settings.DATABASE_URL
-        {{/if_database}}
+            {{#if_database "mysql"}}
+            database_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+            {{/if_database}}
+            {{#if_database "sqlite"}}
+            database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+            {{/if_database}}
+            {{#if_database "sqlserver"}}
+            database_url = settings.DATABASE_URL.replace("mssql://", "mssql+aioodbc://")
+            {{/if_database}}
+            {{#unless_database "mysql" "sqlite" "sqlserver"}}
+            database_url = settings.DATABASE_URL
+            {{/unless_database}}
         
         engine = create_async_engine(database_url)
         async with engine.connect() as conn:
             {{#if_database "postgresql"}}
             result = await conn.execute("SELECT version()")
             version = result.scalar()
-            
+
             result = await conn.execute("""
                 SELECT schemaname, tablename 
                 FROM pg_tables 
                 WHERE schemaname = 'public'
             """)
             tables = result.fetchall()
-            {{else if_database "mysql"}}
+            {{/if_database}}
+            {{#if_database "mysql"}}
             result = await conn.execute("SELECT VERSION()")
             version = result.scalar()
-            
+
             result = await conn.execute("SHOW TABLES")
             tables = result.fetchall()
-            {{else if_database "sqlite"}}
+            {{/if_database}}
+            {{#if_database "sqlite"}}
             result = await conn.execute("SELECT sqlite_version()")
             version = result.scalar()
-            
+
             result = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = result.fetchall()
-            {{else if_database "sqlserver"}}
+            {{/if_database}}
+            {{#if_database "sqlserver"}}
             result = await conn.execute("SELECT @@VERSION")
             version = result.scalar()
-            
+
             result = await conn.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
             tables = result.fetchall()
             {{/if_database}}

@@ -1,6 +1,6 @@
-import fs from "fs-extra";
-import path from "path";
-import crypto from "crypto";
+import * as fs from "fs-extra";
+import * as path from "path";
+import * as crypto from "crypto";
 import type { OpenAPISchema } from "@farm-framework/types";
 
 export interface TypeScriptGenerationOptions {
@@ -56,6 +56,34 @@ export class TypeScriptGenerator {
     schema: OpenAPISchema,
     opts: TypeScriptGenerationOptions
   ): Promise<GenerationResult> {
+    // Validate inputs
+    if (!schema) {
+      throw new Error("Schema is required for TypeScript generation");
+    }
+
+    // Validate OpenAPI schema structure
+    if (!schema.openapi && !schema.swagger) {
+      throw new Error(
+        "Invalid OpenAPI schema: missing openapi or swagger version"
+      );
+    }
+
+    if (!schema.info) {
+      throw new Error("Invalid OpenAPI schema: missing info object");
+    }
+
+    if (schema.paths === null || schema.paths === undefined) {
+      throw new Error("Invalid OpenAPI schema: paths cannot be null");
+    }
+
+    if (opts.outputDir === "") {
+      throw new Error("Output directory cannot be empty");
+    }
+
+    if (!opts.outputDir || typeof opts.outputDir !== "string") {
+      throw new Error("Invalid output directory");
+    }
+
     const finalOpts = { ...this.options, ...opts };
     await fs.ensureDir(finalOpts.outputDir);
 
@@ -68,7 +96,7 @@ export class TypeScriptGenerator {
       path: outPath,
       content,
       size: content.length,
-      checksum: this.generateChecksum(content),
+      checksum: this.generateChecksum(content, schema),
       generatedAt: new Date(),
       type: "typescript",
     };
@@ -120,10 +148,17 @@ export class TypeScriptGenerator {
     }
 
     // Handle enums
-    if (schema.enum && opts.enumType === "union") {
-      const values = schema.enum.map((v: any) => `"${v}"`).join(" | ");
-      content += `export type ${name} = ${values};\n`;
-      return content;
+    if (schema.enum) {
+      if (opts.enumType === "union") {
+        const values = schema.enum.map((v: any) => `"${v}"`).join(" | ");
+        content += `export type ${name} = ${values};\n`;
+        return content;
+      } else if (opts.enumType === "const") {
+        const values = schema.enum.map((v: any) => `  "${v}"`).join(",\n");
+        content += `export const ${name} = {\n${values}\n} as const;\n`;
+        content += `export type ${name} = typeof ${name}[keyof typeof ${name}];\n`;
+        return content;
+      }
     }
 
     content += `export interface ${name} {\n`;
@@ -253,8 +288,12 @@ export class TypeScriptGenerator {
       return union.map((s: any) => this.mapSchemaType(s, opts)).join(" | ");
     }
 
-    if (schema.enum && opts.enumType === "union") {
-      return schema.enum.map((v: any) => `"${v}"`).join(" | ");
+    if (schema.enum) {
+      if (opts.enumType === "union") {
+        return schema.enum.map((v: any) => `"${v}"`).join(" | ");
+      } else if (opts.enumType === "const") {
+        return schema.enum.map((v: any) => `"${v}"`).join(" | ");
+      }
     }
 
     switch (schema.type) {
@@ -269,7 +308,7 @@ export class TypeScriptGenerator {
       case "boolean":
         return "boolean";
       case "array":
-        return `Array<${this.mapSchemaType(schema.items, opts)}>`;
+        return `${this.mapSchemaType(schema.items, opts)}[]`;
       case "object":
         if (schema.properties) {
           // Inline object type
@@ -283,6 +322,16 @@ export class TypeScriptGenerator {
           }
           objectType += "  }";
           return objectType;
+        }
+        // Handle additionalProperties
+        if (schema.additionalProperties === true) {
+          return "Record<string, any>";
+        } else if (typeof schema.additionalProperties === "object") {
+          const additionalType = this.mapSchemaType(
+            schema.additionalProperties,
+            opts
+          );
+          return `Record<string, ${additionalType}>`;
         }
         return "Record<string, any>";
       default:
@@ -353,7 +402,7 @@ import type { PaginatedResponse, ApiError, DeepPartial } from "@farm-framework/t
     };
 
     traverse(schema);
-    return [...new Set(deps)];
+    return Array.from(new Set(deps));
   }
 
   private generateOperationId(method: string, path: string): string {
@@ -364,7 +413,16 @@ import type { PaginatedResponse, ApiError, DeepPartial } from "@farm-framework/t
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  private generateChecksum(content: string): string {
-    return crypto.createHash("md5").update(content).digest("hex").slice(0, 8);
+  private generateChecksum(content: string, schema?: OpenAPISchema): string {
+    // Include schema metadata to ensure different schemas produce different checksums
+    let checksumInput = content;
+    if (schema?.info) {
+      checksumInput += `\n// Schema: ${schema.info.title} v${schema.info.version}`;
+    }
+    return crypto
+      .createHash("md5")
+      .update(checksumInput)
+      .digest("hex")
+      .slice(0, 8);
   }
 }

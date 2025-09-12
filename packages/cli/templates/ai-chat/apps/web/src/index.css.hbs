@@ -1,0 +1,301 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+:root {
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --radius: 0.625rem; /* FARM Brand Colors - Agriculture Green Palette */
+  --color-primary-accent: #22c55e; /* FARM Green */
+  --color-secondary-accent: #faa916; /* Vibrant Orange */
+  --color-background: #121212; /* Matte Black */
+  --color-surface: #1e1e1e; /* Charcoal Gray */
+  --color-neutral-midtone: #8f9094; /* Cool Stone */
+  --color-code-highlight: #ff6c87; /* Coral Pink */
+  /* Legacy brand colors (keeping for compatibility) */
+  --color-mongodb-green: #22c55e; /* Now maps to FARM Green */
+  --color-warm-dev-yellow: #faa916; /* Now maps to Vibrant Orange */
+  --color-deep-graphite: #121212; /* Now maps to Matte Black */
+  --color-soft-charcoal: #1e1e1e; /* Now maps to Charcoal Gray */
+  --color-medium-steel: #8f9094; /* Now maps to Cool Stone */
+  --color-neon-raspberry: #ff6c87; /* Now maps to Coral Pink */
+  /* Light mode theme */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.25);
+  --primary: oklch(0.64 0.19 145); /* FARM Green */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --secondary-foreground: oklch(0.147 0.004 49.25);
+  --muted: oklch(0.97 0.001 106.424);
+  --muted-foreground: oklch(0.6 0.006 260); /* Cool Stone */
+  --accent: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --accent-foreground: oklch(0.147 0.004 49.25);
+  --destructive: oklch(0.71 0.18 345); /* Coral Pink */
+  --border: oklch(0.923 0.003 48.717);
+  --input: oklch(0.923 0.003 48.717);
+  --ring: oklch(0.64 0.19 145); /* FARM Green */
+  --chart-1: oklch(0.64 0.19 145); /* FARM Green */
+  --chart-2: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --chart-3: oklch(0.71 0.18 345); /* Coral Pink */
+  --chart-4: oklch(0.398 0.07 227.392);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0.001 106.423);
+  --sidebar-foreground: oklch(0.147 0.004 49.25);
+  --sidebar-primary: oklch(0.64 0.19 145); /* FARM Green */
+  --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-accent: oklch(0.64 0.19 145); /* FARM Green */
+  --sidebar-accent-foreground: oklch(1 0 0); /* White text on green background */
+  --sidebar-border: oklch(0.923 0.003 48.717);
+  --sidebar-ring: oklch(0.64 0.19 145); /* FARM Green */
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+.dark {
+  --background: oklch(0.2262 0.0041 264.49); /* Matte Black #121212 */
+  --foreground: oklch(0.985 0.001 106.423);
+  --card: oklch(0.19 0 0); /* Charcoal Gray #1E1E1E */
+  --card-foreground: oklch(0.985 0.001 106.423);
+  --popover: oklch(0.19 0 0); /* Charcoal Gray #1E1E1E */
+  --popover-foreground: oklch(0.985 0.001 106.423);
+  --primary: oklch(0.64 0.19 145); /* FARM Green */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --secondary-foreground: oklch(0.14 0 0); /* Matte Black */
+  --muted: oklch(0.19 0 0); /* Charcoal Gray */
+  --muted-foreground: oklch(0.6 0.006 260); /* Cool Stone */
+  --accent: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --accent-foreground: oklch(0.14 0 0); /* Matte Black */
+  --destructive: oklch(0.71 0.18 345); /* Coral Pink */
+  --border: oklch(0.19 0 0 / 60%); /* Charcoal Gray with opacity */
+  --input: oklch(0.1496 0 0); /* Charcoal Gray with opacity */
+  --ring: oklch(0.64 0.19 145); /* FARM Green */
+  --chart-1: oklch(0.64 0.19 145); /* FARM Green */
+  --chart-2: oklch(0.74 0.12 72); /* Vibrant Orange */
+  --chart-3: oklch(0.71 0.18 345); /* Coral Pink */
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.2848 0.0039 264.5); /* Charcoal Gray */
+  --sidebar-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-primary: oklch(0.64 0.19 145); /* FARM Green */
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.64 0.19 145); /* FARM Green */
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.19 0 0 / 60%); /* Charcoal Gray with opacity */
+  --sidebar-ring: oklch(0.64 0.19 145); /* FARM Green */
+}
+
+.as-input {
+  @apply bg-input text-foreground border-border;
+  box-shadow: 0 0 0 1px var(--color-border);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.orbitron {
+  font-family: 'Orbitron', sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+  color: #f5ee22; /* FARM Blue */
+  text-shadow:
+    -1px -2px 0 #1474fb,
+    2px -1px 0 #1474fb,
+    -1px 1px 0 #1474fb,
+    1px 1px 0 #1474fb;
+}
+
+.audiowide {
+  font-family: 'Audiowide', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  text-shadow:
+    -1px -1px 0 #dbdbdb,
+    1px -1px 0 #dbdbdb,
+    -1px 1px 0 #dbdbdb,
+    1px 1px 0 #dbdbdb;
+}
+.electrolize {
+  font-family: 'Electrolize', sans-serif;
+  font-weight: 400;
+  color: #3ffb70;
+  text-shadow:
+    0 1px 0 #222,
+    0 2px 2px #0a0a0a,
+    0 4px 6px #000,
+    -1px -1px 0 #000,
+    1px 1px 0 #000,
+    0 0 6px #000;
+  letter-spacing: 0.02em;
+}
+
+.dark .electrolize {
+  /* Dark mode overrides */
+  text-shadow:
+    0 2px 4px #000a,
+    0 0px 8px #45ffb880,
+    0 2px 2px #fff,
+    0 -2px 8px #fff9,
+    -1px -1px 0 #222,
+    1px 1px 0 #111;
+  /* You can also tweak color if needed */
+}
+
+.quantico {
+  font-family: 'Quantico', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+  text-shadow:
+    -1px -1px 0 #dbdbdb,
+    1px -1px 0 #dbdbdb,
+    -1px 1px 0 #dbdbdb,
+    1px 1px 0 #dbdbdb;
+}
+.gradient-callout-text {
+  text-shadow: 0 2px 3px rgb(255, 255, 255);
+  font-weight: 700;
+  color: #3906c5 !important;
+}
+.gradient-callout-title {
+  text-shadow: 0 2px 3px rgba(255, 255, 255, 0.875);
+  font-weight: 900;
+  color: #3906c5 !important;
+}
+/* END FONTS */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Code highlighting with Coral Pink */
+pre {
+  @apply bg-muted text-muted-foreground rounded border;
+}
+
+code {
+  @apply text-[#FF6C87] bg-muted px-1 py-0.5 rounded text-sm font-mono;
+}
+
+pre code {
+  @apply text-inherit bg-transparent px-0 py-0;
+}
+
+/* Syntax highlighting improvements */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: #22c55e; /* FARM Green for keywords */
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: #faa916; /* Vibrant Orange for strings */
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-quote,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #ff6c87; /* Coral Pink for titles and highlights */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Sonner Toast Styling - FARM Framework Theme */
+[data-sonner-toaster] {
+  font-family: 'Inter', sans-serif !important;
+}
+
+[data-sonner-toast] {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-sonner-toast][data-type='success'] {
+  border-color: oklch(0.64 0.19 145) !important; /* FARM Green */
+}
+
+[data-sonner-toast][data-type='success'] [data-icon] {
+  color: oklch(0.64 0.19 145) !important; /* FARM Green */
+}
+
+[data-sonner-toast][data-type='error'] {
+  border-color: oklch(0.71 0.18 345) !important; /* Coral Pink */
+}
+
+[data-sonner-toast][data-type='error'] [data-icon] {
+  color: oklch(0.71 0.18 345) !important; /* Coral Pink */
+}

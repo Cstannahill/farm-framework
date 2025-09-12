@@ -1,0 +1,84 @@
+{
+  "sessionId": "session-1757645562781-ufoeddu8f",
+  "startTime": "2025-09-12T02:52:42.781Z",
+  "operation": "template_processing",
+  "projectName": "test-project",
+  "templateName": "non-existent-template",
+  "totalErrors": 1,
+  "totalWarnings": 0,
+  "errors": [
+    {
+      "id": "error-1757645562781-px7p9boxq",
+      "timestamp": "2025-09-12T02:52:42.781Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Started session: template_processing",
+      "details": {
+        "sessionId": "session-1757645562781-ufoeddu8f",
+        "operation": "template_processing",
+        "projectName": "test-project",
+        "templateName": "non-existent-template"
+      },
+      "context": {
+        "templateName": "non-existent-template",
+        "projectName": "test-project",
+        "operation": "template_processing"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    },
+    {
+      "id": "error-1757645562789-3wjgdrc7h",
+      "timestamp": "2025-09-12T02:52:42.789Z",
+      "severity": "error",
+      "category": "template_processing",
+      "message": "Template Processing Error: Template directory not found: S:\\Code\\farm-framework\\packages\\cli\\templates\\non-existent-template",
+      "details": {
+        "templateName": "non-existent-template",
+        "projectName": "test-project",
+        "outputPath": "S:\\Code\\farm-framework\\tools\\testing\\src\\temp-test-dir\\output.txt",
+        "operation": "processTemplateEnhanced",
+        "stack": "Error: Template directory not found: S:\\Code\\farm-framework\\packages\\cli\\templates\\non-existent-template\n    at TemplateInheritanceResolver.getTemplateFiles (S:\\Code\\farm-framework\\packages\\cli\\src\\template\\inheritance.ts:151:13)\n    at TemplateInheritanceResolver.resolveTemplateFiles (S:\\Code\\farm-framework\\packages\\cli\\src\\template\\inheritance.ts:119:27)\n    at TemplateProcessor.processTemplateEnhanced (S:\\Code\\farm-framework\\packages\\cli\\src\\template\\processor.ts:332:9)\n    at TemplateProcessor.processTemplate (S:\\Code\\farm-framework\\packages\\cli\\src\\template\\processor.ts:274:28)\n    at S:\\Code\\farm-framework\\tools\\testing\\src\\template-processing.test.ts:691:9\n    at file:///S:/Code/farm-framework/node_modules/.pnpm/@vitest+runner@3.2.3/node_modules/@vitest/runner/dist/chunk-hooks.js:752:20",
+        "errorType": "Error"
+      },
+      "context": {
+        "templateName": "non-existent-template",
+        "projectName": "test-project",
+        "operation": "processTemplateEnhanced"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    },
+    {
+      "id": "error-1757645562789-u2e89df1k",
+      "timestamp": "2025-09-12T02:52:42.789Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Ended session: template_processing",
+      "details": {
+        "sessionId": "session-1757645562781-ufoeddu8f",
+        "totalErrors": 1,
+        "totalWarnings": 0,
+        "duration": "8ms"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    }
+  ],
+  "endTime": "2025-09-12T02:52:42.789Z"
+}
