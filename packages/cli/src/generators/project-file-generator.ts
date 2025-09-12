@@ -561,9 +561,17 @@ export class ProjectFileGenerator {
 
             // 🔧 ENHANCED: Better Handlebars error handling
             try {
+              // Configure Handlebars options based on file type
+              const isJSFile = fileConfig.src && (
+                fileConfig.src.endsWith('.tsx.hbs') ||
+                fileConfig.src.endsWith('.jsx.hbs') ||
+                fileConfig.src.endsWith('.ts.hbs') ||
+                fileConfig.src.endsWith('.js.hbs')
+              );
+
               compiledTemplate = compileTemplate(templateContent, {
                 strict: false, // More lenient parsing
-                noEscape: false, // Allow HTML escaping
+                noEscape: isJSFile, // Disable HTML escaping for JS/TS files
               }
               );
               this.templateCache.set(templatePath, compiledTemplate);
@@ -591,7 +599,18 @@ export class ProjectFileGenerator {
             this.metrics.cacheHits++;
           }
 
-          return compiledTemplate(context);
+          let output = compiledTemplate(context);
+
+          // Post-process content to fix JSX curly braces
+          if (fileConfig.src && (fileConfig.src.endsWith('.tsx.hbs') || fileConfig.src.endsWith('.jsx.hbs') || fileConfig.src.endsWith('.ts.hbs') || fileConfig.src.endsWith('.js.hbs'))) {
+            output = output
+              .replace(/&#123;/g, '{')
+              .replace(/&#125;/g, '}')
+              .replace(/\\{/g, '{')
+              .replace(/\\}/g, '}');
+          }
+
+          return output;
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : String(error);

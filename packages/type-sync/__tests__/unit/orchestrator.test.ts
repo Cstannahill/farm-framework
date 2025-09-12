@@ -14,13 +14,29 @@ vi.mock("../../src/generators/ai-hooks");
 
 describe("TypeSyncOrchestrator", () => {
   let orchestrator: TypeSyncOrchestrator;
-  let mockExtractor: jest.Mocked<OpenAPIExtractor>;
-  let mockCache: jest.Mocked<GenerationCache>;
+  let mockExtractor: any;
+  let mockCache: any;
 
   beforeEach(() => {
+    // Create mock instances with all required methods
+    mockExtractor = {
+      extractFromFastAPI: vi.fn(),
+      extractFromFile: vi.fn(),
+      extractFromUrl: vi.fn(),
+    };
+
+    mockCache = {
+      get: vi.fn(),
+      set: vi.fn(),
+      clear: vi.fn(),
+      has: vi.fn(),
+    };
+
+    // Mock the constructors to return our mock instances
+    vi.mocked(OpenAPIExtractor).mockImplementation(() => mockExtractor);
+    vi.mocked(GenerationCache).mockImplementation(() => mockCache);
+
     orchestrator = new TypeSyncOrchestrator();
-    mockExtractor = vi.mocked(new OpenAPIExtractor());
-    mockCache = vi.mocked(new GenerationCache(""));
   });
 
   afterEach(() => {
@@ -52,6 +68,12 @@ describe("TypeSyncOrchestrator", () => {
       const invalidConfig = {
         apiUrl: "", // Invalid empty URL
         outputDir: "/invalid/path",
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       } as SyncOptions;
 
       await expect(orchestrator.initialize(invalidConfig)).rejects.toThrow();
@@ -75,13 +97,19 @@ describe("TypeSyncOrchestrator", () => {
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
         outputDir: "./output",
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       };
 
       await orchestrator.initialize(config);
       const result = await orchestrator.syncOnce();
 
       expect(result.success).toBe(true);
-      expect(result.extractionTime).toBeDefined();
+      expect(result.performance?.extractionTime).toBeDefined();
     });
 
     it("should handle extraction failures gracefully", async () => {
@@ -92,13 +120,19 @@ describe("TypeSyncOrchestrator", () => {
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
         outputDir: "./output",
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       };
 
       await orchestrator.initialize(config);
       const result = await orchestrator.syncOnce();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
+      expect(result.errors).toBeDefined();
     });
   });
 
@@ -112,7 +146,12 @@ describe("TypeSyncOrchestrator", () => {
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
         outputDir: "./output",
-        cache: { enabled: true },
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       };
 
       await orchestrator.initialize(config);
@@ -141,7 +180,12 @@ describe("TypeSyncOrchestrator", () => {
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
         outputDir: "./output",
-        cache: { enabled: true },
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       };
 
       await orchestrator.initialize(config);
@@ -159,15 +203,21 @@ describe("TypeSyncOrchestrator", () => {
       const config: SyncOptions = {
         apiUrl: "http://localhost:8000",
         outputDir: "./output",
+        features: {
+          client: true,
+          hooks: true,
+          streaming: false,
+          aiHooks: false,
+        },
       };
 
       await orchestrator.initialize(config);
       const result = await orchestrator.syncOnce();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
-      expect(result.error).toContain("Network timeout");
-      expect(result.metrics).toBeDefined();
+      expect(result.errors).toBeDefined();
+      expect(result.errors?.[0]).toContain("Network timeout");
+      expect(result.performance).toBeDefined();
     });
 
     it("should attempt fallback strategies on failure", async () => {

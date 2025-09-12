@@ -72,20 +72,9 @@ type NextConfigType = Record<string, any>;
  * Next.js plugin for type-sync integration
  */
 export function withTypeSync(options: NextJSTypeSyncOptions = {}) {
-  return async (nextConfig: NextConfigType = {}): Promise<NextConfigType> => {
+  return (nextConfig: NextConfigType = {}): NextConfigType => {
     if (options.enabled === false) {
       return nextConfig;
-    }
-
-    // Try to load Next.js types dynamically
-    let NextConfig: any = {};
-    try {
-      // Use dynamic import with type assertion to avoid TypeScript resolution
-      const nextModule = await import("next" as any);
-      NextConfig = nextModule.NextConfig;
-    } catch {
-      // Next.js not available - use basic interface
-      NextConfig = {};
     }
 
     const typeSyncConfig = {
@@ -106,12 +95,12 @@ export function withTypeSync(options: NextJSTypeSyncOptions = {}) {
         if (typeSyncConfig.devOnly && !dev) {
           return typeof nextConfig.webpack === "function"
             ? nextConfig.webpack(config, {
-              buildId,
-              dev,
-              isServer,
-              defaultLoaders,
-              webpack,
-            })
+                buildId,
+                dev,
+                isServer,
+                defaultLoaders,
+                webpack,
+              })
             : config;
         }
 

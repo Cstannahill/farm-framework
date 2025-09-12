@@ -13,12 +13,14 @@
     "src"
   ],
   "scripts": {
+    "build": "pnpm build:ts && pnpm build:bundle",
     "build:ts": "tsc --build",
     "build:bundle": "tsup",
     "build:watch": "tsup --watch",
     "clean": "pnpm dlx rimraf dist",
     "type-check": "tsc --noEmit",
     "test": "vitest",
+    "test:only": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:unit": "vitest run __tests__/unit",

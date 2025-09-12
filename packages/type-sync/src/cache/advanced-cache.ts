@@ -118,6 +118,18 @@ export class AdvancedCache<T = any> {
     this.stats.hits++;
     this.updateHitRate();
 
+    // If compression is enabled and stored value is a Buffer representing compressed data,
+    // transparently decompress before returning to the caller for string payloads.
+    if (this.config.compression && Buffer.isBuffer(entry.value)) {
+      try {
+        const decompressed = await gunzipAsync(entry.value as any);
+        return decompressed.toString() as unknown as T;
+      } catch {
+        // If decompression fails, fall back to raw value
+        return entry.value;
+      }
+    }
+
     return entry.value;
   }
 
@@ -571,7 +583,10 @@ export class DistributedCacheCoordinator {
    * Broadcast invalidation to all instances
    */
   async broadcastInvalidation(key: string): Promise<void> {
-    await Promise.all(this.instances.map((cache) => cache.delete(key)));
+    // Tolerate partial failures: ensure the broadcast resolves even if one cache rejects
+    await Promise.all(
+      this.instances.map((cache) => cache.delete(key).catch(() => undefined))
+    );
   }
 
   /**
@@ -579,7 +594,7 @@ export class DistributedCacheCoordinator {
    */
   async broadcastTagInvalidation(tag: string): Promise<void> {
     await Promise.all(
-      this.instances.map((cache) => cache.invalidateByTag(tag))
+      this.instances.map((cache) => cache.invalidateByTag(tag).catch(() => 0))
     );
   }
 

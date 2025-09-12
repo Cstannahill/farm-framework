@@ -1,0 +1,67 @@
+import { Card, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+
+export function About() {
+  return (
+    <div className="px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">About {{projectName}} AI Chat</h1>
+        
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>What is {{projectName}}?</CardTitle>
+              <CardDescription>
+                {{projectName}} is an AI-powered chat application built with the FARM Framework. 
+                It provides intelligent conversations using advanced AI models and modern web technologies.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Features</CardTitle>
+              <CardDescription>
+                <ul className="list-disc list-inside space-y-2 mt-2">
+                  <li>Real-time AI conversations with streaming responses</li>
+                  <li>Support for multiple AI providers (OpenAI, Ollama)</li>
+                  <li>Conversation history and management</li>
+                  <li>Modern, responsive user interface</li>
+                  <li>Built with TypeScript for type safety</li>
+                  <li>FastAPI backend with automatic API documentation</li>
+                </ul>
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Technology Stack</CardTitle>
+              <CardDescription>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <h4 className="font-semibold">Frontend</h4>
+                    <ul className="text-sm text-muted-foreground">
+                      <li>React 19</li>
+                      <li>TypeScript</li>
+                      <li>Tailwind CSS</li>
+                      <li>Vite</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Backend</h4>
+                    <ul className="text-sm text-muted-foreground">
+                      <li>FastAPI</li>
+                      <li>Python 3.13</li>
+                      <li>MongoDB</li>
+                      <li>Pydantic</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,57 @@
+{
+  "sessionId": "session-1757645562816-ca5o9bptj",
+  "startTime": "2025-09-12T02:52:42.816Z",
+  "operation": "template_processing",
+  "projectName": "test-project",
+  "templateName": "basic",
+  "totalErrors": 0,
+  "totalWarnings": 0,
+  "errors": [
+    {
+      "id": "error-1757645562816-mu2yubvl6",
+      "timestamp": "2025-09-12T02:52:42.816Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Started session: template_processing",
+      "details": {
+        "sessionId": "session-1757645562816-ca5o9bptj",
+        "operation": "template_processing",
+        "projectName": "test-project",
+        "templateName": "basic"
+      },
+      "context": {
+        "templateName": "basic",
+        "projectName": "test-project",
+        "operation": "template_processing"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    },
+    {
+      "id": "error-1757645562884-qdw5pdrdc",
+      "timestamp": "2025-09-12T02:52:42.884Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Ended session: template_processing",
+      "details": {
+        "sessionId": "session-1757645562816-ca5o9bptj",
+        "totalErrors": 0,
+        "totalWarnings": 0,
+        "duration": "68ms"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    }
+  ],
+  "endTime": "2025-09-12T02:52:42.884Z"
+}

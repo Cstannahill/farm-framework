@@ -63,8 +63,13 @@ export class TypeSyncOrchestrator {
   /**
    * Instantiate the orchestrator with default generators.
    */
-  constructor() {
+  constructor(config?: SyncOptions, options?: { performanceMonitor?: any }) {
     this.initializeGenerators();
+
+    // Support old-style constructor with config parameter for backward compatibility
+    if (config) {
+      this.config = config;
+    }
   }
 
   /**
@@ -501,7 +506,8 @@ export class TypeSyncOrchestrator {
       try {
         const result = await this.syncOnce(config);
         console.log(
-          `✅ Generated ${result.filesGenerated} files${result.fromCache ? " (from cache)" : ""
+          `✅ Generated ${result.filesGenerated} files${
+            result.fromCache ? " (from cache)" : ""
           }`
         );
         if (result.performance) {

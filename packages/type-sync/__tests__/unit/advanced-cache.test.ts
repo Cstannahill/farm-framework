@@ -19,14 +19,6 @@ import type {
 vi.mock("fs-extra");
 const mockedFs = vi.mocked(fs);
 
-// Mock compression
-vi.mock("zlib", () => ({
-  gzip: vi.fn((data, callback) => callback(null, Buffer.from("compressed"))),
-  gunzip: vi.fn((data, callback) =>
-    callback(null, Buffer.from("decompressed"))
-  ),
-}));
-
 describe("AdvancedCache", () => {
   let cache: AdvancedCache;
   let config: CacheConfig;
@@ -46,7 +38,7 @@ describe("AdvancedCache", () => {
 
     // Mock fs operations
     mockedFs.ensureDir.mockResolvedValue(undefined);
-    mockedFs.pathExists.mockResolvedValue(false);
+    mockedFs.pathExists.mockResolvedValue(false as never);
     mockedFs.readJson.mockResolvedValue({});
     mockedFs.writeJson.mockResolvedValue(undefined);
     mockedFs.writeFile.mockResolvedValue(undefined);
@@ -370,9 +362,13 @@ describe("AdvancedCache", () => {
       const largeString = "x".repeat(1000);
       await compressedCache.set("test", largeString);
 
-      // Value should be compressed in storage
+      // Should be able to retrieve the original value
+      const retrieved = await compressedCache.get("test");
+      expect(retrieved).toBe(largeString);
+
+      // Value should be compressed in storage (Buffer)
       const entry = compressedCache["entries"].get("test");
-      expect(entry?.value).toEqual(Buffer.from("compressed"));
+      expect(Buffer.isBuffer(entry?.value)).toBe(true);
 
       compressedCache.destroy();
     });

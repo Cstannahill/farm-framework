@@ -1,0 +1,57 @@
+{
+  "sessionId": "session-1757645564333-39ih5fcir",
+  "startTime": "2025-09-12T02:52:44.333Z",
+  "operation": "template_processing",
+  "projectName": "test-project",
+  "templateName": "basic",
+  "totalErrors": 0,
+  "totalWarnings": 0,
+  "errors": [
+    {
+      "id": "error-1757645564333-3g8pb9koi",
+      "timestamp": "2025-09-12T02:52:44.333Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Started session: template_processing",
+      "details": {
+        "sessionId": "session-1757645564333-39ih5fcir",
+        "operation": "template_processing",
+        "projectName": "test-project",
+        "templateName": "basic"
+      },
+      "context": {
+        "templateName": "basic",
+        "projectName": "test-project",
+        "operation": "template_processing"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    },
+    {
+      "id": "error-1757645564399-7wxeqbit5",
+      "timestamp": "2025-09-12T02:52:44.399Z",
+      "severity": "info",
+      "category": "general",
+      "message": "Ended session: template_processing",
+      "details": {
+        "sessionId": "session-1757645564333-39ih5fcir",
+        "totalErrors": 0,
+        "totalWarnings": 0,
+        "duration": "66ms"
+      },
+      "metadata": {
+        "farmVersion": "unknown",
+        "nodeVersion": "v22.15.0",
+        "platform": "win32",
+        "arch": "x64",
+        "cwd": "S:\\Code\\farm-framework"
+      }
+    }
+  ],
+  "endTime": "2025-09-12T02:52:44.399Z"
+}

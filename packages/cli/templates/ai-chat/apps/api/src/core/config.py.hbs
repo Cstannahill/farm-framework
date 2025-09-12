@@ -1,0 +1,196 @@
+# packages/cli/templates/base/apps/api/src/core/config.py.hbs
+"""
+Configuration management for {{projectName}} API
+"""
+import os
+from typing import List, Optional, Dict, Any
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    """Application settings"""
+    
+    # Basic app configuration
+    APP_NAME: str = "{{pascalCase projectName}} API"
+    VERSION: str = "1.0.0"
+    DESCRIPTION: str = "{{description}}"
+    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
+    DEBUG: bool = Field(default=True, env="DEBUG")
+    
+    # Server configuration
+    HOST: str = Field(default="0.0.0.0", env="HOST")
+    PORT: int = Field(default=8000, env="PORT")
+    WORKERS: int = Field(default=1, env="WORKERS")
+    
+    # CORS configuration
+    ALLOWED_ORIGINS: List[str] = Field(
+        default=["http://localhost:3000", "http://localhost:4000", "http://localhost:4200"],
+        env="ALLOWED_ORIGINS"
+    )
+    ALLOWED_HOSTS: List[str] = Field(
+        default=["localhost", "127.0.0.1", "0.0.0.0"],
+        env="ALLOWED_HOSTS"
+    )
+    
+    # Database configuration
+    DATABASE_URL: str = Field(
+        default="mongodb://farm:development@localhost:27017/{{kebabCase projectName}}?authSource=admin",
+        env="DATABASE_URL"
+    )
+    DATABASE_TYPE: str = Field(default="mongodb", env="DATABASE_TYPE")
+    
+    # Logging configuration
+    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
+    LOG_FORMAT: str = Field(default="json", env="LOG_FORMAT")
+    
+    {{#if_feature "ai"}}
+    # AI configuration
+    AI_DEFAULT_PROVIDER: str = Field(default="ollama", env="AI_DEFAULT_PROVIDER")
+    AI_OLLAMA_URL: str = Field(default="http://localhost:11434", env="AI_OLLAMA_URL")
+    AI_OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    AI_ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
+    AI_HUGGINGFACE_API_KEY: Optional[str] = Field(default=None, env="HUGGINGFACE_API_KEY")
+    
+    # AI model configuration
+    AI_DEFAULT_MODEL: str = Field(default="llama3.1", env="AI_DEFAULT_MODEL")
+    AI_MAX_TOKENS: int = Field(default=4096, env="AI_MAX_TOKENS")
+    AI_TEMPERATURE: float = Field(default=0.7, env="AI_TEMPERATURE")
+    AI_TOP_P: float = Field(default=0.9, env="AI_TOP_P")
+    {{/if_feature}}
+    
+    {{#if_feature "auth"}}
+    # Authentication configuration
+    SECRET_KEY: str = Field(env="SECRET_KEY")
+    ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
+    {{/if_feature}}
+    
+    {{#if_feature "storage"}}
+    # Storage configuration
+    STORAGE_TYPE: str = Field(default="local", env="STORAGE_TYPE")
+    UPLOAD_DIRECTORY: str = Field(default="./uploads", env="UPLOAD_DIRECTORY")
+    MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
+    
+    # AWS S3 configuration
+    AWS_ACCESS_KEY_ID: Optional[str] = Field(default=None, env="AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default=None, env="AWS_SECRET_ACCESS_KEY")
+    AWS_REGION: str = Field(default="us-east-1", env="AWS_REGION")
+    S3_BUCKET: Optional[str] = Field(default=None, env="S3_BUCKET")
+    
+    # Google Cloud Storage configuration
+    GCS_PROJECT_ID: Optional[str] = Field(default=None, env="GCS_PROJECT_ID")
+    GCS_BUCKET: Optional[str] = Field(default=None, env="GCS_BUCKET")
+    
+    # Azure Storage configuration
+    AZURE_STORAGE_ACCOUNT: Optional[str] = Field(default=None, env="AZURE_STORAGE_ACCOUNT")
+    AZURE_STORAGE_KEY: Optional[str] = Field(default=None, env="AZURE_STORAGE_KEY")
+    AZURE_CONTAINER: Optional[str] = Field(default=None, env="AZURE_CONTAINER")
+    {{/if_feature}}
+    
+    {{#if_feature "email"}}
+    # Email configuration
+    SMTP_HOST: Optional[str] = Field(default=None, env="SMTP_HOST")
+    SMTP_PORT: int = Field(default=587, env="SMTP_PORT")
+    SMTP_USERNAME: Optional[str] = Field(default=None, env="SMTP_USERNAME")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    SMTP_USE_TLS: bool = Field(default=True, env="SMTP_USE_TLS")
+    FROM_EMAIL: str = Field(default="noreply@{{kebabCase projectName}}.com", env="FROM_EMAIL")
+    {{/if_feature}}
+    
+    {{#if_feature "realtime"}}
+    # WebSocket configuration
+    WEBSOCKET_MAX_CONNECTIONS: int = Field(default=100, env="WEBSOCKET_MAX_CONNECTIONS")
+    WEBSOCKET_HEARTBEAT_INTERVAL: int = Field(default=30, env="WEBSOCKET_HEARTBEAT_INTERVAL")
+    {{/if_feature}}
+    
+    {{#if_feature "analytics"}}
+    # Analytics configuration
+    MIXPANEL_TOKEN: Optional[str] = Field(default=None, env="MIXPANEL_TOKEN")
+    {{/if_feature}}
+    
+    {{#if_feature "search"}}
+    # Search configuration
+    ELASTICSEARCH_URL: str = Field(default="http://localhost:9200", env="ELASTICSEARCH_URL")
+    ELASTICSEARCH_INDEX_PREFIX: str = Field(default="{{kebabCase projectName}}", env="ELASTICSEARCH_INDEX_PREFIX")
+    {{/if_feature}}
+    
+    {{#if_feature "observability"}}
+    # Observability configuration
+    ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
+    METRICS_PORT: int = Field(default=9090, env="METRICS_PORT")
+    ENABLE_TRACING: bool = Field(default=True, env="ENABLE_TRACING")
+    {{/if_feature}}
+    
+    # Rate limiting
+    RATE_LIMIT_ENABLED: bool = Field(default=True, env="RATE_LIMIT_ENABLED")
+    RATE_LIMIT_REQUESTS: int = Field(default=100, env="RATE_LIMIT_REQUESTS")
+    RATE_LIMIT_WINDOW: int = Field(default=60, env="RATE_LIMIT_WINDOW")  # seconds
+    
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
+    
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    @classmethod
+    def parse_allowed_hosts(cls, v):
+        if isinstance(v, str):
+            return [host.strip() for host in v.split(",")]
+        return v
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode"""
+        return self.ENVIRONMENT.lower() in ["development", "dev"]
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production mode"""
+        return self.ENVIRONMENT.lower() in ["production", "prod"]
+    
+    @property
+    def is_testing(self) -> bool:
+        """Check if running in testing mode"""
+        return self.ENVIRONMENT.lower() in ["testing", "test"]
+    
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True
+    }
+
+# Global settings instance
+settings = Settings()
+
+# Validate required settings
+def validate_settings():
+    """Validate that all required settings are present"""
+    errors = []
+    
+    if not settings.DATABASE_URL:
+        errors.append("DATABASE_URL is required")
+    
+    {{#if_feature "auth"}}
+    if not settings.SECRET_KEY:
+        errors.append("SECRET_KEY is required for authentication")
+    {{/if_feature}}
+    
+    {{#if_feature "storage"}}
+    if settings.STORAGE_TYPE == "s3" and not settings.S3_BUCKET:
+        errors.append("S3_BUCKET is required when STORAGE_TYPE is s3")
+    
+    if settings.STORAGE_TYPE == "gcs" and not settings.GCS_BUCKET:
+        errors.append("GCS_BUCKET is required when STORAGE_TYPE is gcs")
+    
+    if settings.STORAGE_TYPE == "azure" and not settings.AZURE_CONTAINER:
+        errors.append("AZURE_CONTAINER is required when STORAGE_TYPE is azure")
+    {{/if_feature}}
+    
+    if errors:
+        raise ValueError(f"Configuration errors: {', '.join(errors)}")
+
+# Validate settings on import
+validate_settings()

@@ -130,6 +130,42 @@ type ArrayHelper = (this: TemplateContext, array: any[], ...args: any[]) => any;
 export function registerHandlebarsHelpers(
   handlebars: HandlebarsInstance
 ): void {
+  // Utility: normalize options for helpers to safely handle misuse (e.g., `else if_helper ...`)
+  const normalizeOptions = (
+    args: any[]
+  ): { options: HandlebarsOptions; params: any[] } => {
+    const candidate = args.length > 0 ? args[args.length - 1] : undefined;
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      typeof candidate.fn === "function" &&
+      typeof candidate.inverse === "function"
+    ) {
+      return {
+        options: candidate as HandlebarsOptions,
+        params: args.slice(0, -1),
+      };
+    }
+    // No valid options provided (inline or malformed usage) — return no-op block handlers
+    const noop: HandlebarsOptions = { fn: () => "", inverse: () => "" };
+    return { options: noop, params: args };
+  };
+
+  // Utility: provide default AI config when features include 'ai' but config.ai is missing
+  const getDefaultAIConfig = (ctx: TemplateContext): AIConfig | undefined => {
+    const cfg = ctx.config || ctx;
+    const features = Array.isArray(cfg.features) ? cfg.features : [];
+    if (!features.includes("ai")) return undefined;
+    return {
+      providers: {
+        ollama: {
+          enabled: true,
+          url: "http://localhost:11434",
+        },
+      },
+    } as AIConfig;
+  };
+
   // =============================================================================
   // DATABASE HELPERS
   // =============================================================================
@@ -137,8 +173,8 @@ export function registerHandlebarsHelpers(
   handlebars.registerHelper(
     "if_database",
     function (this: TemplateContext, ...args: any[]): string {
-      const options = args.pop() as HandlebarsOptions;
-      const databaseTypes = args as DatabaseType[];
+      const { options, params } = normalizeOptions(args);
+      const databaseTypes = params as DatabaseType[];
 
       const config = this.config || this;
       const selectedDb =
@@ -153,8 +189,8 @@ export function registerHandlebarsHelpers(
   handlebars.registerHelper(
     "unless_database",
     function (this: TemplateContext, ...args: any[]): string {
-      const options = args.pop() as HandlebarsOptions;
-      const databaseTypes = args as DatabaseType[];
+      const { options, params } = normalizeOptions(args);
+      const databaseTypes = params as DatabaseType[];
 
       const config = this.config || this;
       const selectedDb =
@@ -227,31 +263,42 @@ export function registerHandlebarsHelpers(
   // Check if specific feature is enabled
   handlebars.registerHelper(
     "if_feature",
-    function (
-      this: TemplateContext,
-      featureName: FeatureName,
-      options: HandlebarsOptions
-    ): string {
+    function (this: TemplateContext, ...args: any[]): string {
+      // Support: {{#if_feature "auth"}} and {{#if_feature}} (no args)
+      // Gracefully handle malformed parameters without throwing
+      const { options, params } = normalizeOptions(args);
+      const featureNames = (params as any[]).filter(
+        (v) => typeof v === "string" && v.length > 0
+      ) as FeatureName[];
+
       const config = this.config || this;
-      const features = config.features || [];
-      return features.includes(featureName)
-        ? options.fn(this)
-        : options.inverse(this);
+      const features = Array.isArray(config.features) ? config.features : [];
+
+      // If no feature names provided, treat as falsey condition (render inverse)
+      const isMatch = featureNames.length
+        ? featureNames.some((name) => features.includes(name))
+        : false;
+
+      return isMatch ? options.fn(this) : options.inverse(this);
     }
   );
 
   handlebars.registerHelper(
     "unless_feature",
-    function (
-      this: TemplateContext,
-      featureName: FeatureName,
-      options: HandlebarsOptions
-    ): string {
+    function (this: TemplateContext, ...args: any[]): string {
+      const { options, params } = normalizeOptions(args);
+      const featureNames = (params as any[]).filter(
+        (v) => typeof v === "string" && v.length > 0
+      ) as FeatureName[];
+
       const config = this.config || this;
-      const features = config.features || [];
-      return !features.includes(featureName)
-        ? options.fn(this)
-        : options.inverse(this);
+      const features = Array.isArray(config.features) ? config.features : [];
+
+      const isMatch = featureNames.length
+        ? featureNames.some((name) => features.includes(name))
+        : false;
+
+      return !isMatch ? options.fn(this) : options.inverse(this);
     }
   );
 
@@ -300,10 +347,15 @@ export function registerHandlebarsHelpers(
     function (
       this: TemplateContext,
       providerName: string,
-      options: HandlebarsOptions
+      optionsOrMaybeUndefined: any
     ): string {
       const config = this.config || this;
-      const aiConfig = config.ai || {};
+      const options =
+        optionsOrMaybeUndefined &&
+        typeof optionsOrMaybeUndefined.fn === "function"
+          ? (optionsOrMaybeUndefined as HandlebarsOptions)
+          : ({ fn: () => "", inverse: () => "" } as HandlebarsOptions);
+      const aiConfig = config.ai || getDefaultAIConfig(config) || {};
       const providers = aiConfig.providers || {};
       const provider = providers[providerName as keyof typeof providers];
       return provider?.enabled ? options.fn(this) : options.inverse(this);
@@ -315,7 +367,7 @@ export function registerHandlebarsHelpers(
     "has_ollama",
     function (this: TemplateContext, options: HandlebarsOptions): string {
       const config = this.config || this;
-      const aiConfig = config.ai || {};
+      const aiConfig = config.ai || getDefaultAIConfig(config) || {};
       const providers = aiConfig.providers || {};
       return providers.ollama?.enabled
         ? options.fn(this)
@@ -327,7 +379,7 @@ export function registerHandlebarsHelpers(
     "has_openai",
     function (this: TemplateContext, options: HandlebarsOptions): string {
       const config = this.config || this;
-      const aiConfig = config.ai || {};
+      const aiConfig = config.ai || getDefaultAIConfig(config) || {};
       const providers = aiConfig.providers || {};
       return providers.openai?.enabled
         ? options.fn(this)
@@ -339,7 +391,7 @@ export function registerHandlebarsHelpers(
     "has_huggingface",
     function (this: TemplateContext, options: HandlebarsOptions): string {
       const config = this.config || this;
-      const aiConfig = config.ai || {};
+      const aiConfig = config.ai || getDefaultAIConfig(config) || {};
       const providers = aiConfig.providers || {};
       return providers.huggingface?.enabled
         ? options.fn(this)
@@ -353,7 +405,7 @@ export function registerHandlebarsHelpers(
     function (this: TemplateContext, options: HandlebarsOptions): string {
       const config = this.config || this;
       const features = config.features || [];
-      const aiConfig = config.ai || {};
+      const aiConfig = config.ai || getDefaultAIConfig(config) || {};
       const providers = aiConfig.providers || {};
 
       const hasAiFeature = features.includes("ai");
@@ -374,23 +426,20 @@ export function registerHandlebarsHelpers(
   // Check if specific template is selected
   handlebars.registerHelper(
     "if_template",
-    function (
-      this: TemplateContext,
-      ...args: any[]
-    ): string {
+    function (this: TemplateContext, ...args: any[]): string {
       const config = this.config || this;
       const selectedTemplate = config.template || "basic";
 
-      // Get the last argument (options) and the rest are template names
-      const options = args[args.length - 1];
-      const templateNames = args.slice(0, -1);
+      const { options, params } = normalizeOptions(args);
+      const templateNames = params.filter(
+        (v) => typeof v === "string" && v.length > 0
+      ) as string[];
 
-      // Check if selected template matches any of the provided template names
-      const matches = templateNames.includes(selectedTemplate);
+      const matches = templateNames.length
+        ? templateNames.includes(selectedTemplate)
+        : false;
 
-      return matches
-        ? options.fn(this)
-        : options.inverse(this);
+      return matches ? options.fn(this) : options.inverse(this);
     }
   );
 
@@ -578,17 +627,27 @@ export function registerHandlebarsHelpers(
     }
   );
 
-  // Pluralization (simple)
+  // Pluralization (simple, with common-sense guards for already plural words)
   handlebars.registerHelper(
     "pluralize",
     function (this: TemplateContext, str: string): string {
       if (typeof str !== "string") return "";
-      if (str.endsWith("y")) return str.slice(0, -1) + "ies";
-      if (str.endsWith("s") || str.endsWith("sh") || str.endsWith("ch"))
-        return str + "es";
+      const lower = str.toLowerCase();
+      // If it already looks plural by common suffixes, return as-is
+      if (/(ies|sses|xes|zes|ches|shes|s)$/i.test(lower)) return str;
+      // words ending with 'y' -> 'ies' (city -> cities) when consonant before y
+      if (/[^aeiou]y$/i.test(str)) return str.slice(0, -1) + "ies";
+      // sh, ch, x, z -> add 'es'
+      if (/(sh|ch|x|z)$/i.test(lower)) return str + "es";
+      // default add 's'
       return str + "s";
     }
   );
+
+  // Newline helper for YAML or text templates
+  handlebars.registerHelper("newline", function (): string {
+    return "\n";
+  });
 
   // Array helpers
   handlebars.registerHelper(
@@ -605,9 +664,9 @@ export function registerHandlebarsHelpers(
 
   handlebars.registerHelper(
     "length",
-    function (this: TemplateContext, array: unknown[]): number {
-      if (!Array.isArray(array)) return 0;
-      return array.length;
+    function (this: TemplateContext, array: unknown[]): string {
+      if (!Array.isArray(array)) return "0";
+      return array.length.toString();
     }
   );
 
@@ -860,6 +919,13 @@ export function registerHandlebarsHelpers(
       const config = this.config || this;
       const plugins = config.plugins || [];
 
+      // If features imply plugin presence (e.g., auth), treat as enabled
+      const features = Array.isArray(config.features) ? config.features : [];
+      const normalized = String(pluginName || "").toLowerCase();
+      if (normalized.includes("auth") && features.includes("auth")) {
+        return options.fn(this);
+      }
+
       // Check if plugin is in array (simple string) or array of objects
       const isEnabled = plugins.some(
         (plugin: string | [string, Record<string, any>]) => {
@@ -894,6 +960,14 @@ export function registerHandlebarsHelpers(
       const config = this.config || this;
       const keys = path.split(".");
       let value: any = config;
+
+      // Provide implicit defaults for AI when requested and not present
+      if (keys[0] === "ai" && (value.ai === undefined || value.ai === null)) {
+        const fallback = getDefaultAIConfig(config);
+        if (fallback) {
+          value = { ...value, ai: fallback };
+        }
+      }
 
       for (const key of keys) {
         if (value && typeof value === "object" && key in value) {
@@ -931,16 +1005,16 @@ export function registerHandlebarsHelpers(
     "projectNameKebab",
     function (this: TemplateContext): string {
       const name = this.projectName || this.name || "";
-      return name.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+      return name
+        .replace(/([A-Z])/g, "-$1")
+        .toLowerCase()
+        .replace(/^-/, "");
     }
   );
 
-  handlebars.registerHelper(
-    "author",
-    function (this: TemplateContext): string {
-      return this.author || "Unknown Author";
-    }
-  );
+  handlebars.registerHelper("author", function (this: TemplateContext): string {
+    return this.author || "Unknown Author";
+  });
 
   handlebars.registerHelper(
     "description",
@@ -972,28 +1046,19 @@ export function registerHandlebarsHelpers(
   );
 
   // Current timestamp helper
-  handlebars.registerHelper(
-    "now",
-    function (this: TemplateContext): string {
-      return this.timestamp || new Date().toISOString();
-    }
-  );
+  handlebars.registerHelper("now", function (this: TemplateContext): string {
+    return this.timestamp || new Date().toISOString();
+  });
 
   // Name alias helper
-  handlebars.registerHelper(
-    "name",
-    function (this: TemplateContext): string {
-      return this.projectName || this.name || "";
-    }
-  );
+  handlebars.registerHelper("name", function (this: TemplateContext): string {
+    return this.projectName || this.name || "";
+  });
 
   // AI feature helper
-  handlebars.registerHelper(
-    "ai",
-    function (this: TemplateContext): boolean {
-      return this.features?.includes('ai') || false;
-    }
-  );
+  handlebars.registerHelper("ai", function (this: TemplateContext): boolean {
+    return this.features?.includes("ai") || false;
+  });
 
   // Context reference helper (for 'this' usage)
   handlebars.registerHelper(
@@ -1093,22 +1158,31 @@ export function registerHandlebarsHelpers(
     }
   );
 
-  // Case helper for switch statements ({{#case value}}...{{/case}})
+  // Case helper for switch statements (supports multiple values)
+  // Usage:
+  //   {{#case "postgresql" "mysql"}} ... {{/case}}
+  //   {{#case someVar}} ... {{/case}}
   handlebars.registerHelper(
     "case",
-    function (this: TemplateContext, value: any, options: any): string {
+    function (this: TemplateContext, ...args: any[]): string {
       const switchValue = (this as any).__switch_value;
       const switchBreak = (this as any).__switch_break;
 
-      // If we've already hit a break, don't render this case
       if (switchBreak) {
         return "";
       }
 
-      // If this case matches the switch value, render it and set break
-      if (switchValue === value) {
+      // Last arg is the Handlebars options object
+      const options = args[args.length - 1];
+      const values = args.slice(0, -1);
+
+      // Match if any provided value equals the switch value
+      const matches = values.some((v) => v === switchValue);
+      if (matches) {
         (this as any).__switch_break = true;
-        return options.fn(this);
+        return options && typeof options.fn === "function"
+          ? options.fn(this)
+          : "";
       }
 
       return "";

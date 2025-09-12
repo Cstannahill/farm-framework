@@ -156,6 +156,26 @@ export class TypeSyncConfigManager {
     "package.json", // Look for farm-type-sync section
   ];
 
+  // Instance methods for backward compatibility with tests
+  async loadConfigFromFile(filePath: string): Promise<any> {
+    return TypeSyncConfigManager.loadConfigFromFile(filePath);
+  }
+
+  mergeConfigurations(base: any, override: any): any {
+    return TypeSyncConfigManager.mergeConfigs(base, override);
+  }
+
+  async validateConfig(config: unknown): Promise<TypeSyncConfig> {
+    const result = TypeSyncConfigManager.validateConfig(config);
+    if (!result.valid) {
+      throw new ValidationError(
+        "Configuration validation failed",
+        result.errors
+      );
+    }
+    return result.config!;
+  }
+
   /**
    * Load configuration from file or provide defaults
    */

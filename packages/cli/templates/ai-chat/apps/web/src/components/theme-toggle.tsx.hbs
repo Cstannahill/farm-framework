@@ -1,0 +1,33 @@
+import { Button } from "./ui/button";
+import { Moon, Sun } from "lucide-react";
+import { useAppStore } from "../stores/app-store";
+
+export function ThemeToggle() {
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+
+  const cycleTheme = () => {
+    const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
+    setTheme(next);
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={cycleTheme}
+      className="h-9 w-9"
+      title={`Current theme: ${theme}. Click to cycle through themes.`}
+    >
+      {theme === 'light' ? (
+        <Sun className="h-4 w-4" />
+      ) : theme === 'dark' ? (
+        <Moon className="h-4 w-4" />
+      ) : (
+        <div className="h-4 w-4 rounded-full border-2 border-current" />
+      )}
+    </Button>
+  );
+}
+
+export default ThemeToggle;

@@ -15,8 +15,8 @@ import {
   PerformanceOptimizer,
   IncrementalTracker,
 } from "../../src/performance/optimizer";
+import type { TypeSyncConfig } from "../../src/config/validation";
 import type {
-  TypeSyncConfig,
   GenerationTask,
   OptimizationOptions,
 } from "../../src/performance/optimizer";
@@ -39,9 +39,14 @@ describe("PerformanceOptimizer", () => {
 
   beforeEach(() => {
     config = {
-      serverUrl: "http://localhost:8000",
+      apiUrl: "http://localhost:8000",
       outputDir: "./src/types",
-      generators: ["typescript"],
+      generators: {
+        typescript: {
+          outputDir: "./src/types",
+          enabled: true,
+        },
+      },
     };
 
     options = {
@@ -274,17 +279,19 @@ describe("PerformanceOptimizer", () => {
   });
 
   describe("memory monitoring", () => {
-    test("should emit memory warning when threshold exceeded", (done) => {
+    test("should emit memory warning when threshold exceeded", async () => {
       const profilerOptimizer = new PerformanceOptimizer(config, {
         ...options,
         enableProfiling: true,
         memoryThreshold: 1, // Very low threshold
       });
 
-      profilerOptimizer.on("memoryWarning", (warning) => {
-        expect(warning.current).toBeGreaterThan(warning.threshold);
-        expect(warning.suggestion).toContain("Consider reducing batch size");
-        done();
+      const warningPromise = new Promise((resolve) => {
+        profilerOptimizer.on("memoryWarning", (warning) => {
+          expect(warning.current).toBeGreaterThan(warning.threshold);
+          expect(warning.suggestion).toContain("Consider reducing batch size");
+          resolve(warning);
+        });
       });
 
       profilerOptimizer.startMonitoring();
@@ -298,6 +305,8 @@ describe("PerformanceOptimizer", () => {
             "Consider reducing batch size or enabling incremental mode",
         });
       }, 10);
+
+      await warningPromise;
     });
   });
 });
@@ -412,7 +421,25 @@ describe("IncrementalTracker", () => {
 describe("integration tests", () => {
   test("should integrate optimizer with incremental tracker", () => {
     const tracker = new IncrementalTracker();
-    const optimizer = new PerformanceOptimizer(config, options);
+    const localConfig: TypeSyncConfig = {
+      apiUrl: "http://localhost:8000",
+      outputDir: "./src/types",
+      generators: {
+        typescript: {
+          outputDir: "./src/types",
+          enabled: true,
+        },
+      },
+    };
+    const localOptions: OptimizationOptions = {
+      maxWorkers: 2,
+      chunkSize: 5,
+      enableIncremental: true,
+      enableParallel: true,
+      memoryThreshold: 100 * 1024 * 1024,
+      enableProfiling: false,
+    };
+    const optimizer = new PerformanceOptimizer(localConfig, localOptions);
 
     // Track some files
     tracker.markGenerated("/src/types.ts");
@@ -436,8 +463,26 @@ describe("integration tests", () => {
   });
 
   test("should handle performance optimization with caching", async () => {
-    const optimizer = new PerformanceOptimizer(config, {
-      ...options,
+    const localConfig: TypeSyncConfig = {
+      apiUrl: "http://localhost:8000",
+      outputDir: "./src/types",
+      generators: {
+        typescript: {
+          outputDir: "./src/types",
+          enabled: true,
+        },
+      },
+    };
+    const baseOptions: OptimizationOptions = {
+      maxWorkers: 2,
+      chunkSize: 5,
+      enableIncremental: true,
+      enableParallel: true,
+      memoryThreshold: 100 * 1024 * 1024,
+      enableProfiling: false,
+    };
+    const optimizer = new PerformanceOptimizer(localConfig, {
+      ...baseOptions,
       enableParallel: false, // Disable for predictable testing
     });
 

@@ -1,0 +1,106 @@
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "../components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+
+export function Home() {
+  const { data: health, isLoading } = useQuery({
+    queryKey: ["health"],
+    queryFn: async () => {
+      const response = await fetch("/api/health");
+      if (!response.ok) throw new Error("Health check failed");
+      return response.json();
+    },
+  });
+
+  return (
+    <div className="px-4">
+      {/* Hero */}
+      <section className="relative isolate overflow-hidden">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-100/60 to-transparent dark:from-emerald-900/20" />
+        <div className="container py-16 sm:py-20 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground bg-background/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            AI Chat Application
+          </div>
+          <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight">
+            Welcome to <span className="text-primary">{{projectName}}</span> AI Chat
+          </h1>
+          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+            Experience intelligent conversations with AI. Built with FARM Framework for modern, scalable applications.
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">
+              <Button className="px-5">API Docs</Button>
+            </a>
+            <a href="https://github.com/cstannahill/farm-framework" target="_blank" rel="noreferrer">
+              <Button variant="outline" className="px-5">View on GitHub</Button>
+            </a>
+          </div>
+          <div className="container z-50 my-3">
+            <Card className="order-2 md:order-1 mx-15">
+              <CardHeader>
+                <CardTitle>API Status</CardTitle>
+                <CardDescription>
+                  {isLoading ? (
+                    <span className="text-muted-foreground">Checking...</span>
+                  ) : health ? (
+                    <span className="text-green-500">✅ API is {health.status}</span>
+                  ) : (
+                    <span className="text-red-500">❌ API unavailable</span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="relative isolate">
+        <div className="container py-12">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold">AI Chat Features</h2>
+            <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+              Powerful AI capabilities built into your application.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <CardHeader>
+                <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  🤖
+                </div>
+                <CardTitle>AI Conversations</CardTitle>
+                <CardDescription>
+                  Engage in natural conversations with advanced AI models including OpenAI and Ollama.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <CardHeader>
+                <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+                  ⚡
+                </div>
+                <CardTitle>Real-time Streaming</CardTitle>
+                <CardDescription>
+                  Experience real-time AI responses with streaming capabilities for instant feedback.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <CardHeader>
+                <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-500/10 text-green-500">
+                  💾
+                </div>
+                <CardTitle>Conversation History</CardTitle>
+                <CardDescription>
+                  Save and manage your conversation history with persistent storage.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
